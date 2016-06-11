@@ -64,6 +64,8 @@ config FILE_LOCKING
 
 source "fs/notify/Kconfig"
 
+source "fs/crypto/Kconfig"
+
 source "fs/quota/Kconfig"
 
 source "fs/autofs4/Kconfig"
