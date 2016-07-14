@@ -200,8 +200,8 @@ struct sec_battery_info {
 	/* MTBF test for CMCC */
 	bool is_hc_usb;
 
-
-
+	bool ignore_siop;
+	int r_siop_level;
 	int siop_level;
 	int stability_test;
 	int eng_not_full_status;
@@ -238,6 +238,7 @@ struct sec_battery_info {
 	bool complete_timetofull;
 	struct delayed_work timetofull_work;
 #endif
+	int cycle;
 };
 
 ssize_t sec_bat_show_attrs(struct device *dev,
@@ -359,6 +360,7 @@ enum {
 	FG_CYCLE,
 	FG_FULL_VOLTAGE,
 #endif
+	BATTERY_CYCLE,
 };
 
 #ifdef CONFIG_OF

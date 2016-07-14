@@ -29,7 +29,7 @@
 #include <linux/exynos_iovmm.h>
 #include <linux/exynos_ion.h>
 #include <linux/delay.h>
-#include <mach/smc.h>
+#include <linux/smc.h>
 #include <mach/bts.h>
 #include <mach/devfreq.h>
 #include <asm/cacheflush.h>

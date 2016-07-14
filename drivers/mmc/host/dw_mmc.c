@@ -4213,7 +4213,7 @@ void *mmc_host_dev = NULL;
 static DEFINE_MUTEX(notify_mutex_lock);
 #if defined(CONFIG_BCM4343)  || defined(CONFIG_BCM4343_MODULE) || \
     defined(CONFIG_BCM43454) || defined(CONFIG_BCM43454_MODULE)
-extern struct mmc_host *wlan_mmc;
+struct mmc_host *wlan_mmc = NULL;
 #endif /* CONFIG_BCM43438 || CONFIG_BCM43438_MODULE */
 
 #if defined(CONFIG_BCM4343)  || defined(CONFIG_BCM4343_MODULE) || \

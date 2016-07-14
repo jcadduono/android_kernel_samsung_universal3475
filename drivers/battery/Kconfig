@@ -7,6 +7,13 @@ config BATTERY_SAMSUNG
 	 To see battery-related functions,
 	 refer to sec_charging_common.h
 
+config CHARGING_VZWCONCEPT
+	tristate "VZW concept about the charging"
+	default n
+	depends on BATTERY_SAMSUNG
+	help
+	 Say Y to include support for the VZW concepts.
+
 config PREVENT_SOC_JUMP
 	tristate "prevent soc jump at full-charged"
 	default n
@@ -199,6 +206,14 @@ config FUELGAUGE_S2MU003
          Say Y to include support
          for S.LSI S2MU003 fuel gauge driver.
 
+config FUELGAUGE_S2MU005
+	tristate "S2MU005 fuel gauge driver"
+	default n
+	depends on BATTERY_SAMSUNG
+	help
+	  Say Y to include support
+	  for S.LSI S2MU005 fuel gauge driver.
+
 config FUELGAUGE_MAX77849
 	tristate "MAX77849 fuel gauge driver"
 	default n
@@ -388,6 +403,14 @@ config CHARGER_SM5703
 	  SM5703 incluse led, flash driver.
 	  You have to define MFD_SM5703
 
+config CHARGER_SM5703_DUALPATH
+	bool "SM5703 dual path"
+	default n
+	depends on CHARGER_SM5703
+	help
+	  Say Y here to enable support for SM5703 dual path setting for suspending the charger in battery removal/VF open test scenario
+	  You have to define CHARGER_SM5703
+
 config CHARGER_S2MU003
         tristate "S2MU003 charger support"
         depends on (MFD_S2MU003) && I2C
@@ -395,6 +418,14 @@ config CHARGER_S2MU003
           Say Y here to enable support for the S2MU003 charger
           S2MU003 incluse pmic, led driver.
           You have to define MFD_S2MU003
+
+config CHARGER_S2MU005
+	tristate "S2MU005 charger support"
+	depends on (MFD_S2MU005) && I2C
+	help
+	  Say Y here to enable support for the S2MU005 charger
+	  S2MU005 incluse pmic, led driver.
+	  You have to define MFD_S2MU005
 
 config WIRELESS_CHARGER_INBATTERY
         tristate "wireless charger in battery support"

@@ -738,7 +738,7 @@ void event_hotplug_in(void)
 static int exynos_dm_hotplug_notifier(struct notifier_block *notifier,
 					unsigned long pm_event, void *v)
 {
-	int i, ret;
+	int i, ret = 0;
 
 	switch (pm_event) {
 	case PM_SUSPEND_PREPARE:

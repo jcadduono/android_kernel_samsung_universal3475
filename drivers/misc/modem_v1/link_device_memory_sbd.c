@@ -209,7 +209,7 @@ static void setup_desc_rgn(struct sbd_link_device *sl)
 	size_t size;
 
 #if 1
-	mif_err("SHMEM {base:0x%p size:%d}\n",
+	mif_info("SHMEM {base:0x%p size:%d}\n",
 		sl->shmem, sl->shmem_size);
 #endif
 
@@ -220,15 +220,15 @@ static void setup_desc_rgn(struct sbd_link_device *sl)
 	sl->g_desc = (struct sbd_global_desc *)desc_alloc(sl, size);
 
 #if 1
-	mif_err("G_DESC_OFFSET = %d(0x%p)\n",
+	mif_info("G_DESC_OFFSET = %d(0x%p)\n",
 		calc_offset(sl->g_desc, sl->shmem),
 		sl->g_desc);
 
-	mif_err("RB_CH_OFFSET = %d (0x%p)\n",
+	mif_info("RB_CH_OFFSET = %d (0x%p)\n",
 		calc_offset(sl->g_desc->rb_ch, sl->shmem),
 		sl->g_desc->rb_ch);
 
-	mif_err("RBD_PAIR_OFFSET = %d (0x%p)\n",
+	mif_info("RBD_PAIR_OFFSET = %d (0x%p)\n",
 		calc_offset(sl->g_desc->rb_desc, sl->shmem),
 		sl->g_desc->rb_desc);
 #endif
@@ -236,7 +236,7 @@ static void setup_desc_rgn(struct sbd_link_device *sl)
 	size = sizeof(u16) * ULDL * RDWR * sl->num_channels;
 	sl->rbps = (u16 *)desc_alloc(sl, size);
 #if 1
-	mif_err("RBP_SET_OFFSET = %d (0x%p)\n",
+	mif_info("RBP_SET_OFFSET = %d (0x%p)\n",
 		calc_offset(sl->rbps, sl->shmem), sl->rbps);
 #endif
 
@@ -256,7 +256,7 @@ static void setup_desc_rgn(struct sbd_link_device *sl)
 	sl->wp[DL] = sl->rbps + sl->num_channels * 3;
 
 #if 1
-	mif_err("Complete!!\n");
+	mif_info("Complete!!\n");
 #endif
 }
 

@@ -54,6 +54,7 @@ obj-$(CONFIG_LEDS_MAX8997)		+= leds-max8997.o
 obj-$(CONFIG_LEDS_LM355x)		+= leds-lm355x.o
 obj-$(CONFIG_LEDS_BLINKM)		+= leds-blinkm.o
 obj-$(CONFIG_LEDS_S2MU003)		+= leds-s2mu003.o
+obj-$(CONFIG_LEDS_S2MU005)		+= leds-s2mu005.o
 obj-$(CONFIG_LEDS_KTD2026)		+= leds-ktd2026.o
 obj-$(CONFIG_FLASHLIGHT)		+= flashlight.o
 obj-$(CONFIG_SM_FLASH_LED)		+= smfled.o

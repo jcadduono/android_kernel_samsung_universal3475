@@ -63,8 +63,9 @@ DHDCFLAGS += -DDISABLE_11H_SOFTAP
 DHDCFLAGS += -DSUPPORT_PM2_ONLY
 DHDCFLAGS += -DSUPPORT_DEEP_SLEEP
 DHDCFLAGS += -DSUPPORT_AMPDU_MPDU_CMD
-DHDCFLAGS += -DBLOCK_IPV6_PACKET -DPASS_IPV4_SUSPEND
+DHDCFLAGS += -DPASS_IPV4_SUSPEND
 DHDCFLAGS += -DSOFTAP_SEND_HANGEVT
+DHDCFLAGS += -DSKIP_WLFC_ON_CONCURRENT
 
 # For special PNO Event keep wake lock for 10sec
 DHDCFLAGS += -DCUSTOM_PNO_EVENT_LOCK_xTIME=10
@@ -124,6 +125,15 @@ DHDCFLAGS += -DWL_RELMCAST
 
 # WFA Certification feature
 DHDCFLAGS += -DUSE_WFA_CERT_CONF
+
+# Does not forword internal packet
+DHDCFLAGS += -DDHD_DONOT_FORWARD_BCMEVENT_AS_NETWORK_PKT
+
+# Enable the new FCC-complience rule for US country code
+# US/988 and Q2/993 country codes with higher power on UNII-1 5G band
+DHDCFLAGS += -DDHD_SUPPORT_FCC_US_988
+
+
 
 ##############################
 # Android Platform Definition
@@ -224,7 +234,7 @@ endif
   DHDCFLAGS += -DCUSTOM_MAX_TXGLOM_SIZE=32
 
   # New Features
-  DHDCFLAGS += -DWL11U
+  DHDCFLAGS += -DWL11U -DMFP
   DHDCFLAGS += -DBCMCCX
   DHDCFLAGS += -DWES_SUPPORT
   DHDCFLAGS += -DOKC_SUPPORT
@@ -265,7 +275,7 @@ ifneq ($(CONFIG_BCM43455),)
   DHDCFLAGS += -DCUSTOM_MAX_TXGLOM_SIZE=32
 
   # New Features
-  DHDCFLAGS += -DWL11U
+  DHDCFLAGS += -DWL11U -DMFP
   DHDCFLAGS += -DBCMCCX
   DHDCFLAGS += -DWES_SUPPORT
   DHDCFLAGS += -DOKC_SUPPORT
@@ -286,8 +296,6 @@ endif
 
   # FCC power limit control on ch12/13.
   DHDCFLAGS += -DFCC_PWR_LIMIT_2G
-  # US/988 country code with higher power on UNII-1 5G band
-  DHDCFLAGS += -DDHD_SUPPORT_FCC_US_988
 
 endif
 
@@ -312,7 +320,7 @@ ifneq ($(CONFIG_BCM43454),)
   DHDCFLAGS += -DCUSTOM_MAX_TXGLOM_SIZE=32
 
   # New Features
-  DHDCFLAGS += -DWL11U
+  DHDCFLAGS += -DWL11U -DMFP
   DHDCFLAGS += -DBCMCCX
   DHDCFLAGS += -DWES_SUPPORT
   DHDCFLAGS += -DOKC_SUPPORT
@@ -333,8 +341,6 @@ endif
 
   # FCC power limit control on ch12/13.
   DHDCFLAGS += -DFCC_PWR_LIMIT_2G
-  # US/988 country code with higher power on UNII-1 5G band
-  #DHDCFLAGS += -DDHD_SUPPORT_FCC_US_988
 
 endif
 
@@ -368,7 +374,7 @@ endif
   DHDCFLAGS += -DCUSTOM_MAX_TXGLOM_SIZE=32
 
   # New Features
-  DHDCFLAGS += -DWL11U
+  DHDCFLAGS += -DWL11U -DMFP
   DHDCFLAGS += -DBCMCCX
   DHDCFLAGS += -DWES_SUPPORT
   DHDCFLAGS += -DOKC_SUPPORT
@@ -460,8 +466,6 @@ endif
 
   # FCC power limit control on ch12/13.
   DHDCFLAGS += -DFCC_PWR_LIMIT_2G
-  # US/988 country code with higher power on UNII-1 5G band
-  #DHDCFLAGS += -DDHD_SUPPORT_FCC_US_988
 
   # Remove common feature for BCM4343
   DHDCFLAGS :=$(filter-out -DDHD_USE_IDLECOUNT,$(DHDCFLAGS))
@@ -547,7 +551,6 @@ obj-$(CONFIG_MACH_UNIVERSAL5422) += dhd_custom_exynos.o
 DHDCFLAGS += -DDHD_OF_SUPPORT
 endif
 ifneq ($(CONFIG_MACH_UNIVERSAL7580),)
-obj-$(CONFIG_MACH_UNIVERSAL7580) += dhd_custom_exynos.o
 DHDCFLAGS += -DDHD_OF_SUPPORT
 endif
 ifneq ($(CONFIG_MACH_UNIVERSAL3475),)

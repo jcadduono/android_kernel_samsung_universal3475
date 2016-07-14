@@ -4055,9 +4055,6 @@ static const u32 s5k4ecgx_ISO_Auto[] = {
 	0x0F1207D0, /* SARR_uNormBrInDoor_3_ */
 	0x0F121388, /* SARR_uNormBrInDoor_4_ */
 
-	0x002A04E6,
-	0x0F12077F, /*REG_TC_DBG_AutoAlgEnBits[5] AA_Flicker Enable */
-
 	0x002A0230,
 	0x0F120000,
 
@@ -4080,9 +4077,6 @@ static const u32 s5k4ecgx_ISO_50[] = {
 	0x0F120384,		/*SARR_uNormBrInDoor_2_ */
 	0x0F1207D0,		/*SARR_uNormBrInDoor_3_ */
 	0x0F121388,		/*SARR_uNormBrInDoor_4_ */
-
-	0x002A04E6,
-	0x0F12075F,  /*REG_TC_DBG_AutoAlgEnBits[5] AA_Flicker disable */
 
 	0x002A04D6,
 	0x0F120000,		/*REG_SF_USER_FlickerQuant */
@@ -4107,9 +4101,6 @@ static const u32 s5k4ecgx_ISO_100[] = {
 	0x0F1207D0,		/*SARR_uNormBrInDoor_3_ */
 	0x0F121388,		/*SARR_uNormBrInDoor_4_ */
 
-	0x002A04E6,
-	0x0F12075F,  /*REG_TC_DBG_AutoAlgEnBits[5] AA_Flicker disable */
-
 	0x002A04D6,
 	0x0F120000,	/*REG_SF_USER_FlickerQuant */
 	0x0F120001,		/*REG_SF_USER_FlickerQuantChanged */
@@ -4133,9 +4124,6 @@ static const u32 s5k4ecgx_ISO_200[] = {
 	0x0F1208D0,		/*SARR_uNormBrInDoor_3_ */
 	0x0F121388,		/*SARR_uNormBrInDoor_4_ */
 
-	0x002A04E6,
-	0x0F12075F,  /*REG_TC_DBG_AutoAlgEnBits[5] AA_Flicker disable */
-
 	0x002A04D6,
 	0x0F120000,	/*REG_SF_USER_FlickerQuant */
 	0x0F120001,		/*REG_SF_USER_FlickerQuantChanged */
@@ -4158,9 +4146,6 @@ static const u32 s5k4ecgx_ISO_400[] = {
 	0x0F120C84,		/*SARR_uNormBrInDoor_2_ */
 	0x0F1210D0,		/*SARR_uNormBrInDoor_3_ */
 	0x0F121388,		/*SARR_uNormBrInDoor_4_ */
-
-	0x002A04E6,
-	0x0F12075F,  /*REG_TC_DBG_AutoAlgEnBits[5] AA_Flicker disable */
 
 	0x002A04D6,
 	0x0F120000,	/*REG_SF_USER_FlickerQuant */
@@ -9505,17 +9490,17 @@ static const u32 s5k4ecgx_352_Preview[] = {
 	0x0F1206C8,	//senHal_uMinColsNoBin
 
 	0x002A0250,
-	0x0F120A00,	//REG_TC_GP_PrevReqInputWidth //2560
-	0x0F1206F0,	//REG_TC_GP_PrevReqInputHeight //1920
-	0x0F120010,	//REG_TC_GP_PrevInputWidthOfs //(2592-2560)/2
-	0x0F120054,	//REG_TC_GP_PrevInputHeightOfs //(1944-1776)/2
+	0x0F120928,	//REG_TC_GP_PrevReqInputWidth //2344
+	0x0F120780,	//REG_TC_GP_PrevReqInputHeight //1920
+	0x0F12007C,	//REG_TC_GP_PrevInputWidthOfs //(2592-2344)/2
+	0x0F12000C,	//REG_TC_GP_PrevInputHeightOfs //(1944-1920)/2
 
 	0x002A0262,
 	0x0F120001,	//REG_TC_GP_bUseReqInputInPre
 
 	0x002A0494,
-	0x0F120A00,	//REG_TC_PZOOM_PrevZoomReqInputWidth //2560
-	0x0F1206F0,	//REG_TC_PZOOM_PrevZoomReqInputHeight //1776
+	0x0F120928,	//REG_TC_PZOOM_PrevZoomReqInputWidth //2344
+	0x0F120780,	//REG_TC_PZOOM_PrevZoomReqInputHeight //1920
 	0x0F120000,	//REG_TC_PZOOM_PrevZoomReqInputWidthOfs
 	0x0F120000,	//REG_TC_PZOOM_PrevZoomReqInputHeightOfs
 
@@ -9864,6 +9849,11 @@ static const u32 s5k4ecgx_Get_AE_Stable_Status[] = {
 static const u32 s5k4ecgx_Get_Light_Level[] = {
 	0x002C7000,
 	0x002E2C18,
+};
+
+static const u32 s5k4ecgx_get_frame_duration_reg[] = {
+	0x002C7000,
+	0x002E2128,
 };
 
 static const u32 s5k4ecgx_get_1st_af_search_status[] = {

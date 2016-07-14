@@ -113,19 +113,6 @@ unsigned long dirty_balance_reserve __read_mostly;
 int percpu_pagelist_fraction;
 gfp_t gfp_allowed_mask __read_mostly = GFP_BOOT_MASK;
 
-static unsigned int boot_mode = 0;
-static int __init setup_bootmode(char *str)
-{
-	printk("%s: boot_mode is %u\n", __func__, boot_mode);
-	if (get_option(&str, &boot_mode)) {
-		printk("%s: boot_mode is %u\n", __func__, boot_mode);
-		return 0;
-	}
-
-	return -EINVAL;
-}
-early_param("bootmode", setup_bootmode);
-
 #ifdef CONFIG_PM_SLEEP
 /*
  * The following functions are used by the suspend/hibernate code to temporarily
@@ -793,6 +780,11 @@ void __meminit __free_pages_bootmem(struct page *page, unsigned int order)
 }
 
 #ifdef CONFIG_CMA
+bool is_cma_pageblock(struct page *page)
+{
+	return get_pageblock_migratetype(page) == MIGRATE_CMA;
+}
+
 /* Free whole pageblock and set it's migration type to MIGRATE_CMA. */
 void __init init_cma_reserved_pageblock(struct page *page)
 {
@@ -1146,6 +1138,39 @@ retry_reserve:
 	return page;
 }
 
+static struct page *__rmqueue_cma(struct zone *zone, unsigned int order,
+							int migratetype)
+{
+	struct page *page = 0;
+#ifdef CONFIG_CMA
+	if (migratetype == MIGRATE_MOVABLE && !zone->cma_alloc) {
+		page = __rmqueue_smallest(zone, order, MIGRATE_CMA);
+		if (!page)
+			page = __rmqueue_smallest(zone, order, migratetype);
+	} else
+#endif
+retry_reserve :
+		page = __rmqueue_smallest(zone, order, migratetype);
+
+
+	if (unlikely(!page) && migratetype != MIGRATE_RESERVE) {
+		page = __rmqueue_fallback(zone, order, migratetype);
+
+		/*
+		 * Use MIGRATE_RESERVE rather than fail an allocation. goto
+		 * is used because __rmqueue_smallest is an inline function
+		 * and we want just one call site
+		 */
+		if (!page) {
+			migratetype = MIGRATE_RESERVE;
+			goto retry_reserve;
+		}
+	}
+
+	trace_mm_page_alloc_zone_locked(page, order, migratetype);
+	return page;
+}
+
 /*
  * Obtain a specified number of elements from the buddy allocator, all under
  * a single hold of the lock, for efficiency.  Add them to the supplied list.
@@ -1153,13 +1178,17 @@ retry_reserve:
  */
 static int rmqueue_bulk(struct zone *zone, unsigned int order,
 			unsigned long count, struct list_head *list,
-			int migratetype, int cold)
+			int migratetype, int cold, int cma)
 {
 	int mt = migratetype, i;
 
 	spin_lock(&zone->lock);
 	for (i = 0; i < count; ++i) {
-		struct page *page = __rmqueue(zone, order, migratetype);
+		struct page *page;
+		if (cma)
+			page = __rmqueue_cma(zone, order, migratetype);
+		else
+			page = __rmqueue(zone, order, migratetype);
 		if (unlikely(page == NULL))
 			break;
 
@@ -1517,7 +1546,8 @@ again:
 		if (list_empty(list)) {
 			pcp->count += rmqueue_bulk(zone, 0,
 					pcp->batch, list,
-					migratetype, cold);
+					migratetype, cold,
+					gfp_flags & __GFP_CMA);
 			if (unlikely(list_empty(list)))
 				goto failed;
 		}
@@ -1544,7 +1574,10 @@ again:
 			WARN_ON_ONCE(order > 1);
 		}
 		spin_lock_irqsave(&zone->lock, flags);
-		page = __rmqueue(zone, order, migratetype);
+		if (gfp_flags & __GFP_CMA)
+			page = __rmqueue_cma(zone, order, migratetype);
+		else
+			page = __rmqueue(zone, order, migratetype);
 		spin_unlock(&zone->lock);
 		if (!page)
 			goto failed;
@@ -2363,7 +2396,7 @@ static inline int
 gfp_to_alloc_flags(gfp_t gfp_mask)
 {
 	int alloc_flags = ALLOC_WMARK_MIN | ALLOC_CPUSET;
-	const gfp_t wait = gfp_mask & __GFP_WAIT;
+	const bool atomic = !(gfp_mask & (__GFP_WAIT | __GFP_NO_KSWAPD));
 
 	/* __GFP_HIGH is assumed to be the same as ALLOC_HIGH to save a branch. */
 	BUILD_BUG_ON(__GFP_HIGH != (__force gfp_t) ALLOC_HIGH);
@@ -2372,20 +2405,20 @@ gfp_to_alloc_flags(gfp_t gfp_mask)
 	 * The caller may dip into page reserves a bit more if the caller
 	 * cannot run direct reclaim, or if the caller has realtime scheduling
 	 * policy or is asking for __GFP_HIGH memory.  GFP_ATOMIC requests will
-	 * set both ALLOC_HARDER (!wait) and ALLOC_HIGH (__GFP_HIGH).
+	 * set both ALLOC_HARDER (atomic == true) and ALLOC_HIGH (__GFP_HIGH).
 	 */
 	alloc_flags |= (__force int) (gfp_mask & __GFP_HIGH);
 
-	if (!wait) {
+	if (atomic) {
 		/*
-		 * Not worth trying to allocate harder for
-		 * __GFP_NOMEMALLOC even if it can't schedule.
+		 * Not worth trying to allocate harder for __GFP_NOMEMALLOC even
+		 * if it can't schedule.
 		 */
-		if  (!(gfp_mask & __GFP_NOMEMALLOC))
+		if (!(gfp_mask & __GFP_NOMEMALLOC))
 			alloc_flags |= ALLOC_HARDER;
 		/*
-		 * Ignore cpuset if GFP_ATOMIC (!wait) rather than fail alloc.
-		 * See also cpuset_zone_allowed() comment in kernel/cpuset.c.
+		 * Ignore cpuset mems for GFP_ATOMIC rather than fail, see the
+		 * comment for __cpuset_node_allowed_softwall().
 		 */
 		alloc_flags &= ~ALLOC_CPUSET;
 	} else if (unlikely(rt_task(current)) && !in_interrupt())
@@ -2441,6 +2474,10 @@ __alloc_pages_slowpath(gfp_t gfp_mask, unsigned int order,
 		WARN_ON_ONCE(!(gfp_mask & __GFP_NOWARN));
 		return NULL;
 	}
+
+#if defined(CONFIG_ARM) || defined(CONFIG_ARM64)
+	set_tsk_thread_flag(current, TIF_MEMALLOC);
+#endif
 
 	/*
 	 * GFP_THISNODE (meaning __GFP_THISNODE, __GFP_NORETRY and
@@ -2553,9 +2590,9 @@ rebalance:
 	 */
 
 #ifdef CONFIG_SEC_OOM_KILLER
-#define SHOULD_CONSIDER_OOM (!did_some_progress || time_after(jiffies, oom_invoke_timeout)) && (boot_mode != 2)
+#define SHOULD_CONSIDER_OOM !did_some_progress || time_after(jiffies, oom_invoke_timeout)
 #else
-#define SHOULD_CONSIDER_OOM !did_some_progress && (boot_mode != 2)
+#define SHOULD_CONSIDER_OOM !did_some_progress
 #endif
 
 	if (SHOULD_CONSIDER_OOM) {
@@ -2631,9 +2668,15 @@ rebalance:
 	}
 
 nopage:
+#if defined(CONFIG_ARM) || defined(CONFIG_ARM64)
+	clear_tsk_thread_flag(current, TIF_MEMALLOC);
+#endif
 	warn_alloc_failed(gfp_mask, order, NULL);
 	return page;
 got_pg:
+#if defined(CONFIG_ARM) || defined(CONFIG_ARM64)
+	clear_tsk_thread_flag(current, TIF_MEMALLOC);
+#endif
 	if (kmemcheck_enabled)
 		kmemcheck_pagealloc_alloc(page, order, gfp_mask);
 
@@ -5987,11 +6030,12 @@ int alloc_contig_range(unsigned long start, unsigned long end,
 {
 	unsigned long outer_start, outer_end;
 	int ret = 0, order;
+	struct zone *zone = page_zone(pfn_to_page(start));
 
 	struct compact_control cc = {
 		.nr_migratepages = 0,
 		.order = -1,
-		.zone = page_zone(pfn_to_page(start)),
+		.zone = zone,
 		.sync = true,
 		.ignore_skip_hint = true,
 	};
@@ -6026,6 +6070,8 @@ int alloc_contig_range(unsigned long start, unsigned long end,
 				       false);
 	if (ret)
 		return ret;
+
+	zone->cma_alloc = 1;
 
 	ret = __alloc_contig_migrate_range(&cc, start, end);
 	if (ret)
@@ -6086,6 +6132,7 @@ int alloc_contig_range(unsigned long start, unsigned long end,
 done:
 	undo_isolate_page_range(pfn_max_align_down(start),
 				pfn_max_align_up(end), migratetype);
+	zone->cma_alloc = 0;
 	return ret;
 }
 

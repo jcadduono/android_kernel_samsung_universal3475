@@ -72,6 +72,7 @@ static int ion_cma_allocate(struct ion_heap *heap, struct ion_buffer *buffer,
 	struct ion_cma_heap *cma_heap = to_cma_heap(heap);
 	struct device *dev = cma_heap->dev;
 	struct ion_cma_buffer_info *info;
+	DEFINE_DMA_ATTRS(attrs);
 
 	dev_dbg(dev, "Request buffer allocation len %ld\n", len);
 
@@ -90,9 +91,13 @@ static int ion_cma_allocate(struct ion_heap *heap, struct ion_buffer *buffer,
 		return ION_CMA_ALLOCATE_FAILED;
 	}
 
-	info->cpu_addr = dma_alloc_coherent(dev, len, &(info->handle),
-						GFP_HIGHUSER | __GFP_ZERO);
+	if (buffer->flags & ION_FLAG_PROTECTED) {
+		dma_set_attr(DMA_ATTR_SKIP_ZEROING, &attrs);
+		dma_set_attr(DMA_ATTR_SKIP_CPU_SYNC, &attrs);
+	}
 
+	info->cpu_addr = dma_alloc_attrs(dev, len, &(info->handle),
+						GFP_HIGHUSER, &attrs);
 	if (!info->cpu_addr) {
 		dev_err(dev, "Fail to allocate buffer\n");
 		goto err;
@@ -131,8 +136,8 @@ static int ion_cma_allocate(struct ion_heap *heap, struct ion_buffer *buffer,
 		}
 	}
 #endif
-	if (buffer->flags & ION_FLAG_PROTECTED)
-		ion_secure_protect(heap);
+	if ((buffer->flags & ION_FLAG_PROTECTED) && ion_secure_protect(heap))
+		goto free_table;
 
 	dev_dbg(dev, "Allocate buffer %p\n", buffer);
 	return 0;
@@ -243,6 +248,7 @@ struct ion_heap *ion_cma_heap_create(struct ion_platform_heap *data)
 	/* get device from private heaps data, later it will be
 	 * used to make the link with reserved CMA memory */
 	cma_heap->dev = data->priv;
+	cma_heap->dev->coherent_dma_mask = DMA_BIT_MASK(32);
 	cma_heap->heap.type = ION_HEAP_TYPE_DMA;
 	return &cma_heap->heap;
 }

@@ -21,10 +21,39 @@
 		#size-cells = <1>;
 		ranges;
 
+		common {
+			compatible = "exynos5433-ion,common";
+			reg = <0x4e700000 0x600000>;
+			id = <0>;
+		};
+
+		video {
+			compatible = "exynos5433-ion,video";
+			reusable;
+			secure;
+			reg = <0x32000000 0x5800000>;
+			id = <11>;
+			compat-id = <4 5 6 7>;
+		};
+
+		video_ext {
+			compatible = "exynos5433-ion,video_ext";
+			secure;
+			reusable;
+			reg = <0x38000000 0x1400000>;
+			id = <1>;
+		};
+
+		mfc_fw {
+			compatible = "exynos5433-ion,mfc_fw";
+			secure;
+			reg = <0x30000000 0x200000>;
+			id = <8>;
+		};
+
 		mfc_nfw {
 			compatible = "exynos5433-ion,mfc_nfw";
-			size = <0x100000>;
-			alignment = <0x100000>;
+			reg = <0x31000000 0x100000>;
 			id = <12>;
 		};
 	};

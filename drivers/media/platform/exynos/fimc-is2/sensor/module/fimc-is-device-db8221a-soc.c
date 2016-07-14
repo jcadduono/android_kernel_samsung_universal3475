@@ -120,15 +120,16 @@ static struct fimc_is_sensor_cfg settle_db8221a[] = {
 	FIMC_IS_SENSOR_CFG(800, 600, 15, 12, 2),
 	FIMC_IS_SENSOR_CFG(704, 576, 15, 12, 3),
 	FIMC_IS_SENSOR_CFG(640, 480, 30, 6, 4),
-	FIMC_IS_SENSOR_CFG(352, 288, 15, 6, 5),
-	FIMC_IS_SENSOR_CFG(176, 144, 15, 12, 6),
+	FIMC_IS_SENSOR_CFG(640, 480, 24, 6, 5),
+	FIMC_IS_SENSOR_CFG(352, 288, 15, 6, 6),
+	FIMC_IS_SENSOR_CFG(176, 144, 15, 12, 7),
 };
 
 static const struct db8221a_fps db8221a_framerates[] = {
 	{ I_FPS_0,	FRAME_RATE_AUTO },
 	{ I_FPS_7,	FRAME_RATE_7 },
 	{ I_FPS_15,	FRAME_RATE_15 },
-	{ I_FPS_25,	FRAME_RATE_25 },
+	{ I_FPS_24,	FRAME_RATE_24 },
 };
 
 static const struct db8221a_framesize db8221a_preview_frmsizes[] = {
@@ -465,13 +466,13 @@ static int __find_resolution(struct v4l2_subdev *subdev,
 	}
 	cam_info("LINE(%d): mf width: %d, mf height: %d, mf code: %d\n", __LINE__,
 		mf->width, mf->height, stype);
-	cam_info("LINE(%d): match width: %d, match height: %d, match code: %d\n", __LINE__,
-		match->width, match->height, stype);
 	if (match) {
 		mf->width  = match->width;
 		mf->height = match->height;
 		*resolution = match->value;
 		*type = stype;
+		cam_info("LINE(%d): match width: %d, match height: %d, match code: %d\n", __LINE__,
+			match->width, match->height, stype);
 		return 0;
 	}
 	cam_info("LINE(%d): mf width: %d, mf height: %d, mf code: %d\n", __LINE__,
@@ -580,16 +581,11 @@ static int db8221a_set_frame_rate(struct v4l2_subdev *subdev, s32 fps)
 {
 	struct db8221a_state *state = to_state(subdev);
 	int min = FRAME_RATE_AUTO;
-	int max = FRAME_RATE_25;
+	int max = FRAME_RATE_24;
 	int ret = 0;
 	int i = 0, fps_index = -1;
 
 	cam_info("set frame rate %d\n", fps);
-
-	if (state->runmode == RUNMODE_INIT) {
-		cam_dbg("%s: skip fps setting \n", __func__);
-		return 0;
-	}
 
 	if ((fps < min) || (fps > max)) {
 		cam_warn("set_frame_rate: error, invalid frame rate %d\n", fps);
@@ -605,7 +601,6 @@ static int db8221a_set_frame_rate(struct v4l2_subdev *subdev, s32 fps)
 	for (i = 0; i < ARRAY_SIZE(db8221a_framerates); i++) {
 		if (fps == db8221a_framerates[i].fps) {
 			fps_index = db8221a_framerates[i].index;
-			state->fps = fps;
 			state->req_fps = -1;
 			break;
 		}
@@ -614,6 +609,17 @@ static int db8221a_set_frame_rate(struct v4l2_subdev *subdev, s32 fps)
 	if (unlikely(fps_index < 0)) {
 		cam_warn("set_fps: warning, not supported fps %d\n", fps);
 		return 0;
+	}
+
+	if (fps == state->fps) {
+		cam_info("skip same fps: fps:%d, state->fps:%d\n", fps, state->fps);
+		return 0;
+	}
+
+	if(state->fps == FRAME_RATE_24)
+	{
+		sensor_db8221a_apply_set(subdev, "db8221a_Init_Reg",
+				&db8221a_regset_table.init);
 	}
 
 	switch (fps) {
@@ -629,11 +635,37 @@ static int db8221a_set_frame_rate(struct v4l2_subdev *subdev, s32 fps)
 		ret = sensor_db8221a_apply_set(subdev, "db8221a_fps_15", &db8221a_regset_table.fps_15);
 		db8221a_set_anti_banding(subdev, state->anti_banding);
 		break;
+	case FRAME_RATE_24 :
+		{
+			u32 width, height;
+			if (unlikely(!state->preview.frmsize)) {
+				cam_warn("warning, preview resolution not set\n");
+				state->preview.frmsize = db8221a_get_framesize(db8221a_preview_frmsizes,
+				                                               ARRAY_SIZE(db8221a_preview_frmsizes),
+				                                               PREVIEW_SZ_SVGA);
+			}
+			width = state->preview.frmsize->width;
+			height = state->preview.frmsize->height;
+
+			if (width == 352 && height == 288) {
+				ret = sensor_db8221a_apply_set(subdev, "db8221a_24fps_camcoder_352_288",
+					&db8221a_regset_table.camcoder_352_288);
+			} else if (width == 176 && height == 144) {
+				ret = sensor_db8221a_apply_set(subdev, "db8221a_24fps_camcoder_176_144",
+					&db8221a_regset_table.camcoder_176_144);
+			} else {
+				ret = sensor_db8221a_apply_set(subdev, "db8221a_24fps_camcoder_640_480",
+					&db8221a_regset_table.camcoder_640_480);
+			}
+			db8221a_set_anti_banding(subdev, state->anti_banding);
+		}
+		break;
 	default:
 		cam_dbg("%s: Not supported fps (%d)\n", __func__, fps);
 		break;
 	}
 
+	state->fps = fps;
 	CHECK_ERR_MSG(ret, "fail to set framerate\n");
 
 	return 0;
@@ -956,14 +988,6 @@ static int db8221a_set_sensor_mode(struct v4l2_subdev *subdev, s32 val)
 		}
 		break;
 	case SENSOR_CAMERA:
-		if (state->sensor_mode == SENSOR_MOVIE &&
-			state->runmode != RUNMODE_RUNNING &&
-			state->runmode != RUNMODE_CAPTURING &&
-			state->runmode != RUNMODE_RECORDING) {
-			sensor_db8221a_apply_set(subdev, "db8221a_Init_Reg",
-				&db8221a_regset_table.init);
-			db8221a_set_anti_banding(subdev, state->anti_banding);
-		}
 		state->sensor_mode = SENSOR_CAMERA;
 		break;
 
@@ -1266,20 +1290,9 @@ static int db8221a_set_preview_size(struct v4l2_subdev *subdev)
 	cam_info("set preview size(%dx%d) sensor_mode = %d\n",
 		width, height, state->sensor_mode);
 
-	if (state->sensor_mode == SENSOR_MOVIE) {
-		if (width == 352 && height == 288) {
-			err = sensor_db8221a_apply_set(subdev, "db8221a_24fps_camcoder_352_288",
-				&db8221a_regset_table.camcoder_352_288);
-		} else if (width == 176 && height == 144) {
-			err = sensor_db8221a_apply_set(subdev, "db8221a_24fps_camcoder_176_144",
-				&db8221a_regset_table.camcoder_176_144);
-		} else {
-			err = sensor_db8221a_apply_set(subdev, "db8221a_24fps_camcoder_640_480",
-				&db8221a_regset_table.camcoder_640_480);
-		}
-		db8221a_set_anti_banding(subdev, state->anti_banding);
+	if (state->sensor_mode == SENSOR_MOVIE || state->fps == FRAME_RATE_24) {
+		cam_info("Skip setting preview size on movie or fixed 24fps mode.\n");
 	} else {
-
 		if (state->vt_mode == VT_MODE_OFF) {
 			if (width == 1600 && height == 1200) {
 				err = sensor_db8221a_apply_set(subdev, "db8221a_resol_1600_1200",
@@ -1539,8 +1552,10 @@ static int db8221a_s_mbus_fmt(struct v4l2_subdev *subdev, struct v4l2_mbus_frame
 		db8221a_set_framesize(subdev, db8221a_preview_frmsizes,
 			ARRAY_SIZE(db8221a_preview_frmsizes), true);
 
-		if (previous_index != state->preview.frmsize->index)
-			state->preview.update_frmsize = 1;
+		if (state->preview.frmsize) {
+			if (previous_index != state->preview.frmsize->index)
+				state->preview.update_frmsize = 1;
+		}
 	} else {
 		db8221a_set_framesize(subdev, db8221a_capture_frmsizes,
 			ARRAY_SIZE(db8221a_capture_frmsizes), false);

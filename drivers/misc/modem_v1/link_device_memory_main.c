@@ -1329,7 +1329,7 @@ static int mem_init_comm(struct link_device *ld, struct io_device *iod)
 	case SIPC5_CH_ID_FMT_0 ... SIPC5_CH_ID_FMT_9:
 		check_iod = link_get_iod_with_channel(ld, (id + fmt2rfs));
 		if (check_iod ? atomic_read(&check_iod->opened) : true) {
-			mif_err("%s: %s->INIT_END->%s\n",
+			mif_info("%s: %s->INIT_END->%s\n",
 				ld->name, iod->name, mc->name);
 			send_ipc_irq(mld, cmd2int(CMD_INIT_END));
 			atomic_set(&mld->cp_boot_done, 1);
@@ -1342,7 +1342,7 @@ static int mem_init_comm(struct link_device *ld, struct io_device *iod)
 		check_iod = link_get_iod_with_channel(ld, (id + rfs2fmt));
 		if (check_iod) {
 			if (atomic_read(&check_iod->opened)) {
-				mif_err("%s: %s->INIT_END->%s\n",
+				mif_info("%s: %s->INIT_END->%s\n",
 					ld->name, iod->name, mc->name);
 				send_ipc_irq(mld, cmd2int(CMD_INIT_END));
 				atomic_set(&mld->cp_boot_done, 1);
@@ -1494,7 +1494,7 @@ static int mem_security_request(struct link_device *ld, struct io_device *iod,
 
 	size = shm_get_security_size(msr.mode, msr.size);
 	addr = shm_get_security_addr(msr.mode);
-	mif_err("mode=%lu, size=%lu, addr=%lu\n", msr.mode, size, addr);
+	mif_info("mode=%lu, size=%lu, addr=%lu\n", msr.mode, size, addr);
 	err = exynos_smc(SMC_ID, msr.mode, size, addr);
 	mif_info("%s: return_value=%d\n", ld->name, err);
 
@@ -1531,7 +1531,7 @@ static int mem_start_download(struct link_device *ld, struct io_device *iod)
 				ld->name, magic, MEM_BOOT_MAGIC);
 			return -EFAULT;
 		}
-		mif_err("%s: magic == 0x%08X\n", ld->name, magic);
+		mif_info("%s: magic == 0x%08X\n", ld->name, magic);
 	}
 
 	return 0;
@@ -1588,7 +1588,7 @@ static int mem_start_upload(struct link_device *ld, struct io_device *iod)
 				ld->name, magic, MEM_DUMP_MAGIC);
 			return -EFAULT;
 		}
-		mif_err("%s: magic == 0x%08X\n", ld->name, magic);
+		mif_info("%s: magic == 0x%08X\n", ld->name, magic);
 	}
 
 	return 0;
@@ -1647,7 +1647,7 @@ int mem_register_boot_rgn(struct mem_link_device *mld, phys_addr_t start,
 	if (!pages)
 		return -ENOMEM;
 
-	mif_err("%s: BOOT_RGN start:%pa size:%zu\n", ld->name, &start, size);
+	mif_info("%s: BOOT_RGN start:%pa size:%zu\n", ld->name, &start, size);
 
 	mld->boot_start = start;
 	mld->boot_size = size;
@@ -1681,7 +1681,7 @@ int mem_setup_boot_map(struct mem_link_device *mld)
 
 	mld->boot_base = (char __iomem *)base;
 
-	mif_err("%s: BOOT_RGN phys_addr:%pa virt_addr:%p size:%zu\n",
+	mif_info("%s: BOOT_RGN phys_addr:%pa virt_addr:%p size:%zu\n",
 		ld->name, &start, base, size);
 
 	return 0;
@@ -1781,7 +1781,7 @@ int mem_register_ipc_rgn(struct mem_link_device *mld, phys_addr_t start,
 	if (!pages)
 		return -ENOMEM;
 
-	mif_err("%s: IPC_RGN start:%pa size:%zu\n", ld->name, &start, size);
+	mif_info("%s: IPC_RGN start:%pa size:%zu\n", ld->name, &start, size);
 
 	mld->start = start;
 	mld->size = size;
@@ -1851,7 +1851,7 @@ struct mem_link_device *mem_create_link_device(enum mem_iface_type type,
 	struct mem_link_device *mld;
 	struct link_device *ld;
 	int i;
-	mif_err("+++\n");
+	mif_info("+++\n");
 
 	if (modem->ipc_version < SIPC_VER_50) {
 		mif_err("%s<->%s: ERR! IPC version %d < SIPC_VER_50\n",
@@ -1892,12 +1892,12 @@ struct mem_link_device *mem_create_link_device(enum mem_iface_type type,
 	ld->name = modem->link_name;
 
 	if (mld->attrs & LINK_ATTR(LINK_ATTR_SBD_IPC)) {
-		mif_err("%s<->%s: LINK_ATTR_SBD_IPC\n", ld->name, modem->name);
+		mif_info("%s<->%s: LINK_ATTR_SBD_IPC\n", ld->name, modem->name);
 		ld->sbd_ipc = true;
 	}
 
 	if (mld->attrs & LINK_ATTR(LINK_ATTR_IPC_ALIGNED)) {
-		mif_err("%s<->%s: LINK_ATTR_IPC_ALIGNED\n",
+		mif_info("%s<->%s: LINK_ATTR_IPC_ALIGNED\n",
 			ld->name, modem->name);
 		ld->aligned = true;
 	}
@@ -1955,14 +1955,14 @@ struct mem_link_device *mem_create_link_device(enum mem_iface_type type,
 		Set attributes as a "memory link_device"
 	\*====================================================================*/
 	if (mld->attrs & LINK_ATTR(LINK_ATTR_DPRAM_MAGIC)) {
-		mif_err("%s<->%s: LINK_ATTR_DPRAM_MAGIC\n",
+		mif_info("%s<->%s: LINK_ATTR_DPRAM_MAGIC\n",
 			ld->name, modem->name);
 		mld->dpram_magic = true;
 	}
 
 #ifdef CONFIG_LINK_DEVICE_WITH_SBD_ARCH
 	if (mld->attrs & LINK_ATTR(LINK_ATTR_IOSM_MESSAGE)) {
-		mif_err("%s<->%s: MODEM_ATTR_IOSM_MESSAGE\n",
+		mif_info("%s<->%s: MODEM_ATTR_IOSM_MESSAGE\n",
 			ld->name, modem->name);
 		mld->iosm = true;
 		mld->cmd_handler = iosm_event_bh;
@@ -2005,7 +2005,7 @@ struct mem_link_device *mem_create_link_device(enum mem_iface_type type,
 	INIT_WORK(&mld->dump_work, mem_dump_work);
 #endif
 
-	mif_err("---\n");
+	mif_info("---\n");
 	return mld;
 
 error:

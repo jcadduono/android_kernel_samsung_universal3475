@@ -148,6 +148,12 @@ config EXYNOS_ASV_MARGIN_TEST
 	default n
 	depends on EXYNOS_ASV
 
+config SKIP_HW_BREAKPOINT
+	bool "support skip hw breakpoint"
+	default n
+	help
+	  Support early param for T32 onchip breakpoint
+
 choice
 	prompt "Revision Type"
 	depends on SOC_EXYNOS5430
@@ -295,7 +301,7 @@ config EXYNOS5_DYNAMIC_CPU_HOTPLUG
 
 config EXYNOS_CONTENT_PATH_PROTECTION
 	bool "Exynos Content Path Protection"
-	depends on (ARM_TRUSTZONE && ARCH_EXYNOS5)
+	depends on (ARM_TRUSTZONE)
 	default y
 	help
 	  Enable content path protection of EXYNOS.
@@ -886,6 +892,12 @@ config TIMA_TEST_INFRA
 	default n
 	help
 	  Kernel bits of the TIMA test infrastructure
+     
+config SEC_BAT_AUT
+	bool "Samsung TN Bat Automation Test Feature"
+	default n
+	help
+	  Samsung TN Bat Automation Test
 
 # CP Secure boot
 config CP_SECURE_BOOT

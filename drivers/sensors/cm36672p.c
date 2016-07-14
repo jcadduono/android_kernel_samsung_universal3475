@@ -210,6 +210,19 @@ static int leden_gpio_onoff(struct cm36672p_data *data, bool onoff)
 }
 #endif
 
+#if defined(CONFIG_SENSORS_CM36672P_LDO_EN)
+static int sensor_ldo_gpio_onoff(struct cm36672p_data *data, bool onoff)
+{
+	struct cm36672p_platform_data *pdata = data->pdata;
+
+	gpio_direction_output(pdata->gpio_sensors_ldo_en, onoff);
+	if (onoff)
+		msleep(20);
+
+	return 0;
+}
+#endif
+
 #ifdef PROXIMITY_CANCELATION
 static int proximity_open_cancelation(struct cm36672p_data *data)
 {
@@ -445,6 +458,10 @@ static ssize_t proximity_enable_store(struct device *dev,
 	if (new_value && !pre_enable) {
 		int i, ret;
 
+#if defined(CONFIG_SENSORS_CM36672P_LDO_EN)
+	sensor_ldo_gpio_onoff(data, ON);
+#endif
+
 		proximity_vled_onoff(dev, ON);
 		atomic_set(&data->enable, ON);
 #if defined(CONFIG_SENSORS_LEDA_EN_GPIO)
@@ -479,6 +496,11 @@ static ssize_t proximity_enable_store(struct device *dev,
 #endif
 		atomic_set(&data->enable, OFF);
 		proximity_vled_onoff(dev, OFF);
+
+#if defined(CONFIG_SENSORS_CM36672P_LDO_EN)
+	sensor_ldo_gpio_onoff(data, ON);
+#endif
+
 	}
 	SENSOR_INFO("enable = %d\n", atomic_read(&data->enable));
 
@@ -814,6 +836,25 @@ static int setup_leden_gpio(struct cm36672p_data *data)
 }
 #endif
 
+#if defined(CONFIG_SENSORS_CM36672P_LDO_EN)
+static int setup_sensor_ldo_gpio(struct cm36672p_data *data)
+{
+	int ret;
+	struct cm36672p_platform_data *pdata = data->pdata;
+
+	ret = gpio_request(pdata->gpio_sensors_ldo_en, "sensor_ldo_en");
+	if (ret < 0){
+		SENSOR_ERR("gpio sensor_ldo_en request failed \n");
+		return ret;
+	}
+	ret = gpio_direction_output(pdata->gpio_sensors_ldo_en, 1);
+	if (ret)
+		SENSOR_ERR("unable to set_direction for sensor_ldo_en\n");
+
+	return ret;
+}
+#endif
+
 static int proximity_vled_onoff(struct device *dev, bool onoff)
 {
 	struct cm36672p_data *data = dev_get_drvdata(dev);
@@ -920,6 +961,36 @@ static int proximity_regulator_onoff(struct device *dev, bool onoff)
 
 	SENSOR_INFO("%s\n", (onoff) ? "on" : "off");
 
+#if defined(CONFIG_SENSORS_CM36672P_LDO_EN)
+	if (!data->vio){
+		SENSOR_INFO("VIO get regulator\n");
+		data->vio = devm_regulator_get(dev, "cm36672p,vio");
+		if (IS_ERR(data->vio)) {
+			SENSOR_ERR("cannot get vio\n");
+			return -ENOMEM;
+		}
+
+		regulator_set_voltage(data->vio, 1800000, 1800000);
+	}
+	if (onoff) {
+		ret = sensor_ldo_gpio_onoff(data, onoff);
+		if (ret)
+			SENSOR_ERR("Failed to enable vdd.\n");
+
+		ret = regulator_enable(data->vio);
+		if (ret)
+			SENSOR_ERR("Failed to enable vio.\n");
+	} else {
+		ret = sensor_ldo_gpio_onoff(data, onoff);
+		if (ret)
+			SENSOR_ERR("Failed to disable vdd.\n");
+
+		ret = regulator_disable(data->vio);
+		if (ret)
+			SENSOR_ERR("Failed to disable vio.\n");
+	}
+#else
+
 	if (!data->vdd){
 		SENSOR_INFO("VDD get regulator\n");
 		data->vdd = devm_regulator_get(dev, "cm36672p,vdd");
@@ -931,7 +1002,6 @@ static int proximity_regulator_onoff(struct device *dev, bool onoff)
 		if(!regulator_get_voltage(data->vdd))
 			regulator_set_voltage(data->vdd, 3000000, 3000000);
 	}
-
 	if (!data->vio){
 		SENSOR_INFO("VIO get regulator\n");
 		data->vio = devm_regulator_get(dev, "cm36672p,vio");
@@ -962,6 +1032,7 @@ static int proximity_regulator_onoff(struct device *dev, bool onoff)
 		if (ret)
 			SENSOR_ERR("Failed to disable vio.\n");
 	}
+#endif
 
 	SENSOR_INFO("end \n");
 	return 0;
@@ -977,6 +1048,14 @@ static int cm36672p_parse_dt(struct device *dev,
 	enum of_gpio_flags flags;
 	int ret;
 	u32 temp;
+
+#if defined(CONFIG_SENSORS_CM36672P_LDO_EN)
+	pdata->gpio_sensors_ldo_en = of_get_named_gpio(np, "cm36672p,gpio_sensors_ldo_en", 0);
+	if (pdata->gpio_sensors_ldo_en < 0) {
+		SENSOR_ERR("get prox_ldo_gpio error\n");
+		return -ENODEV;
+	}
+#endif
 
 #if defined(CONFIG_SENSORS_LEDA_EN_GPIO)
 	pdata->leden_gpio = of_get_named_gpio_flags(np, "cm36672p,leden_gpio",
@@ -1106,6 +1185,16 @@ static int cm36672p_i2c_probe(struct i2c_client *client,
 	/* wake lock init for proximity sensor */
 	wake_lock_init(&data->prx_wake_lock, WAKE_LOCK_SUSPEND,
 		"prx_wake_lock");
+
+#if defined(CONFIG_SENSORS_CM36672P_LDO_EN)
+	/* setup sensor_ldo_gpio */
+	ret = setup_sensor_ldo_gpio(data);
+	if (ret) {
+		SENSOR_ERR("could not setup sensor_ldo_gpio\n");
+		return ret;
+	}
+	sensor_ldo_gpio_onoff(data, ON);
+#endif
 
 	proximity_regulator_onoff(&client->dev, ON);
 	proximity_vled_onoff(&client->dev, ON);
@@ -1283,8 +1372,6 @@ static int cm36672p_i2c_remove(struct i2c_client *client)
 	mutex_destroy(&data->read_lock);
 	wake_lock_destroy(&data->prx_wake_lock);
 
-	kfree(data);
-
 	proximity_regulator_onoff(&client->dev, OFF);
 	proximity_vled_onoff(&client->dev, OFF);
 
@@ -1303,6 +1390,7 @@ static int cm36672p_i2c_remove(struct i2c_client *client)
 		devm_regulator_put(data->vled);
 	}
 
+	kfree(data);
 	return 0;
 }
 

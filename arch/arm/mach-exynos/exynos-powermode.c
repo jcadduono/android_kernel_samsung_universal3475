@@ -242,6 +242,10 @@ static int exynos_check_idle_ip_stat(int index)
 /***************************************************************************
  *                              Low power mode                             *
  ***************************************************************************/
+/* power domain */
+#define PD_STATUS	0xf
+#define PD_ENABLE	0xf
+
 static struct sfr_save save_clk_regs[] = {
 	SFR_SAVE(EXYNOS3475_CLK_CON_MUX_PHYCLK_USBHOST20_USB20_FREECLK_USER),
 	SFR_SAVE(EXYNOS3475_CLK_CON_MUX_PHYCLK_USBHOST20_USB20_PHYCLOCK_USER),
@@ -254,6 +258,35 @@ static struct sfr_bit_ctrl set_clk_regs[] = {
 	SFR_CTRL(EXYNOS3475_CLK_CON_MUX_PHYCLK_USBHOST20_USB20_PHYCLOCK_USER,	BIT(12)|BIT(27), BIT(27)),
 	SFR_CTRL(EXYNOS3475_CLK_CON_MUX_PHYCLK_USBHOST20_USB20_CLK48MOHCI_USER,	BIT(12)|BIT(27), BIT(27)),
 	SFR_CTRL(EXYNOS3475_CLK_CON_MUX_PHYCLK_USBOTG_OTG20_PHYCLOCK_USER,	BIT(12)|BIT(27), BIT(27)),
+};
+
+static struct sfr_save save_dispaud_clk_regs[] = {
+	SFR_SAVE(EXYNOS3475_CLK_CON_MUX_ACLK_DISPAUD_133_USER),
+	SFR_SAVE(EXYNOS3475_CLK_CON_MUX_SCLK_DECON_INT_VCLK_USER),
+	SFR_SAVE(EXYNOS3475_CLK_CON_MUX_SCLK_DECON_INT_ECLK_USER),
+	SFR_SAVE(EXYNOS3475_CLK_CON_MUX_PHYCLK_MIPI_PHY_M_TXBYTECLKHS_M4S4_USER),
+	SFR_SAVE(EXYNOS3475_CLK_CON_MUX_PHYCLK_MIPI_PHY_M_RXCLKESC0_M4S4_USER),
+	SFR_SAVE(EXYNOS3475_CLK_CON_MUX_SCLK_MI2S_AUD_USER),
+	SFR_SAVE(EXYNOS3475_CLK_CON_MUX_SCLK_DECON_INT_ECLK),
+	SFR_SAVE(EXYNOS3475_CLK_CON_MUX_SCLK_MI2S_AUD),
+	SFR_SAVE(EXYNOS3475_CLK_CON_DIV_SCLK_DECON_INT_VCLK),
+	SFR_SAVE(EXYNOS3475_CLK_CON_DIV_SCLK_DECON_INT_ECLK),
+	SFR_SAVE(EXYNOS3475_CLK_CON_DIV_SCLK_MI2S_AUD),
+	SFR_SAVE(EXYNOS3475_CLK_CON_DIV_SCLK_MIXER_AUD),
+	SFR_SAVE(EXYNOS3475_CLK_ENABLE_ACLK_DISPAUD_133),
+	SFR_SAVE(EXYNOS3475_CLK_ENABLE_ACLK_DISPAUD_133_SECURE_CFW),
+	SFR_SAVE(EXYNOS3475_CLK_ENABLE_SCLK_DECON_INT_VCLK),
+	SFR_SAVE(EXYNOS3475_CLK_ENABLE_SCLK_DECON_INT_ECLK),
+	SFR_SAVE(EXYNOS3475_CLK_ENABLE_PHYCLK_MIPI_PHY_M_TXBYTECLKHS_M4S4),
+	SFR_SAVE(EXYNOS3475_CLK_ENABLE_PHYCLK_MIPI_PHY_M_RXCLKESC0_M4S4),
+	SFR_SAVE(EXYNOS3475_CLK_ENABLE_SCLK_MI2S_AUD),
+	SFR_SAVE(EXYNOS3475_CLK_ENABLE_SCLK_MIXER_AUD),
+	SFR_SAVE(EXYNOS3475_CLK_ENABLE_IOCLK_AUD_I2S_SCLK_AP_IN),
+	SFR_SAVE(EXYNOS3475_CLK_ENABLE_IOCLK_AUD_I2S_BCLK_BT_IN),
+	SFR_SAVE(EXYNOS3475_CLK_ENABLE_IOCLK_AUD_I2S_BCLK_CP_IN),
+	SFR_SAVE(EXYNOS3475_CLK_ENABLE_IOCLK_AUD_I2S_BCLK_FM_IN),
+	SFR_SAVE(EXYNOS3475_CLKOUT_CMU_DISPAUD),
+	SFR_SAVE(EXYNOS3475_CLKOUT_CMU_DISPAUD_DIV_STAT),
 };
 
 static struct sfr_save save_clk_lpd_regs[] = {
@@ -286,6 +319,9 @@ static void exynos_sys_powerdown_set_clk(enum sys_powerdown mode)
 	       }
 	       break;
 	case SYS_DSTOP:
+		if ((__raw_readl(EXYNOS_PMU_DISPAUD_STATUS) & PD_STATUS) == PD_ENABLE)
+			exynos_save_sfr(save_dispaud_clk_regs, ARRAY_SIZE(save_dispaud_clk_regs));
+		/* thru */
 	case SYS_CP_CALL:
 		exynos_save_sfr(save_clk_regs, ARRAY_SIZE(save_clk_regs));
 		exynos_set_sfr(set_clk_regs, ARRAY_SIZE(set_clk_regs));
@@ -311,6 +347,9 @@ static void exynos_sys_powerdown_restore_clk(enum sys_powerdown mode)
 		       exynos_restore_sfr(save_clk_regs, ARRAY_SIZE(save_clk_regs));
 	       break;
 	case SYS_DSTOP:
+		if ((__raw_readl(EXYNOS_PMU_DISPAUD_STATUS) & PD_STATUS) == PD_ENABLE)
+			exynos_restore_sfr(save_dispaud_clk_regs, ARRAY_SIZE(save_dispaud_clk_regs));
+		/* thru */
 	case SYS_CP_CALL:
 		exynos_restore_sfr(save_clk_regs, ARRAY_SIZE(save_clk_regs));
 		break;

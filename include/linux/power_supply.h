@@ -106,11 +106,13 @@ enum power_supply_property {
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
 	POWER_SUPPLY_PROP_VOLTAGE_AVG,
 	POWER_SUPPLY_PROP_VOLTAGE_OCV,
+	POWER_SUPPLY_PROP_MAX_VOLTAGE,
 	POWER_SUPPLY_PROP_INPUT_VOLTAGE_REGULATION,
 	POWER_SUPPLY_PROP_CURRENT_MAX,
 	POWER_SUPPLY_PROP_INPUT_CURRENT_MAX,
 	POWER_SUPPLY_PROP_CURRENT_NOW,
 	POWER_SUPPLY_PROP_CURRENT_AVG,
+	POWER_SUPPLY_PROP_CHG_CURRENT,
 	POWER_SUPPLY_PROP_POWER_NOW,
 	POWER_SUPPLY_PROP_POWER_AVG,
 	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
@@ -166,30 +168,9 @@ enum power_supply_property {
 	POWER_SUPPLY_PROP_AFC_CHARGER_MODE,
 	POWER_SUPPLY_PROP_USB_HC,
 	POWER_SUPPLY_PROP_MODEL_NAME,
+	POWER_SUPPLY_PROP_CHARGE_AICL_CONTROL,
 };
 
-#ifdef CONFIG_SEC_CHARGER_S2MU003
-enum power_supply_type {
-	POWER_SUPPLY_TYPE_UNKNOWN = 0,
-	POWER_SUPPLY_TYPE_BATTERY,
-	POWER_SUPPLY_TYPE_UPS,
-	POWER_SUPPLY_TYPE_MAINS,
-	POWER_SUPPLY_TYPE_USB,          /* Standard Downstream Port */
-	POWER_SUPPLY_TYPE_USB_DCP,      /* Dedicated Charging Port */
-	POWER_SUPPLY_TYPE_USB_CDP,      /* Charging Downstream Port */
-	POWER_SUPPLY_TYPE_USB_ACA,      /* Accessory Charger Adapters */
-	POWER_SUPPLY_TYPE_OTG,				/* 13 */
-	POWER_SUPPLY_TYPE_UARTOFF,			/* 12 */
-	POWER_SUPPLY_TYPE_LAN_HUB,			/* 14 */
-	POWER_SUPPLY_TYPE_POWER_SHARING,		/* power sharing cable(21) */
-	POWER_SUPPLY_TYPE_HV_MAINS,             /* 22 */
-	POWER_SUPPLY_TYPE_HV_PREPARE_MAINS,
-	POWER_SUPPLY_TYPE_HV_ERR,
-	POWER_SUPPLY_TYPE_HV_UNKNOWN,
-	POWER_SUPPLY_TYPE_WIRELESS_REMOVE, /* Always last value (23)*/
-};
-#else
-/* for after REV00 */
 enum power_supply_type {
 	POWER_SUPPLY_TYPE_UNKNOWN = 0,
 	POWER_SUPPLY_TYPE_BATTERY,			/* 1 */
@@ -202,6 +183,10 @@ enum power_supply_type {
 	POWER_SUPPLY_TYPE_BMS,				/* Battery Monitor System (8) */
 	POWER_SUPPLY_TYPE_MISC,				/* 9 */
 	POWER_SUPPLY_TYPE_WIRELESS,			/* 10 */
+#if defined(CONFIG_WIRELESS_CHARGER_HIGH_VOLTAGE)
+	POWER_SUPPLY_TYPE_HV_WIRELESS,		/* 11 */
+	POWER_SUPPLY_TYPE_PMA_WIRELESS,		/* 12 */
+#endif
 	POWER_SUPPLY_TYPE_CARDOCK,			/* 11 */
 	POWER_SUPPLY_TYPE_UARTOFF,			/* 12 */
 	POWER_SUPPLY_TYPE_OTG,				/* 13 */
@@ -213,19 +198,21 @@ enum power_supply_type {
 	POWER_SUPPLY_TYPE_SMART_OTG,			/* 19 */
 	POWER_SUPPLY_TYPE_SMART_NOTG,			/* 20 */
 	POWER_SUPPLY_TYPE_POWER_SHARING,		/* power sharing cable(21) */
-	POWER_SUPPLY_TYPE_HV_MAINS,             /* 22 */
+	POWER_SUPPLY_TYPE_HV_MAINS,			/* 22 */
 	POWER_SUPPLY_TYPE_HV_PREPARE_MAINS,		/* 23 */
-	POWER_SUPPLY_TYPE_HV_ERR,				/* 24 */
+	POWER_SUPPLY_TYPE_HV_ERR,			/* 24 */
 	POWER_SUPPLY_TYPE_MHL_USB_100,			/* 25 */
-	POWER_SUPPLY_TYPE_MHL_2000,				/* 26 */
+	POWER_SUPPLY_TYPE_MHL_2000,			/* 26 */
 	POWER_SUPPLY_TYPE_HV_UNKNOWN,			/* 27 */
-	POWER_SUPPLY_TYPE_MDOCK_TA,				/* Mdock charger(28) */
+	POWER_SUPPLY_TYPE_MDOCK_TA,			/* Mdock charger(28) */
 	POWER_SUPPLY_TYPE_HMT_CONNECTED,		/* 29 */
 	POWER_SUPPLY_TYPE_HMT_CHARGE,			/* 30 */
 	POWER_SUPPLY_TYPE_MAX,
+#if defined(CONFIG_WIRELESS_CHARGER_HIGH_VOLTAGE)
+	POWER_SUPPLY_TYPE_HV_WIRELESS_ETX = 100,
+#endif
 };
 /* EXTENDED_ONLINE_TYPE */
-#endif
 
 union power_supply_propval {
 	int intval;
@@ -306,21 +293,58 @@ struct power_supply_info {
 	int use_for_apm;
 };
 
+#if defined(CONFIG_POWER_SUPPLY) || defined(CONFIG_POWER_SUPPLY_MODULE)
 extern struct power_supply *power_supply_get_by_name(const char *name);
 extern void power_supply_changed(struct power_supply *psy);
 extern int power_supply_am_i_supplied(struct power_supply *psy);
 extern int power_supply_set_battery_charged(struct power_supply *psy);
-
-#ifdef CONFIG_POWER_SUPPLY
+extern int power_supply_set_current_limit(struct power_supply *psy, int limit);
+extern int power_supply_set_online(struct power_supply *psy, bool enable);
+extern int power_supply_set_present(struct power_supply *psy, bool enable);
+extern int power_supply_set_scope(struct power_supply *psy, int scope);
+extern int power_supply_set_charge_type(struct power_supply *psy, int type);
+extern int power_supply_set_supply_type(struct power_supply *psy,
+					enum power_supply_type supply_type);
 extern int power_supply_is_system_supplied(void);
-#else
-static inline int power_supply_is_system_supplied(void) { return -ENOSYS; }
-#endif
-
 extern int power_supply_register(struct device *parent,
 				 struct power_supply *psy);
 extern void power_supply_unregister(struct power_supply *psy);
 extern int power_supply_powers(struct power_supply *psy, struct device *dev);
+#else
+static inline struct power_supply *power_supply_get_by_name(char *name)
+							{ return NULL; }
+static inline void power_supply_changed(struct power_supply *psy) { }
+static inline int power_supply_am_i_supplied(struct power_supply *psy)
+							{ return -ENOSYS; }
+static inline int power_supply_set_battery_charged(struct power_supply *psy)
+							{ return -ENOSYS; }
+static inline int power_supply_set_current_limit(struct power_supply *psy,
+							int limit)
+							{ return -ENOSYS; }
+static inline int power_supply_set_online(struct power_supply *psy,
+							bool enable)
+							{ return -ENOSYS; }
+static inline int power_supply_set_present(struct power_supply *psy,
+							bool enable)
+							{ return -ENOSYS; }
+static inline int power_supply_set_scope(struct power_supply *psy,
+							int scope)
+							{ return -ENOSYS; }
+static inline int power_supply_set_charge_type(struct power_supply *psy,
+							int type)
+							{ return -ENOSYS; }
+static inline int power_supply_set_supply_type(struct power_supply *psy,
+					enum power_supply_type supply_type)
+							{ return -ENOSYS; }
+static inline int power_supply_is_system_supplied(void) { return -ENOSYS; }
+static inline int power_supply_register(struct device *parent,
+					struct power_supply *psy)
+							{ return -ENOSYS; }
+static inline void power_supply_unregister(struct power_supply *psy) { }
+static inline int power_supply_powers(struct power_supply *psy,
+				      struct device *dev)
+							{ return -ENOSYS; }
+#endif
 
 /* For APM emulation, think legacy userspace. */
 extern struct class *power_supply_class;
@@ -337,7 +361,9 @@ static inline bool power_supply_is_amp_property(enum power_supply_property psp)
 	case POWER_SUPPLY_PROP_CHARGE_COUNTER:
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT:
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
+	case POWER_SUPPLY_PROP_CHARGE_COUNTER_SHADOW:
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
+	case POWER_SUPPLY_PROP_INPUT_CURRENT_MAX:
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
 	case POWER_SUPPLY_PROP_CURRENT_AVG:
 		return 1;

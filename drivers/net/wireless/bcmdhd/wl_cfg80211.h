@@ -21,7 +21,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: wl_cfg80211.h 557250 2015-05-18 08:52:07Z $
+ * $Id: wl_cfg80211.h 582103 2015-08-26 11:14:48Z $
  */
 
 #ifndef _wl_cfg80211_h_
@@ -273,11 +273,10 @@ enum wl_management_type {
 	WL_ASSOC_RESP = 0x4
 };
 
-enum wl_handler_del_type {
-	WL_HANDLER_NOTUSE,
-	WL_HANDLER_DEL,
-	WL_HANDLER_MAINTAIN,
-	WL_HANDLER_PEND
+enum wl_pm_workq_act_type {
+	WL_PM_WORKQ_SHORT,
+	WL_PM_WORKQ_LONG,
+	WL_PM_WORKQ_DEL
 };
 
 /* beacon / probe_response */
@@ -620,7 +619,6 @@ struct bcm_cfg80211 {
 	struct work_struct wlan_work;
 	struct mutex event_sync;	/* maily for up/down synchronization */
 	bool disable_roam_event;
-	bool pm_enable_work_on;
 	struct delayed_work pm_enable_work;
 	vndr_ie_setbuf_t *ibss_vsie;	/* keep the VSIE for IBSS */
 	int ibss_vsie_len;
@@ -956,7 +954,7 @@ extern struct net_device* wl_cfg80211_allocate_if(struct bcm_cfg80211 *cfg, int 
 extern int wl_cfg80211_register_if(struct bcm_cfg80211 *cfg, int ifidx, struct net_device* ndev);
 extern int wl_cfg80211_remove_if(struct bcm_cfg80211 *cfg, int ifidx, struct net_device* ndev);
 extern int wl_cfg80211_scan_stop(bcm_struct_cfgdev *cfgdev);
-extern bool wl_cfg80211_is_vsdb_mode(void);
+extern bool wl_cfg80211_is_concurrent_mode(void);
 extern void* wl_cfg80211_get_dhdp(void);
 extern bool wl_cfg80211_is_p2p_active(void);
 extern void wl_cfg80211_dbg_level(u32 level);

@@ -367,6 +367,28 @@ config LEDS_S2MU003
 	  This option enables support for LEDs driven by Samsung Electronics
 	  S2MU003 controller. This controller uses a FLED & TORCH
 
+config LEDS_S2MU005
+	tristate "LED driver for S2MU005 controllers"
+	depends on LEDS_CLASS
+	depends on MFD_S2MU005
+	help
+	  This option enables support for LEDs driven by Samsung Electronics
+	  S2MU005 controller. This controller uses a FLED & TORCH
+
+config LEDS_S2MU005_FLASH
+	bool "LED driver for S2MU005 Flash"
+	depends on LEDS_S2MU005
+	help
+	  Use LED driver for S2MU005 Flash
+	  If unsure, say N.
+
+config LEDS_S2MU005_RGB
+	bool "LED driver for S2MU005 RGB"
+	depends on LEDS_S2MU005
+	help
+	  Use LED driver for S2MU005 RGB
+	  If unsure, say N.
+
 config LEDS_LT3593
 	tristate "LED driver for LT3593 controllers"
 	depends on LEDS_CLASS

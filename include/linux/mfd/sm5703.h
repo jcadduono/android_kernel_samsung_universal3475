@@ -96,6 +96,7 @@ typedef struct sm5703_charger_platform_data {
 	int chg_autoset;
 	int chg_aiclen;
 	int chg_aiclth;
+	int chg_vbuslimit;
 	int fg_vol_val;
 	int fg_soc_val;
 	int fg_curr_avr_val;

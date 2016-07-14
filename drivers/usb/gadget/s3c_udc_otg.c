@@ -118,6 +118,26 @@ static unsigned int ep_fifo_size2 = 1024;
 static int reset_available = 1;
 static int pullup_state;
 
+#ifdef CONFIG_ARGOS
+extern int argos_irq_affinity_setup_label(unsigned int irq, const char *label,
+                 struct cpumask *affinity_cpu_mask,
+                 struct cpumask *default_cpu_mask);
+#ifdef CONFIG_SCHED_HMP
+extern struct cpumask hmp_slow_cpu_mask;
+static inline struct cpumask *get_default_cpu_mask(void)
+{
+	return &hmp_slow_cpu_mask;
+}
+#else
+static inline struct cpumask *get_default_cpu_mask(void)
+{
+	return cpu_all_mask;
+}
+#endif
+cpumask_var_t affinity_cpu_mask;
+cpumask_var_t default_cpu_mask;
+#endif
+
 /*
   Local declarations.
 */
@@ -1498,6 +1518,18 @@ static int s3c_udc_probe(struct platform_device *pdev)
 	}
 
 	create_proc_files();
+
+#ifdef CONFIG_ARGOS
+	if (!zalloc_cpumask_var(&affinity_cpu_mask, GFP_KERNEL))
+		return -ENOMEM;
+	if (!zalloc_cpumask_var(&default_cpu_mask, GFP_KERNEL))
+		return -ENOMEM;
+
+	cpumask_copy(default_cpu_mask, get_default_cpu_mask());
+	cpumask_or(affinity_cpu_mask, affinity_cpu_mask, cpumask_of(3));
+	DEBUG("usb: affinity_cpu_mask=0x%X, default_cpu_mask=0x%X\n", (int)*affinity_cpu_mask->bits, (int)*default_cpu_mask->bits);
+	argos_irq_affinity_setup_label(dev->irq, "USB", affinity_cpu_mask, default_cpu_mask);
+#endif
 
 	return retval;
 

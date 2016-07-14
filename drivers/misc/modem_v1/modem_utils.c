@@ -438,14 +438,14 @@ void netif_tx_flowctl(struct modem_shared *msd, bool tx_stop)
 		if (tx_stop) {
 			netif_stop_queue(iod->ndev);
 #ifdef DEBUG_MODEM_IF_FLOW_CTRL
-			mif_err("tx_stop:%s, iod->ndev->name:%s\n",
+			mif_info("tx_stop:%s, iod->ndev->name:%s\n",
 				tx_stop ? "suspend" : "resume",
 				iod->ndev->name);
 #endif
 		} else {
 			netif_wake_queue(iod->ndev);
 #ifdef DEBUG_MODEM_IF_FLOW_CTRL
-			mif_err("tx_stop:%s, iod->ndev->name:%s\n",
+			mif_info("tx_stop:%s, iod->ndev->name:%s\n",
 				tx_stop ? "suspend" : "resume",
 				iod->ndev->name);
 #endif
@@ -460,7 +460,7 @@ static void iodev_set_tx_link(struct io_device *iod, void *args)
 	struct link_device *ld = (struct link_device *)args;
 	if (iod->format == IPC_RAW && IS_CONNECTED(iod, ld)) {
 		set_current_link(iod, ld);
-		mif_err("%s -> %s\n", iod->name, ld->name);
+		mif_info("%s -> %s\n", iod->name, ld->name);
 	}
 }
 
@@ -607,7 +607,7 @@ void mif_print_data(const u8 *data, int len)
 
 	for (i = 0; i < words; i++) {
 		b = (char *)data + (i << 4);
-		mif_err("%04X: "
+		mif_info("%04X: "
 			"%02x %02x %02x %02x  %02x %02x %02x %02x  "
 			"%02x %02x %02x %02x  %02x %02x %02x %02x\n",
 			(i << 4),
@@ -617,7 +617,7 @@ void mif_print_data(const u8 *data, int len)
 
 	/* Print the last line */
 	if (residue > 0)
-		mif_err("%s\n", last);
+		mif_info("%s\n", last);
 }
 
 void mif_dump2format16(const u8 *data, int len, char *buff, char *tag)

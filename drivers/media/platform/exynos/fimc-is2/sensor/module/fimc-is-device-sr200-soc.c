@@ -53,9 +53,8 @@ static const struct sensor_regset_table sr200_regset_table = {
 	.effect_aqua		= SENSOR_REGISTER_REGSET(sr200_Effect_Aqua),
 
 	.fps_auto		= SENSOR_REGISTER_REGSET(sr200_fps_auto),
-	.fps_7			= SENSOR_REGISTER_REGSET(sr200_fps_7),
-	.fps_15			= SENSOR_REGISTER_REGSET(sr200_fps_15),
-
+	.fps_7			= SENSOR_REGISTER_REGSET(sr200_fps_7_camcorder),
+	.fps_15			= SENSOR_REGISTER_REGSET(sr200_fps_15_camcorder),
 	.fps_24_camcorder	= SENSOR_REGISTER_REGSET(sr200_fps_24_camcorder),
 
 	.wb_auto		= SENSOR_REGISTER_REGSET(sr200_wb_auto),
@@ -91,6 +90,7 @@ static const struct sensor_regset_table sr200_regset_table = {
 	.i2c_check		= SENSOR_REGISTER_REGSET(sr200_i2c_check),
 
 	.resol_176_144		= SENSOR_REGISTER_REGSET(sr200_resol_176_144),
+	.resol_320_240		= SENSOR_REGISTER_REGSET(sr200_resol_320_240),
 	.resol_352_288		= SENSOR_REGISTER_REGSET(sr200_resol_352_288),
 	.resol_640_480		= SENSOR_REGISTER_REGSET(sr200_resol_640_480),
 	.resol_704_576		= SENSOR_REGISTER_REGSET(sr200_resol_704_576),
@@ -141,11 +141,13 @@ static const struct sr200_fps sr200_framerates[] = {
 	{ I_FPS_0,	FRAME_RATE_AUTO },
 	{ I_FPS_7,	FRAME_RATE_7 },
 	{ I_FPS_15,	FRAME_RATE_15 },
-	{ I_FPS_25,	FRAME_RATE_25 },
+	{ I_FPS_24,	FRAME_RATE_24 },
 };
 
 static const struct sr200_framesize sr200_preview_frmsizes[] = {
+	{ PREVIEW_SZ_QCIF,	176,  144 },
 	{ PREVIEW_SZ_CIF,	352,  288 },
+	{ PREVIEW_SZ_320x240,	320,  240 },
 	{ PREVIEW_SZ_VGA,	640,  480 },
 	{ PREVIEW_SZ_SVGA,	800,  600 },
 };
@@ -417,7 +419,7 @@ static int sr200_write_regs_from_sd(struct v4l2_subdev *sd, const char *name)
 
 	cam_info("%s : X\n", __func__);
 
-	return err;
+	return (err > 0) ? 0 : err;
 }
 #endif
 
@@ -471,13 +473,13 @@ static int __find_resolution(struct v4l2_subdev *subdev,
 	}
 	cam_info("LINE(%d): mf width: %d, mf height: %d, mf code: %d\n", __LINE__,
 		mf->width, mf->height, stype);
-	cam_info("LINE(%d): match width: %d, match height: %d, match code: %d\n", __LINE__,
-		match->width, match->height, stype);
 	if (match) {
 		mf->width  = match->width;
 		mf->height = match->height;
 		*resolution = match->value;
 		*type = stype;
+		cam_info("LINE(%d): match width: %d, match height: %d, match code: %d\n", __LINE__,
+			match->width, match->height, stype);
 		return 0;
 	}
 	cam_info("LINE(%d): mf width: %d, mf height: %d, mf code: %d\n", __LINE__,
@@ -555,11 +557,62 @@ static void sr200_set_framesize(struct v4l2_subdev *subdev,
 			(*found_frmsize)->index);
 }
 
+static int sr200_set_preview_size(struct v4l2_subdev *subdev)
+{
+	struct sr200_state *state = to_state(subdev);
+	int err = 0;
+
+	u32 width, height;
+
+	if (!state->preview.update_frmsize)
+		return 0;
+
+	if (unlikely(!state->preview.frmsize)) {
+		cam_warn("warning, preview resolution not set\n");
+		state->preview.frmsize = sr200_get_framesize(
+					sr200_preview_frmsizes,
+					ARRAY_SIZE(sr200_preview_frmsizes),
+					PREVIEW_SZ_SVGA);
+	}
+
+	width = state->preview.frmsize->width;
+	height = state->preview.frmsize->height;
+
+	cam_info("set preview size(%dx%d)\n", width, height);
+
+	if (state->sensor_mode == SENSOR_MOVIE) {
+		/* err = sensor_sr200_apply_set(subdev, "sr200_resol_640_480", &sr200_regset_table.resol_640_480);
+		CHECK_ERR_MSG(err, "fail to set preview size\n");*/
+		cam_info("sensor_mode is movie\n");
+	} else {
+		if (width == 176 && height == 144) {
+			err = sensor_sr200_apply_set(subdev, "sr200_resol_176_144", &sr200_regset_table.resol_176_144);
+		} else if(width == 352 && height == 288) { /* VT Preview size */
+			err = sensor_sr200_apply_set(subdev, "sr200_resol_352_288", &sr200_regset_table.resol_352_288);
+		} else if(width == 320 && height == 240) {
+			err = sensor_sr200_apply_set(subdev, "sr200_resol_320_240", &sr200_regset_table.resol_320_240);
+		} else if (width == 640 && height == 480) {
+			if(state->skip_set_vga_size == true) {
+				cam_info("skip setting preview size set 640 X 480\n");
+			} else {
+				cam_info("preview size set 640 X 480\n");
+				err = sensor_sr200_apply_set(subdev, "sr200_resol_640_480", &sr200_regset_table.resol_640_480);
+			}
+		} else {
+			err = sensor_sr200_apply_set(subdev, "sr200_resol_800_600", &sr200_regset_table.resol_800_600);
+		}
+	}
+	CHECK_ERR_MSG(err, "fail to set preview size\n");
+
+	state->preview.update_frmsize = 0;
+
+	return 0;
+}
 static int sr200_set_frame_rate(struct v4l2_subdev *subdev, s32 fps)
 {
 	struct sr200_state *state = to_state(subdev);
 	int min = FRAME_RATE_AUTO;
-	int max = FRAME_RATE_25;
+	int max = FRAME_RATE_24;
 	int ret = 0;
 	int i = 0, fps_index = -1;
 
@@ -595,19 +648,30 @@ static int sr200_set_frame_rate(struct v4l2_subdev *subdev, s32 fps)
 		return 0;
 	}
 
+	if (fps == state->fps) {
+		cam_info("set_fps: fps:%d, state->fps:%d\n", fps, state->fps);
+		return 0;
+	}
+
 	switch (fps) {
 	case FRAME_RATE_AUTO :
 		ret = sensor_sr200_apply_set(subdev, "sr200_fps_auto", &sr200_regset_table.fps_auto);
+		state->skip_set_vga_size = true;
+		state->preview.update_frmsize = 1;
+		sr200_set_preview_size(subdev);
 		break;
 	case FRAME_RATE_7 :
 		ret = sensor_sr200_apply_set(subdev, "sr200_fps_7", &sr200_regset_table.fps_7);
+		state->skip_set_vga_size = true;
 		break;
 	case FRAME_RATE_15 :
 		ret = sensor_sr200_apply_set(subdev, "sr200_fps_15", &sr200_regset_table.fps_15);
+		state->skip_set_vga_size = true;
 		break;
-	case FRAME_RATE_25:
+	case FRAME_RATE_24:
 		ret = sensor_sr200_apply_set(subdev, "sr200_fps_24_camcorder",
 			&sr200_regset_table.fps_24_camcorder);
+		state->skip_set_vga_size = true;
 		break;
 	default:
 		cam_dbg("%s: Not supported fps (%d)\n", __func__, fps);
@@ -927,6 +991,7 @@ int sensor_sr200_stream_off(struct v4l2_subdev *subdev)
 	cam_info("stream off\n");
 	ret = sensor_sr200_apply_set(subdev, "sr200_stop_stream", &sr200_regset_table.stop_stream);
 	state->preview.update_frmsize = 1;
+	state->skip_set_vga_size = false;
 
 	switch (state->runmode) {
 	case RUNMODE_CAPTURING:
@@ -1116,6 +1181,7 @@ static int sensor_sr200_init(struct v4l2_subdev *subdev, u32 val)
 	state->brightness = EV_DEFAULT;
 	state->hflip = false;
 	state->vflip = false;
+	state->skip_set_vga_size = false;
 
 	cam_info("%s(id : %X) : X \n", __func__, id);
 
@@ -1246,57 +1312,6 @@ static int sr200_start_capture(struct v4l2_subdev *subdev)
 	return 0;
 }
 
-static int sr200_set_preview_size(struct v4l2_subdev *subdev)
-{
-	struct sr200_state *state = to_state(subdev);
-	int err = 0;
-
-	u32 width, height;
-
-	if (!state->preview.update_frmsize)
-		return 0;
-
-	if (unlikely(!state->preview.frmsize)) {
-		cam_warn("warning, preview resolution not set\n");
-		state->preview.frmsize = sr200_get_framesize(
-					sr200_preview_frmsizes,
-					ARRAY_SIZE(sr200_preview_frmsizes),
-					PREVIEW_SZ_SVGA);
-	}
-
-	width = state->preview.frmsize->width;
-	height = state->preview.frmsize->height;
-
-	cam_info("set preview size(%dx%d)\n", width, height);
-
-	if (state->sensor_mode == SENSOR_MOVIE) {
-		if(width == 352 && height == 288) {
-			err = sensor_sr200_apply_set(subdev, "sr200_resol_352_288", &sr200_regset_table.resol_352_288);
-		} else if (width == 176 && height == 144) {
-			err = sensor_sr200_apply_set(subdev, "sr200_resol_176_144", &sr200_regset_table.resol_176_144);
-		} else {
-			err = sensor_sr200_apply_set(subdev, "sr200_resol_640_480", &sr200_regset_table.resol_640_480);
-			CHECK_ERR_MSG(err, "fail to set preview size\n");
-			cam_info("MOVIE Mode : skip preview size\n");
-		}
-	} else {
-		if (width == 176 && height == 144) {
-			err = sensor_sr200_apply_set(subdev, "sr200_resol_176_144", &sr200_regset_table.resol_176_144);
-		} else if(width == 352 && height == 288) { /* VT Preview size */
-			err = sensor_sr200_apply_set(subdev, "sr200_resol_352_288", &sr200_regset_table.resol_352_288);
-		} else if (width == 640 && height == 480) {
-			cam_info("preview size set 640 X 480\n");
-			err = sensor_sr200_apply_set(subdev, "sr200_resol_640_480", &sr200_regset_table.resol_640_480);
-		} else {
-			err = sensor_sr200_apply_set(subdev, "sr200_resol_800_600", &sr200_regset_table.resol_800_600);
-		}
-	}
-	CHECK_ERR_MSG(err, "fail to set preview size\n");
-
-	state->preview.update_frmsize = 0;
-
-	return 0;
-}
 
 static int sr200_start_preview(struct v4l2_subdev *subdev)
 {
@@ -1522,8 +1537,10 @@ static int sr200_s_mbus_fmt(struct v4l2_subdev *subdev, struct v4l2_mbus_framefm
 		sr200_set_framesize(subdev, sr200_preview_frmsizes,
 			ARRAY_SIZE(sr200_preview_frmsizes), true);
 
-		if (previous_index != state->preview.frmsize->index)
-			state->preview.update_frmsize = 1;
+		if (state->preview.frmsize) {
+			if (previous_index != state->preview.frmsize->index)
+				state->preview.update_frmsize = 1;
+		}
 	} else {
 		sr200_set_framesize(subdev, sr200_capture_frmsizes,
 			ARRAY_SIZE(sr200_capture_frmsizes), false);
@@ -1867,6 +1884,9 @@ static int sensor_sr200_power_setpin(struct i2c_client *client,
 	struct device_node *dnode;
 	int gpio_reset = 0;
 	int gpio_standby = 0;
+#if defined (VDDD_1P2_CAM_GPIO_CONTROL)
+	int gpio_core_en = 0;
+#endif
 	int gpio_none = 0;
 	int gpio_mclk = 0;
 #if defined (VDD_CAM_SENSOR_A2P8_GPIO_CONTROL)
@@ -1899,6 +1919,17 @@ static int sensor_sr200_power_setpin(struct i2c_client *client,
 		gpio_free(gpio_standby);
 	}
 
+#if defined (VDDD_1P2_CAM_GPIO_CONTROL)
+	gpio_core_en = of_get_named_gpio(dnode, "gpio_core_en", 0);
+	if (!gpio_is_valid(gpio_core_en)) {
+		err("%s failed to get gpio_core_en\n",__func__);
+		return -EINVAL;
+	} else {
+		gpio_request_one(gpio_core_en, GPIOF_OUT_INIT_LOW, "CAM_GPIO_OUTPUT_LOW");
+		gpio_free(gpio_core_en);
+	}
+#endif
+
 	gpio_mclk = of_get_named_gpio(dnode, "gpio_mclk", 0);
 	if (!gpio_is_valid(gpio_mclk)) {
 		cam_err("%s failed to get PIN_RESET\n", __func__);
@@ -1929,8 +1960,16 @@ static int sensor_sr200_power_setpin(struct i2c_client *client,
 #else
 	SET_PIN(pdata, SENSOR_SCENARIO_EXTERNAL, GPIO_SCENARIO_ON, gpio_none, "VDD_CAM_SENSOR_A2P8", PIN_REGULATOR, 1, 1);
 #endif
+#if defined (VDDD_1P2_CAM_GPIO_CONTROL)
+	SET_PIN(pdata, SENSOR_SCENARIO_EXTERNAL, GPIO_SCENARIO_ON, gpio_core_en, NULL, PIN_OUTPUT, 1, 1000);
+#else
 	SET_PIN(pdata, SENSOR_SCENARIO_EXTERNAL, GPIO_SCENARIO_ON, gpio_none, "VDDD_1.2V_CAM", PIN_REGULATOR, 1, 1100);
+#endif
+#if defined (VDDD_1P2_CAM_GPIO_CONTROL)
+	SET_PIN(pdata, SENSOR_SCENARIO_EXTERNAL, GPIO_SCENARIO_ON, gpio_core_en, NULL, PIN_OUTPUT, 0, 1);
+#else
 	SET_PIN(pdata, SENSOR_SCENARIO_EXTERNAL, GPIO_SCENARIO_ON, gpio_none, "VDDD_1.2V_CAM", PIN_REGULATOR, 0, 1);
+#endif
 	SET_PIN(pdata, SENSOR_SCENARIO_EXTERNAL, GPIO_SCENARIO_ON, gpio_standby, NULL, PIN_OUTPUT, 1, 1000);
 	SET_PIN(pdata, SENSOR_SCENARIO_EXTERNAL, GPIO_SCENARIO_ON, gpio_none, "pin", PIN_FUNCTION, 0, 30000);
 	SET_PIN(pdata, SENSOR_SCENARIO_EXTERNAL, GPIO_SCENARIO_ON, gpio_reset, NULL, PIN_OUTPUT, 1, 10);

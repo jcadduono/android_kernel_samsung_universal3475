@@ -64,6 +64,14 @@ static void cod3025x_restore_otp_registers(struct snd_soc_codec *codec);
 static void cod3025x_reset_io_selector_bits(struct snd_soc_codec *codec);
 static void cod3025x_configure_mic_bias(struct snd_soc_codec *codec);
 
+#ifdef CONFIG_SND_RF_REF_RCV_STATE
+static void cod3x25x_rf_rcv_state(struct cod3025x_priv *cod3025x, bool state)
+{
+	if(cod3025x->rcv_state_gpio > 0)
+		gpio_set_value(cod3025x->rcv_state_gpio, state);
+}
+#endif
+
 static inline void cod3025x_usleep(unsigned int u_sec)
 {
 	usleep_range(u_sec, u_sec + 10);
@@ -1201,6 +1209,9 @@ static int epdrv_ev(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
+#ifdef CONFIG_SND_RF_REF_RCV_STATE
+		cod3x25x_rf_rcv_state(cod3025x,false);
+#endif
 		/* Update OTP configuration */
 		cod3025x_update_playback_otp(w->codec);
 		/* enable soft mute */
@@ -1229,6 +1240,26 @@ static int epdrv_ev(struct snd_soc_dapm_widget *w,
 
 		snd_soc_update_bits(w->codec, COD3025X_13_PD_DA1,
 					RESETB_DCTL_MASK, RESETB_DCTL_MASK);
+ 
+		snd_soc_update_bits(w->codec, COD3025X_DC_CTRL_EPS,
+					CTMI_EP_A_MASK, CTMI_EP_A_MASK);
+
+		snd_soc_update_bits(w->codec, COD3025X_15_PD_DA3,
+					PDB_EP_CORE_MASK, PDB_EP_CORE_MASK);
+
+		snd_soc_update_bits(w->codec, COD3025X_15_PD_DA3,
+					PDB_EP_DRV_MASK, PDB_EP_DRV_MASK);
+		msleep(50);
+
+		snd_soc_update_bits(w->codec, COD3025X_15_PD_DA3,
+					PDB_EP_CORE_MASK, 0x00);
+
+		snd_soc_update_bits(w->codec, COD3025X_15_PD_DA3,
+					PDB_EP_DRV_MASK, 0x00);
+
+		snd_soc_update_bits(w->codec, COD3025X_DC_CTRL_EPS,
+				CTMI_EP_A_MASK,
+				(CTMI_EP_A_1_UA << CTMI_EP_A_SHIFT));
 
 		snd_soc_update_bits(w->codec, COD3025X_15_PD_DA3,
 					PDB_DOUBLER_MASK | PDB_CP_MASK,
@@ -1258,10 +1289,17 @@ static int epdrv_ev(struct snd_soc_dapm_widget *w,
 			DAC1_SOFT_MUTE_MASK, 0);
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
+#ifdef CONFIG_SND_RF_REF_RCV_STATE
+		cod3x25x_rf_rcv_state(cod3025x,true);
+#endif
 		/* enable soft mute */
 		snd_soc_update_bits(w->codec, COD3025X_50_DAC1,
 			DAC1_SOFT_MUTE_MASK, DAC1_SOFT_MUTE_MASK);
 		msleep(24);
+
+		snd_soc_update_bits(w->codec, COD3025X_D8_CTRL_CP2,
+			CTMD_CP_H2L_MASK,
+			VIDD_HALF_VDD_DELAY_32MS << CTMD_CP_H2L_SHIFT);
 
 		snd_soc_update_bits(w->codec, COD3025X_D7_CTRL_CP1,
 			CTRV_CP_NEGREF_MASK, 0x0f);
@@ -1270,6 +1308,7 @@ static int epdrv_ev(struct snd_soc_dapm_widget *w,
 					CTMV_CP_MODE_MASK,
 					CTMV_CP_MODE_HALF_VDD << CTMV_CP_MODE_SHIFT);
 
+		msleep(150);
 		snd_soc_update_bits(w->codec, COD3025X_37_MIX_DA2,
 				EN_EP_MIX_DCTL_MASK | EN_EP_MIX_DCTR_MASK, 0x0);
 		cod3025x_usleep(100);
@@ -1296,6 +1335,10 @@ static int epdrv_ev(struct snd_soc_dapm_widget *w,
 		snd_soc_update_bits(w->codec, COD3025X_33_CTRL_EP,
 					CTMV_CP_MODE_MASK,
 					CTMV_CP_MODE_ANALOG << CTMV_CP_MODE_SHIFT);
+
+		snd_soc_update_bits(w->codec, COD3025X_D8_CTRL_CP2,
+				CTMD_CP_H2L_MASK,
+				VIDD_HALF_VDD_DELAY_64MS << CTMD_CP_H2L_SHIFT);
 
 		/* disable_soft_mute */
 		snd_soc_update_bits(w->codec, COD3025X_50_DAC1,
@@ -1615,14 +1658,11 @@ int cod3025x_set_externel_jd(struct snd_soc_codec *codec)
 #else
 	cod3025x_enable(codec->dev);
 #endif
-	/* Enable External jack detecter */
-	ret = snd_soc_update_bits(codec, COD3025X_83_JACK_DET1,
-			CTMP_JD_MODE_MASK, CTMP_JD_MODE_MASK);
 
-	/* Disable Internel Jack detecter */
-	ret |= snd_soc_update_bits(codec, COD3025X_81_DET_ON,
-			EN_PDB_JD_CLK_MASK | EN_PDB_JD_MASK,
-			EN_PDB_JD_CLK_MASK);
+	if (cod3025x->mic_bias2_highquality == true) {
+		snd_soc_update_bits(codec, COD3025X_18_CTRL_REF,
+							CTMF_VMID_MASK, 0x40);
+	}
 
 	/* Keep mic2 bias always high */
 	snd_soc_update_bits(codec, COD3025X_86_DET_TIME,
@@ -1631,6 +1671,15 @@ int cod3025x_set_externel_jd(struct snd_soc_codec *codec)
 			((CTMD_BTN_DBNC_5 << CTMD_BTN_DBNC_SHIFT) |
 			(CTMF_BTN_ON_14_CLK << CTMF_BTN_ON_SHIFT) |
 			(CTMF_DETB_PERIOD_8 << CTMF_DETB_PERIOD_SHIFT)));
+
+	/* Enable External jack detecter */
+	ret = snd_soc_update_bits(codec, COD3025X_83_JACK_DET1,
+			CTMP_JD_MODE_MASK, CTMP_JD_MODE_MASK);
+
+	/* Disable Internel Jack detecter */
+	ret |= snd_soc_update_bits(codec, COD3025X_81_DET_ON,
+			EN_PDB_JD_CLK_MASK | EN_PDB_JD_MASK,
+			EN_PDB_JD_CLK_MASK);
 
 	snd_soc_update_bits(codec, COD3025X_05_IRQ1M,
 				IRQ1M_MASK_ALL, 0xFF);
@@ -2694,6 +2743,18 @@ static void cod3025x_i2c_parse_dt(struct cod3025x_priv *cod3025x)
 				cod3025x->jack_buttons_zones[i].adc_low,
 				cod3025x->jack_buttons_zones[i].adc_high);
 	}
+#ifdef CONFIG_SND_RF_REF_RCV_STATE
+	cod3025x->rcv_state_gpio = of_get_named_gpio(dev->of_node, "rf-ref-rcv-state-gpio", 0);
+	if (cod3025x->rcv_state_gpio < 0)
+		dev_dbg(dev,"%s : can not find the earjack-rfeardet-gpio in the dt\n", __func__);
+	else
+		dev_dbg(dev,"%s : earjack-rcv_state_gpio =%d\n", __func__, cod3025x->rcv_state_gpio);
+
+	if (gpio_request(cod3025x->rcv_state_gpio, "RCV STATE"))
+		dev_dbg(dev,"GPIO_RF_EAR_DET GPIO set error!\n");
+	else
+		gpio_direction_output(cod3025x->rcv_state_gpio, 1);
+#endif
 }
 
 static int cod3025x_codec_probe(struct snd_soc_codec *codec)
@@ -2714,13 +2775,20 @@ static int cod3025x_codec_probe(struct snd_soc_codec *codec)
 		return PTR_ERR(cod3025x->vdd);
 	}
 
-	cod3025x_regulators_enable(cod3025x->codec);
+	if (cod3025x->mic_bias2_highquality == true) {
+		cod3025x_regulators_enable(cod3025x->codec);
+	}
 #ifdef CONFIG_PM_RUNTIME
 	pm_runtime_get_sync(codec->dev);
 #else
 	cod3025x_enable(codec->dev);
 #endif
-
+	if (cod3025x->mic_bias2_highquality == true) {
+		snd_soc_update_bits(cod3025x->codec, COD3025X_18_CTRL_REF,
+							CTMF_VMID_MASK, 0);
+		snd_soc_update_bits(cod3025x->codec, COD3025X_10_PD_REF,
+					PDB_VMID_MASK, PDB_VMID_MASK);
+	}
 	cod3025x->is_probe_done = true;
 	
 	/* Initialize work queue for button handling */

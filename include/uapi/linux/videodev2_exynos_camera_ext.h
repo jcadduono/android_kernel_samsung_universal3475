@@ -1063,6 +1063,7 @@ typedef enum v4l2_cam_frame_rate {
 	FRAME_RATE_7 = 7,
 	FRAME_RATE_15 = 15,
 	FRAME_RATE_20 = 20,
+	FRAME_RATE_24 = 24,
 	FRAME_RATE_25 = 25,
 	FRAME_RATE_30 = 30,
 	FRAME_RATE_60 = 60,

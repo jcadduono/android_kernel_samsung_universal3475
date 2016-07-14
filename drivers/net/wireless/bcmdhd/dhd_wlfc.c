@@ -21,7 +21,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: dhd_wlfc.c 557500 2015-05-19 06:30:12Z $
+ * $Id: dhd_wlfc.c 587005 2015-09-17 11:26:26Z $
  *
  */
 
@@ -1873,7 +1873,6 @@ _dhd_wlfc_find_mac_desc_id_from_mac(dhd_pub_t *dhdp, uint8* ea)
 	return WLFC_MAC_DESC_ID_INVALID;
 }
 
-#ifdef CONFIG_BCM4343
 static int
 dhd_wlfc_suppressed_acked_update(dhd_pub_t *dhd, uint16 hslot, uint8 prec, uint8 hcnt)
 {
@@ -1957,7 +1956,6 @@ dhd_wlfc_suppressed_acked_update(dhd_pub_t *dhd, uint16 hslot, uint8 prec, uint8
 
 	return BCME_OK;
 }
-#endif
 
 static int
 _dhd_wlfc_compressed_txstatus_update(dhd_pub_t *dhd, uint8* pkt_info, uint8 len, void** p_mac)
@@ -2009,11 +2007,11 @@ _dhd_wlfc_compressed_txstatus_update(dhd_pub_t *dhd, uint8* pkt_info, uint8 len,
 	else if (status_flag == WLFC_CTL_PKTFLAG_TOSSED_BYWLC) {
 		wlfc->stats.wlc_tossed_pkts += len;
 	}
-#ifdef CONFIG_BCM4343	 
+
 	else if (status_flag == WLFC_CTL_PKTFLAG_SUPPRESS_ACKED) {
 		wlfc->stats.pkt_freed += len;
 	}
-#endif
+
 	if (dhd->proptxstatus_txstatus_ignore) {
 		if (!remove_from_hanger) {
 			DHD_ERROR(("suppress txstatus: %d\n", status_flag));
@@ -2022,11 +2020,9 @@ _dhd_wlfc_compressed_txstatus_update(dhd_pub_t *dhd, uint8* pkt_info, uint8 len,
 	}
 
 	while (count < len) {
-#ifdef CONFIG_BCM4343
 		if (status_flag == WLFC_CTL_PKTFLAG_SUPPRESS_ACKED) {
 			dhd_wlfc_suppressed_acked_update(dhd, hslot, fifo_id, hcnt);
 		}
-#endif
 		if (WLFC_GET_AFQ(dhd->wlfc_mode)) {
 			ret = _dhd_wlfc_deque_afq(wlfc, hslot, hcnt, fifo_id, &pktbuf);
 		} else {

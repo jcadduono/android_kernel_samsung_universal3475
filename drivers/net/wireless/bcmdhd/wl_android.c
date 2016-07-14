@@ -21,7 +21,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: wl_android.c 561435 2015-06-04 13:56:04Z $
+ * $Id: wl_android.c 584755 2015-09-08 15:31:29Z $
  */
 
 #include <linux/module.h>
@@ -1295,7 +1295,7 @@ wl_android_set_fcc_pwr_limit_2g(struct net_device *dev, char *command, int total
 	DHD_ERROR(("%s: fccpwrlimit2g set (%d)\n", __FUNCTION__, enable));
 	error = wldev_iovar_setint(dev, "fccpwrlimit2g", enable);
 	if (error) {
-		DHD_ERROR(("%s: fccpwrlimit2g set error (%d)\n", __FUNCTION__, error));
+		DHD_ERROR(("%s: fccpwrlimit2g set returned (%d)\n", __FUNCTION__, error));
 		return BCME_ERROR;
 	}
 
@@ -2286,8 +2286,9 @@ wl_android_set_ltecx(struct net_device *dev, const char* string_num)
 			DHD_ERROR(("mws_ltetx_adv error %d\n", ret));
 	} else {
 		ret = wldev_iovar_setint(dev, "mws_coex_bitmap", chan_bitmap);
-		if (ret < 0)
-			DHD_ERROR(("LTECX_CHAN_BITMAP error %d\n", ret));
+		if (ret < 0) {
+			DHD_ERROR(("LTECX_CHAN_BITMAP returned (%d)\n", ret));
+		}
 	}
 	return 1;
 }
@@ -3505,13 +3506,10 @@ int wl_android_priv_cmd(struct net_device *net, struct ifreq *ifr, int cmd)
 		char *country_code = command + strlen(CMD_COUNTRY) + 1;
 		bytes_written = wldev_set_country(net, country_code, true, true);
 #ifdef FCC_PWR_LIMIT_2G
-		{
+		if (wldev_iovar_setint(net, "fccpwrlimit2g", FALSE)) {
+			DHD_ERROR(("%s: fccpwrlimit2g deactivation is failed\n", __FUNCTION__));
+		} else {
 			DHD_ERROR(("%s: fccpwrlimit2g is deactivated\n", __FUNCTION__));
-			bytes_written = wldev_iovar_setint(net, "fccpwrlimit2g", FALSE);
-			if (bytes_written) {
-				DHD_ERROR(("%s: fccpwrlimit2g deactivate set error (%d)\n",
-					__FUNCTION__, bytes_written));
-			}
 		}
 #endif /* FCC_PWR_LIMIT_2G */
 	}
@@ -3557,13 +3555,10 @@ int wl_android_priv_cmd(struct net_device *net, struct ifreq *ifr, int cmd)
 		bytes_written = wl_android_set_country_rev(net, command,
 		priv_cmd.total_len);
 #ifdef FCC_PWR_LIMIT_2G
-		{
+		if (wldev_iovar_setint(net, "fccpwrlimit2g", FALSE)) {
+			DHD_ERROR(("%s: fccpwrlimit2g deactivation is failed\n", __FUNCTION__));
+		} else {
 			DHD_ERROR(("%s: fccpwrlimit2g is deactivated\n", __FUNCTION__));
-			bytes_written = wldev_iovar_setint(net, "fccpwrlimit2g", FALSE);
-			if (bytes_written) {
-				DHD_ERROR(("%s: fccpwrlimit2g deactivate set error (%d)\n",
-					__FUNCTION__, bytes_written));
-			}
 		}
 #endif /* FCC_PWR_LIMIT_2G */
 	} else if (strnicmp(command, CMD_COUNTRYREV_GET,

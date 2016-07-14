@@ -168,7 +168,7 @@ enum db8221a_fps_index {
 	I_FPS_12,
 	I_FPS_15,
 	I_FPS_20,
-	I_FPS_25,
+	I_FPS_24,
 	I_FPS_MAX,
 };
 

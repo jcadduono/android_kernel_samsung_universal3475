@@ -1,4 +1,105 @@
-BCM43xx DHD 1.141.64.29 for Android
+BCM43xx DHD 1.141.64.54 for Android
+
+2015.9.23 (1.141.64.52 --> 1.141.64.54)
+Kernel Panic
+   - Fixed Wake lock kernel panic with old wake lock kernel API
+
+Others
+   - CSP:964882 Fixed wrong tx status from FW on VSDB 
+   - Fixed to scan without WL11U feature
+   - Fixed wl_event_handler thread is not terminated issue for module type
+
+
+2015.9.18 (1.141.64.50 --> 1.141.64.52)
+Others
+   - CSP:900148 Fixed sleep current issue by wlan_wake wakelock
+   - CSP:962762 Enabled PMF Feature
+   - CSP:965222 Changed some log messages which non-error logs
+   - Enhanced EAPOL handshake dump log
+   - Fixed coverity issues on wl_cfgp2p_listen_complete() function
+
+
+2015.9.10 (1.141.64.49 --> 1.141.64.50)
+Others
+   - Improved DHCP dump log
+
+
+2015.8.28 (1.141.64.45 --> 1.141.64.49)
+Kernel Panic
+   - Added error handling routine to prevent null pointer referencing
+
+Others
+   - CSP:960941 Fixed JF WIFI turn on failure issue
+   - Code enhancement for power save work handler
+   - Fixed specific corner case of the same country code handling
+   - Added Ch144 missing part on 5Ghz channel list
+   - Added country code IL/14
+     (This patch should be sync up with FW patch or higher version)
+     1. BCM43455 - BISON06T_REL_7_45_57_6
+     2. BCM4354 - BIS82RC46_REL_7_26_18
+     3. BCM4354 Oxygen - BIS82RC46_REL_7_26_14_5
+     4. BCM4339 - AARDVARK01S_REL_6_37_32_48
+     5. BCM4335 - AARDVARK_REL_6_30_171_24.69
+     6. BCM4335/39 Oxygen - 6_38_12_20
+
+2015.8.12 (1.141.64.43 --> 1.141.64.45)
+Others
+   - Added Q2/993 country code for all other SDIO chipset, BCM4354, BCM4339, BCM4335. 
+     This patch should be sync up with same FW patch.
+     1. BCM4354 - BIS82RC46_REL_7_26_16
+     2. BCM4354 Oxygen - BIS82RC46_REL_ 7_26_14_4
+     3. BCM4339 - AARDVARK01S_REL_6_37_32_48
+     4. BCM4335 - AARDVARK_REL_6_30_171_24.67
+     5. BCM4335/39 Oxygen - 6_38_12_19
+
+  
+2015.8.14 (1.141.64.42 --> 1.141.64.43)
+Others
+   - CSP:948077 Don't forward Internal event to upper layer
+   - Enabled IPv6 Packet forwarding on suspend state
+
+
+2015.7.14 (1.141.64.38 --> 1.141.64.42)
+Others
+   - CSP:940724 Prevent  WLC_E_ROAM event after roaming
+   - CSP:941261 File upload TPUT enhancement for S5Neo project
+   - Added Q2/993 country code for BCM43455/BCM43438/BCM43454
+     (This patch should be sync up with same FW patch)
+
+
+2015.7.10 (1.141.64.35 --> 1.141.64.38)
+Others
+   - CSP:927751 Enhanced Max Throughput for BCM43438 on Tshark2 model
+   - CSP:940495 Fixed disassociation timing during disconnection
+
+
+2015.7.8 (1.141.64.33 --> 1.141.64.35)
+Others
+   - CSP:935340 Prevent disconnection status mismatch
+   - CSP:936320 Added BCM43454 chip bring up code
+
+
+2015.6.22 (1.141.64.32 --> 1.141.64.33)
+Others
+   - CSP:811002 Fixed P2P GO Keepalive timeout issue
+   - CSP:925897 Added SDIO Init clock patch for Exynos3475 platform
+   - CSP:930546 Added US/988 country code / But disabled in Makefile : DHD_SUPPORT_FCC_US_988
+      (This patch should be sync up with FW patch - CSP:930546)
+   - Throughput enhancement for A8 platform
+
+
+2015.6.16 (1.141.64.29 --> 1.141.64.32)
+Kernel Panic
+   - CSP:922136 Removed del_timer from timer callback - Lossless Roaming feature
+
+Others
+   - CSP:886934 Enabled parameter setup from file for WIFI certification 
+   - CSP:917184 Added WAR for avoid P2P GO beacon delay issue
+   - CSP:921134 FCC power limit control on ch12/13
+     (This patch should be sync up with FW patch - CSP:921134)
+   - CSP:923206 Filter out Monitor mode for P2P 6.1.9 case
+   - Change default BCN_LI_DTIM value from 0 to 3 in suspend mode
+
 
 2015.5.27 (1.141.64.28 --> 1.141.64.29)
 Kernel Panic

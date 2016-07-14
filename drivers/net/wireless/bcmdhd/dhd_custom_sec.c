@@ -307,7 +307,6 @@ const struct cntry_locales_custom translate_custom_table[] = {
 	{"LY", "LI", 4},
 	{"BO", "NG", 0},
 	{"UM", "PR", 38},
-#if defined(BCM43430_CHIP) || defined(BCM43455_CHIP) || defined(BCM43454_CHIP)
 #ifdef DHD_SUPPORT_FCC_US_988
 	/* Support FCC 15.407 (Part 15E) Changes, effective June 2 2014 */
 	{"US", "US", 988},
@@ -316,9 +315,6 @@ const struct cntry_locales_custom translate_custom_table[] = {
 	{"US", "US", 1},
 	{"CA", "US", 1},
 #endif /* DHD_SUPPORT_FCC_US_988 */
-#else /* BCM4354, BCM4339, BCM4335 */
-	{"CA", "US", 0},
-#endif /* defined(BCM43430_CHIP) || defined(BCM43455_CHIP) || defined(BCM43454_CHIP) */
 #endif /* default ccode/regrev */
 };
 
@@ -1497,7 +1493,7 @@ int sec_get_param_wfa_cert(dhd_pub_t *dhd, int mode, uint* read_val)
 
 	fp = filp_open(filepath, O_RDONLY, 0);
 	if (IS_ERR(fp) || (fp == NULL)) {
-		DHD_ERROR(("[WIFI_SEC] %s: File open failed, file path=%s\n",
+		DHD_ERROR(("[WIFI_SEC] %s: File [%s] doesn't exist \n",
 			__FUNCTION__, filepath));
 		return BCME_ERROR;
 	} else {

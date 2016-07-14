@@ -228,10 +228,10 @@ static int wlan_host_wake_irq = 0;
 #ifdef CONFIG_MACH_A7LTE
 extern struct device *mmc_dev_for_wlan;
 #endif /* CONFIG_MACH_A7LTE */
-#if defined(CONFIG_MACH_UNIVERSAL3475) && defined(CONFIG_MMC_DW)
-struct mmc_host *wlan_mmc = NULL;
+#ifdef CONFIG_MACH_UNIVERSAL3475
+extern struct mmc_host *wlan_mmc;
 extern void mmc_ctrl_power(struct mmc_host *host, bool onoff);
-#endif /* CONFIG_MACH_UNIVERSAL3475 && CONFIG_MMC_DW */
+#endif /* CONFIG_MACH_UNIVERSAL3475 */
 
 static int dhd_wlan_power(int onoff)
 {
@@ -265,10 +265,10 @@ static int dhd_wlan_power(int onoff)
 			printk(KERN_INFO "%s WLAN SDIO GPIO control error\n", __FUNCTION__);
 	}
 #endif /* CONFIG_MACH_A7LTE */
-
-#if defined(CONFIG_MACH_UNIVERSAL3475) && defined(CONFIG_MMC_DW)
+#ifdef CONFIG_MACH_UNIVERSAL3475
+	if (wlan_mmc)
 		mmc_ctrl_power(wlan_mmc, onoff);
-#endif /* CONFIG_MACH_UNIVERSAL3475 && CONFIG_MMC_DW */
+#endif /* CONFIG_MACH_UNIVERSAL3475 */
 	return 0;
 }
 
@@ -369,7 +369,7 @@ int __init dhd_wlan_init_gpio(void)
 #if defined(CONFIG_ARGOS)
 void set_cpucore_for_interrupt(cpumask_var_t default_cpu_mask,
 	cpumask_var_t affinity_cpu_mask) {
-#if defined(CONFIG_MACH_UNIVERSAL5430) && !defined(CONFIG_BCM43454) && !defined(CONFIG_BCM43455)
+#if defined(CONFIG_MACH_UNIVERSAL5430)
 	argos_irq_affinity_setup_label(IRQ_SPI(226), "WIFI", affinity_cpu_mask, default_cpu_mask);
 	argos_irq_affinity_setup_label(IRQ_SPI(2), "WIFI", affinity_cpu_mask, default_cpu_mask);
 #endif

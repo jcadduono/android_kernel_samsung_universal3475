@@ -21,7 +21,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: dhd_common.c 557500 2015-05-19 06:30:12Z $
+ * $Id: dhd_common.c 587573 2015-09-21 13:26:14Z $
  */
 #include <typedefs.h>
 #include <osl.h>
@@ -220,6 +220,8 @@ dhd_dump(dhd_pub_t *dhdp, char *buf, int buflen)
 
 	struct bcmstrbuf b;
 	struct bcmstrbuf *strbuf = &b;
+	if (!dhdp || !dhdp->prot || !buf)
+		return BCME_ERROR;
 
 	bcm_binit(strbuf, buf, buflen);
 
@@ -1204,7 +1206,7 @@ wl_show_host_event(wl_event_msg_t *event, void *event_data)
 #endif /* SHOW_EVENTS */
 
 int
-wl_host_event(dhd_pub_t *dhd_pub, int *ifidx, void *pktdata, size_t pktlen,
+wl_host_event(dhd_pub_t *dhd_pub, int *ifidx, void *pktdata,
               wl_event_msg_t *event, void **data_ptr)
 {
 	/* check whether packet is a BRCM event pkt */
@@ -1212,23 +1214,18 @@ wl_host_event(dhd_pub_t *dhd_pub, int *ifidx, void *pktdata, size_t pktlen,
 	uint8 *event_data;
 	uint32 type, status, datalen;
 	uint16 flags;
-	uint evlen;
+	int evlen;
 
 	if (bcmp(BRCM_OUI, &pvt_data->bcm_hdr.oui[0], DOT11_OUI_LEN)) {
 		DHD_ERROR(("%s: mismatched OUI, bailing\n", __FUNCTION__));
 		return (BCME_ERROR);
 	}
 
-	if (ntoh16_ua((void *)&pvt_data->bcm_hdr.subtype) != BCMILCP_SUBTYPE_VENDOR_LONG ||
-		(bcmp(BRCM_OUI, &pvt_data->bcm_hdr.oui[0], DOT11_OUI_LEN)) ||
-		ntoh16_ua((void *)&pvt_data->bcm_hdr.usr_subtype) != BCMILCP_BCM_SUBTYPE_EVENT)
-	{
-		DHD_ERROR(("%s: mismatched bcm_event_t info, bailing out\n", __FUNCTION__));
+	/* BRCM event pkt may be unaligned - use xxx_ua to load user_subtype. */
+	if (ntoh16_ua((void *)&pvt_data->bcm_hdr.usr_subtype) != BCMILCP_BCM_SUBTYPE_EVENT) {
+		DHD_ERROR(("%s: mismatched subtype, bailing\n", __FUNCTION__));
 		return (BCME_ERROR);
 	}
-
-	if (pktlen < sizeof(bcm_event_t))
-		return (BCME_ERROR);
 
 	*data_ptr = &pvt_data[1];
 	event_data = *data_ptr;
@@ -1240,12 +1237,7 @@ wl_host_event(dhd_pub_t *dhd_pub, int *ifidx, void *pktdata, size_t pktlen,
 	flags = ntoh16_ua((void *)&event->flags);
 	status = ntoh32_ua((void *)&event->status);
 	datalen = ntoh32_ua((void *)&event->datalen);
-	if (datalen > pktlen)
-		return (BCME_ERROR);
-
 	evlen = datalen + sizeof(bcm_event_t);
-	if (evlen > pktlen)
-		return (BCME_ERROR);
 
 	switch (type) {
 #ifdef PROP_TXSTATUS
@@ -1940,12 +1932,13 @@ dhd_ndo_remove_ip(dhd_pub_t *dhd, int idx)
 	}
 	retcode = dhd_wl_ioctl_cmd(dhd, WLC_SET_VAR, iovbuf, iov_len, TRUE, idx);
 
-	if (retcode)
-		DHD_ERROR(("%s: ndo ip addr remove failed, retcode = %d\n",
+	if (retcode) {
+		DHD_ERROR(("%s: ndo ip addr remove returned (%d)\n",
 		__FUNCTION__, retcode));
-	else
+	} else {
 		DHD_TRACE(("%s: ndo ipaddr entry removed \n",
 		__FUNCTION__));
+	}
 
 	return retcode;
 }
@@ -2560,3 +2553,45 @@ wl_iw_parse_channel_list(char** list_str, uint16* channel_list, int channel_num)
 	*list_str = str;
 	return num;
 }
+#if defined(DHD_8021X_DUMP)
+/* Parse EAPOL 4 way handshake messages */
+void
+dhd_dump_eapol_4way_message(char *dump_data, bool direction)
+{
+	unsigned char type;
+	int pair, ack, mic, kerr, req, sec, install;
+	unsigned short us_tmp;
+	type = dump_data[18];
+	if (type == 2 || type == 254) {
+		us_tmp = (dump_data[19] << 8) | dump_data[20];
+		pair =  0 != (us_tmp & 0x08);
+		ack = 0  != (us_tmp & 0x80);
+		mic = 0  != (us_tmp & 0x100);
+		kerr =  0 != (us_tmp & 0x400);
+		req = 0  != (us_tmp & 0x800);
+		sec = 0  != (us_tmp & 0x200);
+		install  = 0 != (us_tmp & 0x40);
+		if (!sec && !mic && ack && !install && pair && !kerr && !req) {
+			DHD_ERROR(("ETHER_TYPE_802_1X [%s] : M1 of 4way\n",
+				direction ? "TX" : "RX"));
+		} else if (pair && !install && !ack && mic && !sec && !kerr && !req) {
+			DHD_ERROR(("ETHER_TYPE_802_1X [%s] : M2 of 4way\n",
+				direction ? "TX" : "RX"));
+		} else if (pair && ack && mic && sec && !kerr && !req) {
+			DHD_ERROR(("ETHER_TYPE_802_1X [%s] : M3 of 4way\n",
+				direction ? "TX" : "RX"));
+		} else if (pair && !install && !ack && mic && sec && !req && !kerr) {
+			DHD_ERROR(("ETHER_TYPE_802_1X [%s] : M4 of 4way\n",
+				direction ? "TX" : "RX"));
+		} else {
+			DHD_ERROR(("ETHER_TYPE_802_1X [%s]: ver %d, type %d, replay %d\n",
+				direction ? "TX" : "RX",
+				dump_data[14], dump_data[15], dump_data[30]));
+		}
+	} else {
+		DHD_ERROR(("ETHER_TYPE_802_1X [%s]: ver %d, type %d, replay %d\n",
+				direction ? "TX" : "RX",
+				dump_data[14], dump_data[15], dump_data[30]));
+	}
+}
+#endif /* DHD_8021X_DUMP */

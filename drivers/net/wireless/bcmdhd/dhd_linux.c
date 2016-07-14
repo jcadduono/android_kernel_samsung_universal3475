@@ -22,7 +22,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: dhd_linux.c 570683 2015-07-13 07:46:30Z $
+ * $Id: dhd_linux.c 587577 2015-09-21 14:09:21Z $
  */
 
 #include <typedefs.h>
@@ -130,6 +130,10 @@ static histo_t vi_d1, vi_d2, vi_d3, vi_d4;
 extern bool ap_cfg_running;
 extern bool ap_fw_loaded;
 #endif
+
+#ifdef DHD_8021X_DUMP
+extern void dhd_dump_eapol_4way_message(char *dump_data, bool direction);
+#endif /* DHD_8021X_DUMP */
 
 #ifdef CUSTOMER_HW4
 #ifdef FIX_CPU_MIN_CLOCK
@@ -592,6 +596,36 @@ static int dhd_found = 0;
 static int instance_base = 0; /* Starting instance number */
 module_param(instance_base, int, 0644);
 
+#ifdef DHD_DHCP_DUMP
+struct bootp_fmt {
+	struct iphdr ip_header;
+	struct udphdr udp_header;
+	uint8 op;
+	uint8 htype;
+	uint8 hlen;
+	uint8 hops;
+	uint32 transaction_id;
+	uint16 secs;
+	uint16 flags;
+	uint32 client_ip;
+	uint32 assigned_ip;
+	uint32 server_ip;
+	uint32 relay_ip;
+	uint8 hw_address[16];
+	uint8 server_name[64];
+	uint8 file_name[128];
+	uint8 options[312];
+};
+
+static const uint8 bootp_magic_cookie[4] = { 99, 130, 83, 99 };
+static const char dhcp_ops[][10] = {
+	"NA", "REQUEST", "REPLY"
+};
+static const char dhcp_types[][10] = {
+	"NA", "DISCOVER", "OFFER", "REQUEST", "DECLINE", "ACK", "NAK", "RELEASE", "INFORM"
+};
+static void dhd_dhcp_dump(uint8 *pktdata, bool tx);
+#endif /* DHD_DHCP_DUMP */
 /* Control fw roaming */
 #ifdef BCMCCX
 uint dhd_roam_disable = 0;
@@ -707,7 +741,7 @@ static int dhd_toe_set(dhd_info_t *dhd, int idx, uint32 toe_ol);
 #endif /* TOE */
 
 static int dhd_wl_host_event(dhd_info_t *dhd, int *ifidx, void *pktdata,
-                             size_t pktlen, wl_event_msg_t *event_ptr, void **data_ptr);
+                             wl_event_msg_t *event_ptr, void **data_ptr);
 #if defined(SUPPORT_P2P_GO_PS)
 #ifdef PROP_TXSTATUS
 static int dhd_wakelock_waive(dhd_info_t *dhdinfo);
@@ -1825,8 +1859,17 @@ dhd_sendpkt(dhd_pub_t *dhdp, int ifidx, void *pktbuf)
 
 		if (ETHER_ISMULTI(eh->ether_dhost))
 			dhdp->tx_multicast++;
-		if (ntoh16(eh->ether_type) == ETHER_TYPE_802_1X)
+		if (ntoh16(eh->ether_type) == ETHER_TYPE_802_1X) {
 			atomic_inc(&dhd->pend_8021x_cnt);
+#if defined(DHD_8021X_DUMP)
+			dhd_dump_eapol_4way_message(pktdata, TRUE);
+#endif /* DHD_8021X_DUMP */
+		}
+#ifdef DHD_DHCP_DUMP
+		if (ntoh16(eh->ether_type) == ETHER_TYPE_IP) {
+			dhd_dhcp_dump(pktdata, TRUE);
+		}
+#endif
 	} else {
 			PKTFREE(dhd->pub.osh, pktbuf, TRUE);
 			return BCME_ERROR;
@@ -2195,17 +2238,19 @@ dhd_rx_frame(dhd_pub_t *dhdp, int ifidx, void *pktbuf, int numpkt, uint8 chan)
 		eth = skb->data;
 		len = skb->len;
 
-#if defined(DHD_RX_DUMP) || defined(DHD_8021X_DUMP)
+#ifdef DHD_8021X_DUMP
 		dump_data = skb->data;
 		protocol = (dump_data[12] << 8) | dump_data[13];
-
 		if (protocol == ETHER_TYPE_802_1X) {
-			DHD_ERROR(("ETHER_TYPE_802_1X: "
-				"ver %d, type %d, replay %d\n",
-				dump_data[14], dump_data[15],
-				dump_data[30]));
+			dhd_dump_eapol_4way_message(dump_data, FALSE);
 		}
-#endif /* DHD_RX_DUMP || DHD_8021X_DUMP */
+#endif /* DHD_8021X_DUMP */
+
+#ifdef DHD_DHCP_DUMP
+	if (protocol != ETHER_TYPE_BRCM && protocol == ETHER_TYPE_IP) {
+		dhd_dhcp_dump(dump_data, FALSE);
+	}
+#endif
 #if defined(DHD_RX_DUMP)
 		DHD_ERROR(("RX DUMP - %s\n", _get_packet_type_str(protocol)));
 		if (protocol != ETHER_TYPE_BRCM) {
@@ -2260,7 +2305,6 @@ dhd_rx_frame(dhd_pub_t *dhdp, int ifidx, void *pktbuf, int numpkt, uint8 chan)
 #else
 			skb->mac.raw,
 #endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 22) */
-			len > ETHER_TYPE_LEN ? len - ETHER_TYPE_LEN : 0,
 			&event,
 			&data);
 
@@ -2280,12 +2324,10 @@ dhd_rx_frame(dhd_pub_t *dhdp, int ifidx, void *pktbuf, int numpkt, uint8 chan)
 			}
 #endif /* PNO_SUPPORT */
 
-#if defined(CUSTOMER_HW4)
-			if (event.event_type == WLC_E_ESCAN_RESULT) {
-				PKTFREE(dhdp->osh, pktbuf, TRUE);
-				continue;
-			}
-#endif 
+#ifdef DHD_DONOT_FORWARD_BCMEVENT_AS_NETWORK_PKT
+			PKTFREE(dhdp->osh, pktbuf, FALSE);
+			continue;
+#endif /* DHD_DONOT_FORWARD_BCMEVENT_AS_NETWORK_PKT */
 		} else {
 			tout_rx = DHD_PACKET_TIMEOUT_MS;
 		}
@@ -2341,7 +2383,7 @@ dhd_rx_frame(dhd_pub_t *dhdp, int ifidx, void *pktbuf, int numpkt, uint8 chan)
 }
 
 void
-dhd_event(struct dhd_info *dhd, char *evpkt, uint evlen, int ifidx)
+dhd_event(struct dhd_info *dhd, char *evpkt, int evlen, int ifidx)
 {
 	/* Linux version has nothing to do */
 	return;
@@ -3526,6 +3568,14 @@ exit:
 	}
 
 	DHD_OS_WAKE_UNLOCK(&dhd->pub);
+
+	/* Destroy wakelock */
+	if (!dhd_download_fw_on_driverload &&
+		(dhd->dhd_state & DHD_ATTACH_STATE_WAKELOCKS_INIT)) {
+		DHD_OS_WAKE_LOCK_DESTROY(dhd);
+		dhd->dhd_state &= ~DHD_ATTACH_STATE_WAKELOCKS_INIT;
+	}
+
 	return 0;
 }
 
@@ -3553,8 +3603,7 @@ static int dhd_interworking_enable(dhd_pub_t *dhd)
 		bcm_mkiovar("wnm", (char *)&cap, sizeof(cap), iovbuf, sizeof(iovbuf));
 		if ((ret = dhd_wl_ioctl_cmd(dhd, WLC_SET_VAR,
 			iovbuf, sizeof(iovbuf), TRUE, 0)) < 0) {
-			DHD_ERROR(("%s: failed to set WNM capabilities, ret=%d\n",
-				__FUNCTION__, ret));
+		    DHD_ERROR(("%s: set wnm returned (%d)\n", __FUNCTION__, ret));
 		}
 	}
 
@@ -3640,6 +3689,14 @@ dhd_open(struct net_device *net)
 #endif
 	int ifidx;
 	int32 ret = 0;
+
+	/* Init wakelock */
+	if (!dhd_download_fw_on_driverload &&
+		!(dhd->dhd_state & DHD_ATTACH_STATE_WAKELOCKS_INIT)) {
+		DHD_OS_WAKE_LOCK_INIT(dhd);
+		dhd->dhd_state |= DHD_ATTACH_STATE_WAKELOCKS_INIT;
+	}
+
 #if defined(CUSTOMER_HW4) && defined(PLATFORM_SLP)
 	wlan_net = net;
 	g_if_flag |= DHD_FLAG_STA_MODE;
@@ -4168,15 +4225,10 @@ dhd_attach(osl_t *osh, struct dhd_bus *bus, uint bus_hdrlen)
 
 	/* Initialize Wakelock stuff */
 	spin_lock_init(&dhd->wakelock_spinlock);
-	dhd->wakelock_counter = 0;
+	DHD_OS_WAKE_LOCK_INIT(dhd);
 	dhd->wakelock_wd_counter = 0;
-	dhd->wakelock_rx_timeout_enable = 0;
-	dhd->wakelock_ctrl_timeout_enable = 0;
 	dhd->waive_wakelock = FALSE;
 #ifdef CONFIG_HAS_WAKELOCK
-	wake_lock_init(&dhd->wl_wifi, WAKE_LOCK_SUSPEND, "wlan_wake");
-	wake_lock_init(&dhd->wl_rxwake, WAKE_LOCK_SUSPEND, "wlan_rx_wake");
-	wake_lock_init(&dhd->wl_ctrlwake, WAKE_LOCK_SUSPEND, "wlan_ctrl_wake");
 	wake_lock_init(&dhd->wl_wdwake, WAKE_LOCK_SUSPEND, "wlan_wd_wake");
 #endif /* CONFIG_HAS_WAKELOCK */
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 25))
@@ -5165,7 +5217,7 @@ dhd_preinit_ioctls(dhd_pub_t *dhd)
 	bcm_mkiovar("txbf", (char *)&txbf, 4, iovbuf, sizeof(iovbuf));
 	if ((ret = dhd_wl_ioctl_cmd(dhd, WLC_SET_VAR, iovbuf,
 		sizeof(iovbuf), TRUE, 0)) < 0) {
-		DHD_ERROR(("%s Set txbf failed  %d\n", __FUNCTION__, ret));
+		DHD_ERROR(("%s Set txbf returned (%d)\n", __FUNCTION__, ret));
 	}
 #endif /* USE_WL_TXBF */
 #ifdef USE_WL_FRAMEBURST
@@ -5253,7 +5305,7 @@ dhd_preinit_ioctls(dhd_pub_t *dhd)
 		sizeof(aibss_bcn_force_config_t), iov_buf, sizeof(iov_buf));
 	if ((ret = dhd_wl_ioctl_cmd(dhd, WLC_SET_VAR, iov_buf,
 		sizeof(iov_buf), TRUE, 0)) < 0) {
-		DHD_ERROR(("%s Set aibss_bcn_force_config to %d, %d, %d failed %d\n",
+		DHD_ERROR(("%s Set aibss_bcn_force_config to %d, %d, %d returned (%d)\n",
 			__FUNCTION__, AIBSS_INITIAL_MIN_BCN_DUR, AIBSS_MIN_BCN_DUR,
 			AIBSS_BCN_FLOOD_DUR, ret));
 	}
@@ -5310,7 +5362,7 @@ dhd_preinit_ioctls(dhd_pub_t *dhd)
 		iovbuf, sizeof(iovbuf));
 	if ((ret = dhd_wl_ioctl_cmd(dhd, WLC_SET_VAR, iovbuf,
 		sizeof(iovbuf), TRUE, 0)) < 0) {
-		DHD_ERROR(("%s pspretend_threshold for HostAPD failed  %d\n",
+		DHD_ERROR(("%s pspretend_threshold for HostAPD returned (%d)\n",
 			__FUNCTION__, ret));
 	}
 #endif
@@ -5827,7 +5879,7 @@ dhd_inet6_work_handler(void *dhd_info, void *event_data, u8 event)
 			DHD_TRACE(("%s: clear ipv6 table \n", __FUNCTION__));
 			ret = dhd_ndo_remove_ip(pub, ndo_work->if_idx);
 			if (ret < 0) {
-				DHD_ERROR(("%s: Removing host ip for NDO failed %d\n",
+				DHD_ERROR(("%s: Removing host ip for NDO returned (%d)\n",
 					__FUNCTION__, ret));
 				goto done;
 			}
@@ -6193,15 +6245,10 @@ void dhd_detach(dhd_pub_t *dhdp)
 	if (dhd->dhd_state & DHD_ATTACH_STATE_WAKELOCKS_INIT) {
 		DHD_TRACE(("wd wakelock count:%d\n", dhd->wakelock_wd_counter));
 #ifdef CONFIG_HAS_WAKELOCK
-		dhd->wakelock_counter = 0;
 		dhd->wakelock_wd_counter = 0;
-		dhd->wakelock_rx_timeout_enable = 0;
-		dhd->wakelock_ctrl_timeout_enable = 0;
-		wake_lock_destroy(&dhd->wl_wifi);
-		wake_lock_destroy(&dhd->wl_rxwake);
-		wake_lock_destroy(&dhd->wl_ctrlwake);
 		wake_lock_destroy(&dhd->wl_wdwake);
 #endif /* CONFIG_HAS_WAKELOCK */
+		DHD_OS_WAKE_LOCK_DESTROY(dhd);
 	}
 
 
@@ -6619,13 +6666,13 @@ dhd_get_wireless_stats(struct net_device *dev)
 #endif /* defined(WL_WIRELESS_EXT) */
 
 static int
-dhd_wl_host_event(dhd_info_t *dhd, int *ifidx, void *pktdata, size_t pktlen,
+dhd_wl_host_event(dhd_info_t *dhd, int *ifidx, void *pktdata,
 	wl_event_msg_t *event, void **data)
 {
 	int bcmerror = 0;
 	ASSERT(dhd != NULL);
 
-	bcmerror = wl_host_event(&dhd->pub, ifidx, pktdata, pktlen, event, data);
+	bcmerror = wl_host_event(&dhd->pub, ifidx, pktdata, event, data);
 	if (bcmerror != BCME_OK)
 		return (bcmerror);
 
@@ -7353,7 +7400,7 @@ int dhd_os_wake_lock_timeout(dhd_pub_t *pub)
 	unsigned long flags;
 	int ret = 0;
 
-	if (dhd) {
+	if (dhd && (dhd->dhd_state & DHD_ATTACH_STATE_WAKELOCKS_INIT)) {
 		spin_lock_irqsave(&dhd->wakelock_spinlock, flags);
 		ret = dhd->wakelock_rx_timeout_enable > dhd->wakelock_ctrl_timeout_enable ?
 			dhd->wakelock_rx_timeout_enable : dhd->wakelock_ctrl_timeout_enable;
@@ -7387,7 +7434,7 @@ int dhd_os_wake_lock_rx_timeout_enable(dhd_pub_t *pub, int val)
 	dhd_info_t *dhd = (dhd_info_t *)(pub->info);
 	unsigned long flags;
 
-	if (dhd) {
+	if (dhd && (dhd->dhd_state & DHD_ATTACH_STATE_WAKELOCKS_INIT)) {
 		spin_lock_irqsave(&dhd->wakelock_spinlock, flags);
 		if (val > dhd->wakelock_rx_timeout_enable)
 			dhd->wakelock_rx_timeout_enable = val;
@@ -7401,7 +7448,7 @@ int dhd_os_wake_lock_ctrl_timeout_enable(dhd_pub_t *pub, int val)
 	dhd_info_t *dhd = (dhd_info_t *)(pub->info);
 	unsigned long flags;
 
-	if (dhd) {
+	if (dhd && (dhd->dhd_state & DHD_ATTACH_STATE_WAKELOCKS_INIT)) {
 		spin_lock_irqsave(&dhd->wakelock_spinlock, flags);
 		if (val > dhd->wakelock_ctrl_timeout_enable)
 			dhd->wakelock_ctrl_timeout_enable = val;
@@ -7415,7 +7462,7 @@ int dhd_os_wake_lock_ctrl_timeout_cancel(dhd_pub_t *pub)
 	dhd_info_t *dhd = (dhd_info_t *)(pub->info);
 	unsigned long flags;
 
-	if (dhd) {
+	if (dhd && (dhd->dhd_state & DHD_ATTACH_STATE_WAKELOCKS_INIT)) {
 		spin_lock_irqsave(&dhd->wakelock_spinlock, flags);
 		dhd->wakelock_ctrl_timeout_enable = 0;
 #ifdef CONFIG_HAS_WAKELOCK
@@ -7453,7 +7500,7 @@ int dhd_os_wake_lock(dhd_pub_t *pub)
 	unsigned long flags;
 	int ret = 0;
 
-	if (dhd) {
+	if (dhd && (dhd->dhd_state & DHD_ATTACH_STATE_WAKELOCKS_INIT)) {
 		spin_lock_irqsave(&dhd->wakelock_spinlock, flags);
 		if (dhd->wakelock_counter == 0 && !dhd->waive_wakelock) {
 #ifdef CONFIG_HAS_WAKELOCK
@@ -7486,7 +7533,7 @@ int dhd_os_wake_unlock(dhd_pub_t *pub)
 	int ret = 0;
 
 	dhd_os_wake_lock_timeout(pub);
-	if (dhd) {
+	if (dhd && (dhd->dhd_state & DHD_ATTACH_STATE_WAKELOCKS_INIT)) {
 		spin_lock_irqsave(&dhd->wakelock_spinlock, flags);
 		if (dhd->wakelock_counter > 0) {
 			dhd->wakelock_counter--;
@@ -7586,17 +7633,19 @@ int dhd_wakelock_waive(dhd_info_t *dhdinfo)
 	unsigned long flags;
 	int ret = 0;
 
-	spin_lock_irqsave(&dhdinfo->wakelock_spinlock, flags);
-	/* dhd_wakelock_waive/dhd_wakelock_restore must be paired */
-	if (dhdinfo->waive_wakelock)
-		goto exit;
-	/* record current lock status */
-	dhdinfo->wakelock_before_waive = dhdinfo->wakelock_counter;
-	dhdinfo->waive_wakelock = TRUE;
+	if (dhdinfo && (dhdinfo->dhd_state & DHD_ATTACH_STATE_WAKELOCKS_INIT)) {
+		spin_lock_irqsave(&dhdinfo->wakelock_spinlock, flags);
+		/* dhd_wakelock_waive/dhd_wakelock_restore must be paired */
+		if (dhdinfo->waive_wakelock)
+			goto exit;
+		/* record current lock status */
+		dhdinfo->wakelock_before_waive = dhdinfo->wakelock_counter;
+		dhdinfo->waive_wakelock = TRUE;
 
 exit:
-	ret = dhdinfo->wakelock_wd_counter;
-	spin_unlock_irqrestore(&dhdinfo->wakelock_spinlock, flags);
+		ret = dhdinfo->wakelock_wd_counter;
+		spin_unlock_irqrestore(&dhdinfo->wakelock_spinlock, flags);
+	}
 	return ret;
 }
 
@@ -7605,36 +7654,64 @@ int dhd_wakelock_restore(dhd_info_t *dhdinfo)
 	unsigned long flags;
 	int ret = 0;
 
-	spin_lock_irqsave(&dhdinfo->wakelock_spinlock, flags);
-	/* dhd_wakelock_waive/dhd_wakelock_restore must be paired */
-	if (!dhdinfo->waive_wakelock)
-		goto exit;
+	if (dhdinfo && (dhdinfo->dhd_state & DHD_ATTACH_STATE_WAKELOCKS_INIT)) {
+		spin_lock_irqsave(&dhdinfo->wakelock_spinlock, flags);
+		/* dhd_wakelock_waive/dhd_wakelock_restore must be paired */
+		if (!dhdinfo->waive_wakelock)
+			goto exit;
 
-	dhdinfo->waive_wakelock = FALSE;
-	/* if somebody else acquires wakelock between dhd_wakelock_waive/dhd_wakelock_restore,
-	* we need to make it up by calling wake_lock or pm_stay_awake. or if somebody releases
-	* the lock in between, do the same by calling wake_unlock or pm_relax
-	*/
-	if (dhdinfo->wakelock_before_waive == 0 && dhdinfo->wakelock_counter > 0) {
+		dhdinfo->waive_wakelock = FALSE;
+		/* if somebody else acquires wakelock between dhd_wakelock_waive/dhd_wakelock_restore,
+		 * we need to make it up by calling wake_lock or pm_stay_awake. or if somebody releases
+		 * the lock in between, do the same by calling wake_unlock or pm_relax
+		 */
+		if (dhdinfo->wakelock_before_waive == 0 && dhdinfo->wakelock_counter > 0) {
 #ifdef CONFIG_HAS_WAKELOCK
-		wake_lock(&dhdinfo->wl_wifi);
+			wake_lock(&dhdinfo->wl_wifi);
 #elif (LINUX_VERSION_CODE > KERNEL_VERSION(2, 6, 36))
 			dhd_bus_dev_pm_stay_awake(&dhdinfo->pub);
 #endif
-	} else if (dhdinfo->wakelock_before_waive > 0 && dhdinfo->wakelock_counter == 0) {
+		} else if (dhdinfo->wakelock_before_waive > 0 && dhdinfo->wakelock_counter == 0) {
 #ifdef CONFIG_HAS_WAKELOCK
-		wake_unlock(&dhdinfo->wl_wifi);
+			wake_unlock(&dhdinfo->wl_wifi);
 #elif (LINUX_VERSION_CODE > KERNEL_VERSION(2, 6, 36))
 			dhd_bus_dev_pm_relax(&dhdinfo->pub);
 #endif
-	}
-	dhdinfo->wakelock_before_waive = 0;
+		}
+		dhdinfo->wakelock_before_waive = 0;
 exit:
-	ret = dhdinfo->wakelock_wd_counter;
-	spin_unlock_irqrestore(&dhdinfo->wakelock_spinlock, flags);
+		ret = dhdinfo->wakelock_wd_counter;
+		spin_unlock_irqrestore(&dhdinfo->wakelock_spinlock, flags);
+	}
 	return ret;
 }
 #endif /* PROP_TXSTATUS */
+
+void dhd_os_wake_lock_init(struct dhd_info *dhd)
+{
+	DHD_TRACE(("%s: initialize wake_lock_counters\n", __FUNCTION__));
+	dhd->wakelock_counter = 0;
+	dhd->wakelock_rx_timeout_enable = 0;
+	dhd->wakelock_ctrl_timeout_enable = 0;
+#ifdef CONFIG_HAS_WAKELOCK
+	wake_lock_init(&dhd->wl_wifi, WAKE_LOCK_SUSPEND, "wlan_wake");
+	wake_lock_init(&dhd->wl_rxwake, WAKE_LOCK_SUSPEND, "wlan_rx_wake");
+	wake_lock_init(&dhd->wl_ctrlwake, WAKE_LOCK_SUSPEND, "wlan_ctrl_wake");
+#endif /* CONFIG_HAS_WAKELOCK */
+}
+
+void dhd_os_wake_lock_destroy(struct dhd_info *dhd)
+{
+	DHD_TRACE(("%s: deinit wake_lock_counters\n", __FUNCTION__));
+#ifdef CONFIG_HAS_WAKELOCK
+	dhd->wakelock_counter = 0;
+	dhd->wakelock_rx_timeout_enable = 0;
+	dhd->wakelock_ctrl_timeout_enable = 0;
+	wake_lock_destroy(&dhd->wl_wifi);
+	wake_lock_destroy(&dhd->wl_rxwake);
+	wake_lock_destroy(&dhd->wl_ctrlwake);
+#endif /* CONFIG_HAS_WAKELOCK */
+}
 
 bool dhd_os_check_if_up(dhd_pub_t *pub)
 {
@@ -7797,19 +7874,18 @@ void dhd_wlfc_plat_deinit(void *dhd)
 
 bool dhd_wlfc_skip_fc(void)
 {
-#ifdef CUSTOMER_HW4
+#ifdef SKIP_WLFC_ON_CONCURRENT
 
 #ifdef WL_CFG80211
-
 	/* enable flow control in vsdb mode */
-	return !(wl_cfg80211_is_vsdb_mode());
+	return !(wl_cfg80211_is_concurrent_mode());
 #else
 	return TRUE; /* skip flow control */
 #endif /* WL_CFG80211 */
 
 #else
 	return FALSE;
-#endif /* CUSTOMER_HW4 */
+#endif /* SKIP_WLFC_ON_CONCURRENT */
 }
 #endif /* PROP_TXSTATUS */
 
@@ -8370,3 +8446,58 @@ void dhd_force_disable_singlcore_scan(dhd_pub_t *dhd)
 	}
 }
 #endif /* CUSTOMER_HW4 */
+
+#ifdef DHD_DHCP_DUMP
+static void
+dhd_dhcp_dump(uint8 *pktdata, bool tx)
+{
+	struct bootp_fmt *b = (struct bootp_fmt *) &pktdata[ETHER_HDR_LEN];
+	struct iphdr *h = &b->ip_header;
+	uint8 *ptr, *opt, *end = (uint8 *) b + ntohs(b->ip_header.tot_len);
+	int dhcp_type = 0, len, opt_len;
+
+	/* check IP header */
+	if (h->ihl != 5 || h->version != 4 || h->protocol != IPPROTO_UDP) {
+		return;
+	}
+	/* check UDP port for bootp (67, 68) */
+	if (b->udp_header.source != htons(67) && b->udp_header.source != htons(68) &&
+			b->udp_header.dest != htons(67) && b->udp_header.dest != htons(68)) {
+		return;
+	}
+
+	/* check header length */
+	if (ntohs(h->tot_len) < ntohs(b->udp_header.len) + sizeof(struct iphdr)) {
+		return;
+	}
+
+	len = ntohs(b->udp_header.len) - sizeof(struct udphdr);
+	opt_len = len
+		- (sizeof(*b) - sizeof(struct iphdr) - sizeof(struct udphdr) - sizeof(b->options));
+
+	/* parse bootp options */
+	if (opt_len >= 4 && !memcmp(b->options, bootp_magic_cookie, 4)) {
+		ptr = &b->options[4];
+		while (ptr < end && *ptr != 0xff) {
+			opt = ptr++;
+			if (*opt == 0) {
+				continue;
+			}
+			ptr += *ptr + 1;
+			if (ptr >= end) {
+				break;
+			}
+			/* 53 is dhcp type */
+			if (*opt == 53) {
+				if (opt[1]) {
+					dhcp_type = opt[2];
+					DHD_ERROR(("DHCP - %s [%s] [%s]\n",
+						dhcp_types[dhcp_type], tx?"TX":"RX",
+						dhcp_ops[b->op]));
+					break;
+				}
+			}
+		}
+	}
+}
+#endif /* DHD_DHCP_DUMP */

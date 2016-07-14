@@ -585,7 +585,7 @@ int mfc_alloc_dev_context_buffer(struct s5p_mfc_dev *dev,
 
 #ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
 	if (buf_type == MFCBUF_DRM) {
-		alloc_ctx = dev->alloc_ctx_drm;
+		alloc_ctx = dev->alloc_ctx_drm_fw;
 		ctx_buf = &dev->ctx_buf_drm;
 	}
 #endif

@@ -69,7 +69,7 @@ static ssize_t store_waketime(struct device *dev,
 
 	iod->waketime = msecs_to_jiffies(msec);
 #ifdef DEBUG_MODEM_IF
-	mif_err("%s: waketime = %lu ms\n", iod->name, msec);
+	mif_info("%s: waketime = %lu ms\n", iod->name, msec);
 #endif
 
 	if (iod->format == IPC_MULTI_RAW) {
@@ -81,7 +81,7 @@ static ssize_t store_waketime(struct device *dev,
 			if (iod) {
 				iod->waketime = msecs_to_jiffies(msec);
 #ifdef DEBUG_MODEM_IF
-				mif_err("%s: waketime = %lu ms\n",
+				mif_info("%s: waketime = %lu ms\n",
 					iod->name, msec);
 #endif
 			}
@@ -226,7 +226,7 @@ static int gather_multi_frame(struct sipc5_link_header *hdr,
 	/* If there has been no multiple frame with this ID, ... */
 	if (skb_queue_empty(multi_q)) {
 		struct sipc_fmt_hdr *fh = (struct sipc_fmt_hdr *)skb->data;
-		mif_err("%s<-%s: start of multi-frame (ID:%d len:%d)\n",
+		mif_info("%s<-%s: start of multi-frame (ID:%d len:%d)\n",
 			iod->name, mc->name, ctrl.id, fh->len);
 	}
 #endif
@@ -234,14 +234,14 @@ static int gather_multi_frame(struct sipc5_link_header *hdr,
 
 	if (ctrl.more) {
 		/* The last frame has not arrived yet. */
-		mif_err("%s<-%s: recv multi-frame (ID:%d rcvd:%d)\n",
+		mif_info("%s<-%s: recv multi-frame (ID:%d rcvd:%d)\n",
 			iod->name, mc->name, ctrl.id, skb->len);
 	} else {
 		struct sk_buff_head *rxq = &iod->sk_rx_q;
 		unsigned long flags;
 
 		/* It is the last frame because the "more" bit is 0. */
-		mif_err("%s<-%s: end of multi-frame (ID:%d rcvd:%d)\n",
+		mif_info("%s<-%s: end of multi-frame (ID:%d rcvd:%d)\n",
 			iod->name, mc->name, ctrl.id, skb->len);
 
 		spin_lock_irqsave(&rxq->lock, flags);
@@ -449,7 +449,7 @@ static void io_dev_modem_state_changed(struct io_device *iod,
 		goto exit;
 
 	mc->phone_state = state;
-	mif_err("%s->state changed (%s -> %s)\n", mc->name,
+	mif_info("%s->state changed (%s -> %s)\n", mc->name,
 		cp_state_str(old_state), cp_state_str(state));
 
 exit:
@@ -507,7 +507,7 @@ static int misc_open(struct inode *inode, struct file *filp)
 		}
 	}
 
-	mif_err("%s (opened %d) by %s\n",
+	mif_info("%s (opened %d) by %s\n",
 		iod->name, atomic_read(&iod->opened), current->comm);
 
 	return 0;
@@ -527,7 +527,7 @@ static int misc_release(struct inode *inode, struct file *filp)
 			ld->terminate_comm(ld, iod);
 	}
 
-	mif_err("%s (opened %d) by %s\n",
+	mif_info("%s (opened %d) by %s\n",
 		iod->name, atomic_read(&iod->opened), current->comm);
 
 	return 0;
@@ -610,7 +610,7 @@ static long misc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	switch (cmd) {
 	case IOCTL_MODEM_ON:
 		if (mc->ops.modem_on) {
-			mif_err("%s: IOCTL_MODEM_ON\n", iod->name);
+			mif_info("%s: IOCTL_MODEM_ON\n", iod->name);
 			return mc->ops.modem_on(mc);
 		}
 		mif_err("%s: !mc->ops.modem_on\n", iod->name);
@@ -618,7 +618,7 @@ static long misc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
 	case IOCTL_MODEM_OFF:
 		if (mc->ops.modem_off) {
-			mif_err("%s: IOCTL_MODEM_OFF\n", iod->name);
+			mif_info("%s: IOCTL_MODEM_OFF\n", iod->name);
 			return mc->ops.modem_off(mc);
 		}
 		mif_err("%s: !mc->ops.modem_off\n", iod->name);
@@ -626,7 +626,7 @@ static long misc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
 	case IOCTL_MODEM_RESET:
 		if (mc->ops.modem_reset) {
-			mif_err("%s: IOCTL_MODEM_RESET\n", iod->name);
+			mif_info("%s: IOCTL_MODEM_RESET\n", iod->name);
 			return mc->ops.modem_reset(mc);
 		}
 		mif_err("%s: !mc->ops.modem_reset\n", iod->name);
@@ -634,7 +634,7 @@ static long misc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
 	case IOCTL_MODEM_BOOT_ON:
 		if (mc->ops.modem_boot_on) {
-			mif_err("%s: IOCTL_MODEM_BOOT_ON\n", iod->name);
+			mif_info("%s: IOCTL_MODEM_BOOT_ON\n", iod->name);
 			return mc->ops.modem_boot_on(mc);
 		}
 		mif_err("%s: !mc->ops.modem_boot_on\n", iod->name);
@@ -642,14 +642,14 @@ static long misc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
 	case IOCTL_MODEM_BOOT_OFF:
 		if (mc->ops.modem_boot_off) {
-			mif_err("%s: IOCTL_MODEM_BOOT_OFF\n", iod->name);
+			mif_info("%s: IOCTL_MODEM_BOOT_OFF\n", iod->name);
 			return mc->ops.modem_boot_off(mc);
 		}
 		mif_err("%s: !mc->ops.modem_boot_off\n", iod->name);
 		return -EINVAL;
 
 	case IOCTL_MODEM_BOOT_DONE:
-		mif_err("%s: IOCTL_MODEM_BOOT_DONE\n", iod->name);
+		mif_info("%s: IOCTL_MODEM_BOOT_DONE\n", iod->name);
 		if (mc->ops.modem_boot_done)
 			return mc->ops.modem_boot_done(mc);
 		return 0;
@@ -1060,7 +1060,7 @@ static int vnet_open(struct net_device *ndev)
 	list_add(&iod->node_ndev, &iod->msd->activated_ndev_list);
 	netif_start_queue(ndev);
 
-	mif_err("%s (opened %d) by %s\n",
+	mif_info("%s (opened %d) by %s\n",
 		iod->name, atomic_read(&iod->opened), current->comm);
 
 	return 0;
@@ -1084,7 +1084,7 @@ static int vnet_stop(struct net_device *ndev)
 	list_del(&iod->node_ndev);
 	netif_stop_queue(ndev);
 
-	mif_err("%s (opened %d) by %s\n",
+	mif_info("%s (opened %d) by %s\n",
 		iod->name, atomic_read(&iod->opened), current->comm);
 
 	return 0;
@@ -1430,7 +1430,6 @@ int sipc5_init_io_device(struct io_device *iod)
 
 		iod->miscdev.minor = MISC_DYNAMIC_MINOR;
 		iod->miscdev.name = iod->name;
-		iod->miscdev.fops = &misc_io_fops;
 
 		ret = misc_register(&iod->miscdev);
 		if (ret)

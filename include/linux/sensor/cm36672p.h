@@ -5,7 +5,7 @@
 
 #ifdef __KERNEL__
 struct cm36672p_platform_data {
-	int irq;		/* proximity-sensor irq gpio */
+	int irq;		/* proximity-sensor irq gpio */#if defined(CONFIG_SENSORS_CM36672P_LDO_EN)	int gpio_sensors_ldo_en;#endif
 	int default_hi_thd;
 	int default_low_thd;
 	int cancel_hi_thd;

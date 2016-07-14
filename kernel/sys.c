@@ -2282,7 +2282,7 @@ static int prctl_set_vma_anon_name(unsigned long start, unsigned long end,
 			tmp = end;
 
 		/* Here vma->vm_start <= start < tmp <= (end|vma->vm_end). */
-		error = prctl_update_vma_anon_name(vma, &prev, start, tmp,
+		error = prctl_update_vma_anon_name(vma, &prev, start, end,
 				(const char __user *)arg);
 		if (error)
 			return error;

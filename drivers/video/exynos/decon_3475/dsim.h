@@ -94,7 +94,7 @@ struct panel_private {
 	unsigned char code[5];
 	unsigned char tset[8];
 	unsigned char elvss[4];
-#if defined(CONFIG_EXYNOS3475_DECON_LCD_S6E88A0) || defined(CONFIG_EXYNOS3475_DECON_LCD_EA8061S)
+#if defined(CONFIG_EXYNOS3475_DECON_LCD_S6E88A0) || defined(CONFIG_EXYNOS3475_DECON_LCD_EA8061S_J1)
 	unsigned char DB[33];
 	unsigned char elvss_hbm;
 	unsigned char elvss_hbm_default;

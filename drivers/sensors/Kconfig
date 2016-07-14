@@ -35,6 +35,28 @@ config SENSORS_K2HH_VDD
 	  This option enables accelerometer sensors using
 	  STMicroelectronic K2HH device driver with VDD control.
 
+config SENSORS_K2HH_SMART_ALERT_NOT_SUPPORT
+	depends on I2C
+	tristate "K2HH smart alert not support"
+	default n
+	help
+	  This option disables k2hh smart alert function.
+
+config BMA254_SMART_ALERT
+	depends on I2C
+	tristate "bma254 smart alert"
+	default n
+	help
+	  This option enables bma254 smart alert function.
+
+config SENSORS_BMA254
+	tristate "BMA254 acceleration sensor support"
+	depends on I2C
+	default n
+	help
+	  If you say yes here you get support for Bosch Sensortec's
+	  acceleration sensors BMA254.
+
 config SENSORS_K303C
 	depends on I2C
 	tristate "ST K303C accel,magnetic combo"
@@ -122,6 +144,14 @@ config SENSORS_LEDA_EN_GPIO
 	default n
 	help
 	  This option enables leda_en controlled by GPIO using optical sensor driver.
+
+config SENSORS_CM36672P_LDO_EN
+	depends on SENSORS
+	tristate "VDD_EN controlled by GPIO"
+	default n
+	help
+	  This option enables vdd_en controlled by GPIO using optical sensor driver.
+
 config SENSORS_TCS3490
 	depends on I2C
 	tristate "TCS3490 driver"

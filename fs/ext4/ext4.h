@@ -2250,6 +2250,14 @@ extern void ext4_group_desc_csum_set(struct super_block *sb, __u32 group,
 				     struct ext4_group_desc *gdp);
 extern int ext4_register_li_request(struct super_block *sb,
 				    ext4_group_t first_not_zeroed);
+/* for debugging, sangwoo2.lee */
+extern void print_iloc_info(struct super_block *sb,
+				struct ext4_iloc iloc);
+extern void print_bh(struct super_block *sb,
+                  struct buffer_head *bh, int start, int len);
+extern void print_block_data(struct super_block *sb, sector_t blocknr,
+                  unsigned char *data_to_dump, int start, int len);
+/* for debugging */
 
 static inline int ext4_has_group_desc_csum(struct super_block *sb)
 {

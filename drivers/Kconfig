@@ -184,4 +184,6 @@ source "drivers/gps/Kconfig"
 
 source "drivers/motor/Kconfig"
 
+source "drivers/secfilter/Kconfig"
+
 endmenu

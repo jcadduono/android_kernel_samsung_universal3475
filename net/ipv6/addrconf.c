@@ -2742,6 +2742,8 @@ static void addrconf_dev_config(struct net_device *dev)
 	if ((dev->type != ARPHRD_ETHER) &&
 	    (dev->type != ARPHRD_FDDI) &&
 	    (dev->type != ARPHRD_ARCNET) &&
+	    (dev->type != ARPHRD_RAWIP) &&
+	    (dev->type != ARPHRD_PPP) &&
 	    (dev->type != ARPHRD_INFINIBAND) &&
 	    (dev->type != ARPHRD_IEEE802154) &&
 	    (dev->type != ARPHRD_IEEE1394)) {

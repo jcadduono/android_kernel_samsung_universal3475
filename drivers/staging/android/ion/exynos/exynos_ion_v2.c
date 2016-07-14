@@ -14,12 +14,10 @@
 #include <linux/kref.h>
 #include <linux/genalloc.h>
 #include <linux/exynos_ion.h>
+#include <linux/smc.h>
 
 #include "../ion.h"
 #include "../ion_priv.h"
-
-/* HACK */
-#define exynos_smc(a, b, c, d) (0)
 
 struct ion_device *ion_exynos;
 
@@ -64,26 +62,47 @@ static int __find_platform_heap_id(unsigned int heap_id)
 	return i;
 }
 
-static void __ion_secure_protect(struct exynos_ion_platform_heap *pdata)
+static int __ion_secure_protect(struct exynos_ion_platform_heap *pdata)
 {
+	int try = 2;
+	int ret;
+
 	pr_info("%s: enter\n", __func__);
 
-	pdata->protected = true;
+	do {
+		ret = exynos_smc(SMC_DRM_SECMEM_REGION_INFO, pdata->id - 1,
+				pdata->rmem->base, pdata->rmem->size);
+	} while (ret != 0 && --try > 0);
+
+	if (ret != 0) {
+		pr_crit("%s: failed smc call for region info, ret=%d\n",
+				__func__, ret);
+		return -EFAULT;
+	}
+
+	try = 2;
 
 	spin_lock(&pdata->smc_lock);
 
-	/* passing region info */
-	BUG_ON(exynos_smc(SMC_DRM_SECMEM_REGION_INFO, pdata->id - 1,
-			pdata->rmem->base, pdata->rmem->size) != 0);
+	do {
+		ret = exynos_smc(SMC_DRM_SECMEM_REGION_PROT, pdata->id - 1,
+				SMC_PROTECTION_ENABLE, 0);
+	} while (ret != 0 && --try > 0);
 
-	/* protection */
-	BUG_ON(exynos_smc(SMC_DRM_SECMEM_REGION_PROT, pdata->id - 1,
-				SMC_PROTECTION_ENABLE, 0) != 0);
+	if (ret != 0) {
+		pr_crit("%s: failed smc call for protection, ret=%d\n",
+				__func__, ret);
+		spin_unlock(&pdata->smc_lock);
+		return -EFAULT;
+	}
+
+	pdata->protected = true;
 
 	spin_unlock(&pdata->smc_lock);
 
 	pr_info("%s: protection enabled for heap %s\n", __func__,
 						pdata->heap->name);
+	return 0;
 }
 
 int ion_secure_protect(struct ion_heap *heap)
@@ -105,8 +124,12 @@ int ion_secure_protect(struct ion_heap *heap)
 	}
 
 	if (unlikely(atomic_read(&pdata->secure_ref.refcount) == 0)) {
+		if (__ion_secure_protect(pdata)) {
+			pr_crit("%s: protection failed for heap %s\n",
+					__func__, heap->name);
+			return -EFAULT;
+		}
 		kref_init(&pdata->secure_ref);
-		__ion_secure_protect(pdata);
 	} else {
 		kref_get(&pdata->secure_ref);
 	}
@@ -129,6 +152,12 @@ static void __ion_secure_unprotect(struct kref *kref)
 
 	spin_unlock(&pdata->smc_lock);
 	pdata->protected = false;
+
+	if (pdata->reusable) {
+		dma_contiguous_deisolate(&pdata->dev);
+		pr_info("%s: deisolation completed for %s\n", __func__,
+						pdata->heap->name);
+	}
 
 	pr_info("%s: protection disabled for heap %s\n", __func__,
 						pdata->heap->name);
@@ -201,6 +230,14 @@ bool ion_is_heap_available(struct ion_heap *heap,
 				__func__, pdata->heap->name,
 				(size_t) pdata->rmem->size, free_size);
 		return false;
+	}
+
+	if (protected && pdata->reusable && (free_size == pdata->rmem->size)) {
+		pr_info("%s: starting isolation for %s\n", __func__,
+						pdata->heap->name);
+		dma_contiguous_isolate(&pdata->dev);
+		pr_info("%s: isolation completed for %s\n", __func__,
+						pdata->heap->name);
 	}
 
 	return true;
@@ -423,13 +460,48 @@ static ssize_t isolated_show(struct device *dev,
 
 static int exynos_ion_isolate_thread(void *p)
 {
+	pr_info("%s: enter (%s)\n", __func__, dev_name(p));
+
 	if (dma_contiguous_isolate(p) != 0)
 		dev_err(p, "Failed to isolate\n");
+
+	pr_info("%s: completed (%s)\n", __func__, dev_name(p));
 
 	flush_all_cpu_caches();
 
 	if (!signal_pending(current))
 		do_exit(0);
+
+	return 0;
+}
+
+int ion_exynos_isolate_async(int region_id)
+{
+	struct sched_param param = { .sched_priority = 0 };
+	struct task_struct *thr;
+	struct exynos_ion_platform_heap *pdata;
+	struct device *dev;
+	int id;
+
+	id = __find_platform_heap_id(region_id + 1);
+	if (id < 0) {
+		pr_err("%s: invalid region id(%d)\n", __func__, region_id);
+		return -EINVAL;
+	}
+
+	pdata = &plat_heaps[id];
+	dev = &pdata->dev;
+
+	mutex_lock(&pdata->cma_lock);
+
+	thr = kthread_run(exynos_ion_isolate_thread,
+			dev, "cma_isolation:%s", dev_name(dev));
+	if (IS_ERR(thr))
+		dev_err(dev, "Failed to create isolation thread\n");
+	else
+		sched_setscheduler(thr, SCHED_NORMAL, &param);
+
+	mutex_unlock(&pdata->cma_lock);
 
 	return 0;
 }

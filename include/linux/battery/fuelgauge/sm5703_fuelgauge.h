@@ -36,6 +36,7 @@ enum sm5703_variants {
 	NOVEL = 0,
 	J2LTE,
 	O5LTE,
+	J3XATT,
 };
 
 struct battery_data_t {

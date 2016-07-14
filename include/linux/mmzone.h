@@ -64,8 +64,10 @@ enum {
 };
 
 #ifdef CONFIG_CMA
+bool is_cma_pageblock(struct page *page);
 #  define is_migrate_cma(migratetype) unlikely((migratetype) == MIGRATE_CMA)
 #else
+#  define is_cma_pageblock(page) false
 #  define is_migrate_cma(migratetype) false
 #endif
 
@@ -364,6 +366,9 @@ struct zone {
 #ifdef CONFIG_MEMORY_HOTPLUG
 	/* see spanned/present_pages for more description */
 	seqlock_t		span_seqlock;
+#endif
+#ifdef CONFIG_CMA
+	bool			cma_alloc;
 #endif
 	struct free_area	free_area[MAX_ORDER];
 

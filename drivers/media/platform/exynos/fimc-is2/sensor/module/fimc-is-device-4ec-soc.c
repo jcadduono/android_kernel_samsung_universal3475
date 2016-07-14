@@ -44,15 +44,20 @@
 #include "fimc-is-device-4ec-soc.h"
 
 #if defined(CONFIG_CAMERA_GTES)
-#include "fimc-is-device-4ec-soc-reg-gtes.h"
+#include "fimc-is-device-4ec-soc-reg-gtes.h" /* 4ECGX */
+#elif defined(CONFIG_CAMERA_J1XLTE)
+#include "fimc-is-device-4ec-soc-reg-j1xlte.h"
 #else /* J2LTE */
-#include "fimc-is-device-4ec-soc-reg.h"
+#include "fimc-is-device-4ec-soc-reg.h" /* 4ECGX */
 #endif
 
-#ifdef CONFIG_FLED_SM5703
+#if defined(CONFIG_FLED_SM5703)
 #include <linux/leds/sm5703_fled.h>
 extern int sm5703_led_mode_ctrl(int state);
 extern bool flash_control_ready;
+#elif defined(CONFIG_LEDS_S2MU005)
+#include <linux/leds-s2mu005.h>
+extern int s2mu005_led_mode_ctrl(int state);
 #endif
 
 #define SENSOR_NAME "S5K4EC"
@@ -62,7 +67,9 @@ extern bool flash_control_ready;
 
 #define NORMAL_FRAME_DELAY_MS     100
 #define FLASH_AE_DELAY_MS     200
-#define SOFTLANDING_DELAY_MS     200
+#define MAX_SOFTLANDING_DELAY_MS     450
+#define CONST_SOFTLANDING_DELAY_AUTO_MS		120
+#define CONST_SOFTLANDING_DELAY_MACRO_MS	200
 #define POLL_TIME_MS		10
 #define CAPTURE_POLL_TIME_MS    1000
 
@@ -278,6 +285,7 @@ struct s5k4ecgx_regs {
 	struct s5k4ecgx_regset_table fast_ae_off;
 	struct s5k4ecgx_regset_table get_ae_stable_status;
 	struct s5k4ecgx_regset_table get_light_level;
+	struct s5k4ecgx_regset_table get_frame_duration;
 	struct s5k4ecgx_regset_table get_1st_af_search_status;
 	struct s5k4ecgx_regset_table get_2nd_af_search_status;
 	struct s5k4ecgx_regset_table get_capture_status;
@@ -515,6 +523,7 @@ static const struct s5k4ecgx_regs regs_set = {
 	.get_ae_stable_status =
 		S5K4ECGX_REGSET_TABLE(s5k4ecgx_Get_AE_Stable_Status, "s5k4ecgx_Get_AE_Stable_Status"),
 	.get_light_level = S5K4ECGX_REGSET_TABLE(s5k4ecgx_Get_Light_Level, "s5k4ecgx_Get_Light_Level"),
+	.get_frame_duration = S5K4ECGX_REGSET_TABLE(s5k4ecgx_get_frame_duration_reg, "s5k4ecgx_get_frame_duration_reg"),
 	.get_1st_af_search_status =
 		S5K4ECGX_REGSET_TABLE(s5k4ecgx_get_1st_af_search_status, "s5k4ecgx_get_1st_af_search_status"),
 	.get_2nd_af_search_status =
@@ -925,17 +934,21 @@ static int sensor_4ec_s_flash(struct v4l2_subdev *subdev, int value)
 		module_4ec->flash_mode = value;
 		if (module_4ec->flash_mode == FLASH_MODE_TORCH) {
 			ret = sensor_4ec_apply_set(subdev, &regs_set.flash_start);
-#ifdef CONFIG_FLED_SM5703
+#if defined(CONFIG_FLED_SM5703)
 			sm5703_led_mode_ctrl(SM5703_FLED_MODE_MOVIE);
 			if (flash_control_ready == false) {
 				sm5703_led_mode_ctrl(SM5703_FLED_MODE_EXT_GPIO_ENABLE);
 				flash_control_ready = true;
 			}
+#elif defined(CONFIG_LEDS_S2MU005)
+			s2mu005_led_mode_ctrl(S2MU005_FLED_MODE_MOVIE);
 #endif
 		} else {
 			ret = sensor_4ec_apply_set(subdev, &regs_set.flash_end);
-#ifdef CONFIG_FLED_SM5703
+#if defined(CONFIG_FLED_SM5703)
 			sm5703_led_mode_ctrl(SM5703_FLED_MODE_OFF);
+#elif defined(CONFIG_LEDS_S2MU005)
+			s2mu005_led_mode_ctrl(S2MU005_FLED_MODE_OFF);
 #endif
 		}
 	}
@@ -2468,6 +2481,42 @@ p_err:
 	return light_sum;
 }
 
+static u32 sensor_4ec_get_frame_duration(struct v4l2_subdev *subdev)
+{
+	int ret = 0;
+	u16 frame_duration = 0;
+	u16 frame_duration_ms = 0;
+	struct fimc_is_module_enum *module;
+	struct fimc_is_module_4ec *module_4ec;
+
+	module = (struct fimc_is_module_enum *)v4l2_get_subdevdata(subdev);
+	if (unlikely(!module)) {
+		err("module is NULL");
+		ret = -EINVAL;
+		goto p_err;
+	}
+
+	module_4ec = module->private_data;
+	if (unlikely(!module_4ec)) {
+		err("module_4ec is NULL");
+		ret = -EINVAL;
+		goto p_err;
+	}
+
+	ret = sensor_4ec_read_reg(subdev, &regs_set.get_frame_duration, &frame_duration, 1);
+	if (ret) {
+		err("%s: read cmd failed\n", __func__);
+		goto p_err;
+	}
+
+	frame_duration_ms = frame_duration / 400;
+
+	cam_info("%s: frame_duration_ms = %d ms\n", __func__, frame_duration_ms);
+
+p_err:
+	return frame_duration_ms;
+}
+
 static int sensor_4ec_pre_flash_start(struct v4l2_subdev *subdev)
 {
 	int ret = 0;
@@ -2513,12 +2562,14 @@ static int sensor_4ec_pre_flash_start(struct v4l2_subdev *subdev)
 
 	/* Pre Flash On */
 	cam_info("%s: Preflash On\n", __func__);
-#ifdef CONFIG_FLED_SM5703
+#if defined(CONFIG_FLED_SM5703)
 	sm5703_led_mode_ctrl(SM5703_FLED_MODE_PREFLASH);
 	if (flash_control_ready == false) {
 		sm5703_led_mode_ctrl(SM5703_FLED_MODE_EXT_GPIO_ENABLE);
 		flash_control_ready = true;
 	}
+#elif defined(CONFIG_LEDS_S2MU005)
+	s2mu005_led_mode_ctrl(S2MU005_FLED_MODE_PREFLASH);
 #endif
 	module_4ec->flash_status = FLASH_STATUS_PRE_ON;
 
@@ -2597,8 +2648,10 @@ static int sensor_4ec_pre_flash_stop(struct v4l2_subdev *subdev)
 
 	/* Pre Flash Off */
 	cam_info("%s: Preflash Off\n", __func__);
-#ifdef CONFIG_FLED_SM5703
+#if defined(CONFIG_FLED_SM5703)
 	sm5703_led_mode_ctrl(SM5703_FLED_MODE_OFF);
+#elif defined(CONFIG_LEDS_S2MU005)
+	s2mu005_led_mode_ctrl(S2MU005_FLED_MODE_OFF);
 #endif
 	module_4ec->flash_status = FLASH_STATUS_OFF;
 
@@ -2628,8 +2681,10 @@ static int sensor_4ec_main_flash_start(struct v4l2_subdev *subdev)
 
 	/* Main Flash On */
 	cam_info("%s: Main Flash On\n", __func__);
-#ifdef CONFIG_FLED_SM5703
+#if defined(CONFIG_FLED_SM5703)
 	sm5703_led_mode_ctrl(SM5703_FLED_MODE_FLASH);
+#elif defined(CONFIG_LEDS_S2MU005)
+	s2mu005_led_mode_ctrl(S2MU005_FLED_MODE_FLASH);
 #endif
 
 	/* Main Flash Start */
@@ -2674,8 +2729,10 @@ static int sensor_4ec_main_flash_stop(struct v4l2_subdev *subdev)
 
 	/* Main Flash Off */
 	cam_info("%s: Main Flash Off\n", __func__);
-#ifdef CONFIG_FLED_SM5703
+#if defined(CONFIG_FLED_SM5703)
 	sm5703_led_mode_ctrl(SM5703_FLED_MODE_OFF);
+#elif defined(CONFIG_LEDS_S2MU005)
+	s2mu005_led_mode_ctrl(S2MU005_FLED_MODE_OFF);
 #endif
 	module_4ec->flash_status = FLASH_STATUS_OFF;
 
@@ -2974,6 +3031,7 @@ static int sensor_4ec_auto_focus_softlanding(struct v4l2_subdev *subdev)
 	int ret = 0;
 	struct fimc_is_module_enum *module;
 	struct fimc_is_module_4ec *module_4ec;
+	u32 frame_delay, delay = 0;
 
 	BUG_ON(!subdev);
 
@@ -3002,8 +3060,21 @@ static int sensor_4ec_auto_focus_softlanding(struct v4l2_subdev *subdev)
 		goto p_err;
 	}
 
+	frame_delay = sensor_4ec_get_frame_duration(subdev);
+
+	if (module_4ec->focus_mode == V4L2_FOCUS_MODE_AUTO) {
+		delay = CONST_SOFTLANDING_DELAY_AUTO_MS + frame_delay;
+	} else if (module_4ec->focus_mode == V4L2_FOCUS_MODE_MACRO) {
+		delay = CONST_SOFTLANDING_DELAY_MACRO_MS + frame_delay * 3;
+	}
+
+	if (delay > MAX_SOFTLANDING_DELAY_MS)
+		delay = MAX_SOFTLANDING_DELAY_MS;
+
+	cam_info("%s: softlanding delay = %d ms\n", __func__, delay);
+
 	/* Delay for moving lens */
-	msleep(SOFTLANDING_DELAY_MS);
+	msleep(delay);
 
 p_err:
 	return ret;
@@ -3445,6 +3516,28 @@ p_err:
 static int sensor_4ec_s_power_off(struct v4l2_subdev *subdev, u32 val)
 {
 	int ret = 0;
+	struct fimc_is_module_enum *module;
+	struct fimc_is_module_4ec *module_4ec;
+
+	BUG_ON(!subdev);
+
+	module = (struct fimc_is_module_enum *)v4l2_get_subdevdata(subdev);
+	if (unlikely(!module)) {
+		err("module is NULL");
+		ret = -EINVAL;
+		goto p_err;
+	}
+
+	module_4ec = module->private_data;
+	if (unlikely(!module_4ec)) {
+		err("module_4ec is NULL");
+		ret = -EINVAL;
+		goto p_err;
+	}
+
+	flush_work(&module_4ec->set_focus_mode_work);
+	flush_work(&module_4ec->af_work);
+	flush_work(&module_4ec->af_stop_work);
 
 	cam_info("%s: %d\n", __func__, val);
 
@@ -3459,6 +3552,8 @@ static int sensor_4ec_s_power_off(struct v4l2_subdev *subdev, u32 val)
 		sm5703_led_mode_ctrl(SM5703_FLED_MODE_EXT_GPIO_DISABLE);
 		flash_control_ready = false;
 	}
+#elif defined(CONFIG_LEDS_S2MU005)
+    s2mu005_led_mode_ctrl(S2MU005_FLED_MODE_OFF);
 #endif
 
 p_err:
@@ -3850,7 +3945,11 @@ static int sensor_4ec_power_setpin(struct i2c_client *client,
 #endif
 	SET_PIN(pdata, SENSOR_SCENARIO_EXTERNAL, GPIO_SCENARIO_ON, gpio_none, "VDDAF_2.8V_CAM", PIN_REGULATOR, 1, 2000);
 	SET_PIN(pdata, SENSOR_SCENARIO_EXTERNAL, GPIO_SCENARIO_ON, gpio_none, "pin", PIN_FUNCTION, 0, 30);
+#if defined (VDDD_1P2_CAM_GPIO_CONTROL)
+	SET_PIN(pdata, SENSOR_SCENARIO_EXTERNAL, GPIO_SCENARIO_ON, gpio_core_en, NULL, PIN_OUTPUT, 1, 1000);
+#else
 	SET_PIN(pdata, SENSOR_SCENARIO_EXTERNAL, GPIO_SCENARIO_ON, gpio_none, "VDDD_1.2V_CAM", PIN_REGULATOR, 1, 1000);
+#endif
 	SET_PIN(pdata, SENSOR_SCENARIO_EXTERNAL, GPIO_SCENARIO_ON, gpio_standby, NULL, PIN_OUTPUT, 1, 1000);
 	SET_PIN(pdata, SENSOR_SCENARIO_EXTERNAL, GPIO_SCENARIO_ON, gpio_reset, NULL, PIN_OUTPUT, 1, 1000);
 
@@ -3865,7 +3964,11 @@ static int sensor_4ec_power_setpin(struct i2c_client *client,
 	SET_PIN(pdata, SENSOR_SCENARIO_EXTERNAL, GPIO_SCENARIO_OFF, gpio_none, "VDD_CAM_SENSOR_A2P8", PIN_REGULATOR, 0, 0);
 #endif
 	SET_PIN(pdata, SENSOR_SCENARIO_EXTERNAL, GPIO_SCENARIO_OFF, gpio_none, "VDDAF_2.8V_CAM", PIN_REGULATOR, 0, 0);
+#if defined (VDDD_1P2_CAM_GPIO_CONTROL)
+	SET_PIN(pdata, SENSOR_SCENARIO_EXTERNAL, GPIO_SCENARIO_OFF, gpio_core_en, NULL, PIN_OUTPUT, 0, 0);
+#else
 	SET_PIN(pdata, SENSOR_SCENARIO_EXTERNAL, GPIO_SCENARIO_OFF, gpio_none, "VDDD_1.2V_CAM", PIN_REGULATOR, 0, 0);
+#endif
 
 	cam_info("%s X\n", __func__);
 	return 0;

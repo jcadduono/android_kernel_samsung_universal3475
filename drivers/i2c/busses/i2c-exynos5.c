@@ -35,10 +35,6 @@
 #include <mach/apm-exynos.h>
 #endif
 
-#if defined(CONFIG_BATCHER_LOGGING)
-#include <linux/exynos-ss.h>
-#endif
-
 #if defined(CONFIG_CPU_IDLE) || \
 	defined(CONFIG_EXYNOS_APM)
 static LIST_HEAD(drvdata_list);
@@ -1497,13 +1493,6 @@ static int exynos5_i2c_xfer(struct i2c_adapter *adap,
 
 	if (i2c->need_hw_init)
 		exynos5_i2c_reset(i2c);
-
-#if defined(CONFIG_BATCHER_LOGGING)
-	if (i2c->support_hsi2c_batcher) {
-		exynos_ss_printkl(readl(i2c->regs_mailbox + 0x8),
-					readl(i2c->regs_mailbox + 0x28));
-	}
-#endif
 
 	if (!(i2c->support_hsi2c_batcher)) {
 		if (unlikely(!(readl(i2c->regs + HSI2C_CONF)

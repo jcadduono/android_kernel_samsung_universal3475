@@ -28,6 +28,14 @@ config MUIC_S2MM001
 	  If you say yes here you will get support for
 	  for the S2MM001 MUIC chip.
 
+config MUIC_S2MU005
+	bool "Using S2MU005 MUIC"
+	depends on USE_MUIC
+	default n
+	help
+	  If you say yes here you will get support for
+	  for the S2MU005 MUIC chip.
+
 config MUIC_SM5703
 	bool "SM5703 MUIC"
 	depends on USE_MUIC
@@ -57,3 +65,9 @@ config MUIC_UNIVERSAL_SM5703
 	help
 	  If you say yes here you will get support for the SM5703 MUIC chip.
 
+config MUIC_SUPPORT_VZW_ACC
+	bool "MUIC supports VZW ACC"
+	depends on MUIC_UNIVERSAL
+	default n
+	help
+	 If you say yes here you will get support for the VZW Accessory & Incompatible.

@@ -24,7 +24,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: dhd.h 561632 2015-06-05 13:09:58Z $
+ * $Id: dhd.h 587573 2015-09-21 13:26:14Z $
  */
 
 /****************
@@ -432,6 +432,8 @@ extern int dhd_os_wake_lock_ctrl_timeout_enable(dhd_pub_t *pub, int val);
 extern int dhd_os_wake_lock_ctrl_timeout_cancel(dhd_pub_t *pub);
 extern int dhd_os_wd_wake_lock(dhd_pub_t *pub);
 extern int dhd_os_wd_wake_unlock(dhd_pub_t *pub);
+extern void dhd_os_wake_lock_init(struct dhd_info *dhd);
+extern void dhd_os_wake_lock_destroy(struct dhd_info *dhd);
 
 inline static void MUTEX_LOCK_SOFTAP_SET_INIT(dhd_pub_t * dhdp)
 {
@@ -491,6 +493,18 @@ inline static void MUTEX_UNLOCK_SOFTAP_SET(dhd_pub_t * dhdp)
 			__FUNCTION__, __LINE__); \
 		dhd_os_wake_lock_ctrl_timeout_cancel(pub); \
 	} while (0)
+#define DHD_OS_WAKE_LOCK_INIT(dhd) \
+	do { \
+		printf("call wake_lock_init: %s %d\n", \
+			__FUNCTION__, __LINE__); \
+		dhd_os_wake_lock_init(dhd); \
+	} while (0)
+#define DHD_OS_WAKE_LOCK_DESTROY(dhd) \
+	do { \
+		printf("call wake_lock_destroy: %s %d\n", \
+			__FUNCTION__, __LINE__); \
+		dhd_os_wake_lock_destroy(dhd); \
+	} while (0)
 #else
 #define DHD_OS_WAKE_LOCK(pub)			dhd_os_wake_lock(pub)
 #define DHD_OS_WAKE_UNLOCK(pub)		dhd_os_wake_unlock(pub)
@@ -501,6 +515,8 @@ inline static void MUTEX_UNLOCK_SOFTAP_SET(dhd_pub_t * dhdp)
 	dhd_os_wake_lock_ctrl_timeout_enable(pub, val)
 #define DHD_OS_WAKE_LOCK_CTRL_TIMEOUT_CANCEL(pub) \
 	dhd_os_wake_lock_ctrl_timeout_cancel(pub)
+#define DHD_OS_WAKE_LOCK_INIT(dhd)		dhd_os_wake_lock_init(dhd)
+#define DHD_OS_WAKE_LOCK_DESTROY(dhd)		dhd_os_wake_lock_destroy(dhd)
 #endif /* DHD_DEBUG_WAKE_LOCK */
 
 #define DHD_OS_WD_WAKE_LOCK(pub)		dhd_os_wd_wake_lock(pub)
@@ -666,7 +682,7 @@ extern int dhd_net2idx(struct dhd_info *dhd, struct net_device *net);
 extern struct net_device * dhd_idx2net(void *pub, int ifidx);
 extern int net_os_send_hang_message(struct net_device *dev);
 extern int wl_host_event(dhd_pub_t *dhd_pub, int *idx, void *pktdata,
-                         size_t pktlen, wl_event_msg_t *, void **data_ptr);
+                         wl_event_msg_t *, void **data_ptr);
 extern void wl_event_to_host_order(wl_event_msg_t * evt);
 
 extern int dhd_wl_ioctl(dhd_pub_t *dhd_pub, int ifindex, wl_ioctl_t *ioc, void *buf, int len);
@@ -684,7 +700,7 @@ extern struct net_device* dhd_allocate_if(dhd_pub_t *dhdpub, int ifidx, char *na
 extern int dhd_remove_if(dhd_pub_t *dhdpub, int ifidx, bool need_rtnl_lock);
 extern void dhd_vif_add(struct dhd_info *dhd, int ifidx, char * name);
 extern void dhd_vif_del(struct dhd_info *dhd, int ifidx);
-extern void dhd_event(struct dhd_info *dhd, char *evpkt, uint evlen, int ifidx);
+extern void dhd_event(struct dhd_info *dhd, char *evpkt, int evlen, int ifidx);
 extern void dhd_vif_sendup(struct dhd_info *dhd, int ifidx, uchar *cp, int len);
 
 /* Send packet to dongle via data channel */

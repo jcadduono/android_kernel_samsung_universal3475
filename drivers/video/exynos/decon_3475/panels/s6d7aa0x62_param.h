@@ -70,22 +70,12 @@ static const unsigned char SEQ_TEST_KEY_OFF_F1[] = {
 
 static const unsigned char SEQ_TEST_KEY_ON_FC[] = {
 	0xFC,
-	0xA5, 0xA5,
+	0x5A, 0x5A,
 };
 
 static const unsigned char SEQ_TEST_KEY_OFF_FC[] = {
 	0xFC,
-	0x5A, 0x5A,
-};
-
-static const unsigned char SEQ_CMD_TABLE_3_51[] = {
-	0x51,
-    0x23,
-};
-
-static const unsigned char SEQ_CMD_TABLE_1_51[] = {
-    0x51,
-    0xB7,
+	0xA5, 0xA5,
 };
 
 /* Commands for SEC S6D7AA0X62 */
@@ -139,7 +129,7 @@ static const unsigned char SEQ_S6D7AA0X62_INIT_7[] = {
 
 static const unsigned char SEQ_S6D7AA0X62_INIT_8[] = {
 	0xC1,
-	0x01
+	0x03
 };
 
 static const unsigned char SEQ_S6D7AA0X62_INIT_9[] = {
@@ -215,16 +205,6 @@ static const unsigned char SEQ_S6D7AA0X62_INIT_21[] = {
 static const unsigned char SEQ_S6D7AA0X62_INIT_22[] = {
 	0xCE,
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-};
-
-static const unsigned char SEQ_S6D7AA0X62_INIT_22_51[] = {
-	0x51,
-	0x00
-};
-
-static const unsigned char SEQ_S6D7AA0X62_INIT_22_53[] = {
-	0x53,
-	0x2C
 };
 
 static const unsigned char SEQ_S6D7AA0X62_INIT_23[] = {

@@ -33,14 +33,13 @@
 #include <linux/usb_notify.h>
 #endif
 
-#define ENABLE_AICL 1
-
-#define EN_NOBAT_IRQ	0
-#define EN_DONE_IRQ		1
-#define EN_TOPOFF_IRQ	1
-#define EN_CHGON_IRQ	0
-#define EN_AICL_IRQ		1
-#define EN_OTGFAIL_IRQ	1
+#define EN_NOBAT_IRQ		0
+#define EN_DONE_IRQ			1
+#define EN_TOPOFF_IRQ		1
+#define EN_CHGON_IRQ		0
+#define EN_OTGFAIL_IRQ		1
+#define EN_VBUSLIMIT_IRQ	0
+#define EN_AICL_IRQ			1
 
 #define MINVAL(a, b) ((a <= b) ? a : b)
 
@@ -76,10 +75,10 @@ typedef struct sm5703_charger_data {
 	struct power_supply	psy_chg;
 	sm5703_charger_platform_data_t *pdata;
 	int charging_current;
-	struct wake_lock aicl_wake_lock;
-	struct delayed_work aicl_work;
+	struct wake_lock vbuslimit_wake_lock;
+	struct delayed_work vbuslimit_work;
 	int	current_max;
-	bool aicl_state;
+	bool is_current_reduced;
 	int siop_level;
 	int cable_type;
 	bool is_charging;
@@ -188,6 +187,10 @@ static void sm5703_charger_otg_control(struct sm5703_charger_data *charger,
 static void sm5703_enable_charger_switch(struct sm5703_charger_data *charger,
 		int onoff)
 {
+#ifdef CONFIG_CHARGER_SM5703_DUALPATH
+	union power_supply_propval batt_pres;
+#endif
+
 	if (onoff > 0) {
 		pr_info("%s: turn on charger\n", __func__);
 #ifdef CONFIG_FLED_SM5703
@@ -221,6 +224,17 @@ static void sm5703_enable_charger_switch(struct sm5703_charger_data *charger,
 			charger->nchgen); //nCHG disable
 		pr_info("%s : STATUS OF CHARGER ON(0)/OFF(1): %d\n",
 			__func__, charger->nchgen);
+
+#ifdef CONFIG_CHARGER_SM5703_DUALPATH
+		psy_do_property("battery", get,
+					POWER_SUPPLY_PROP_PRESENT, batt_pres);
+		if(batt_pres.intval == false) {
+			sm5703_assign_bits(charger->sm5703->i2c_client,
+					SM5703_CNTL, SM5703_OPERATION_MODE_MASK,
+					SM5703_OPERATION_MODE_SUSPEND);
+			pr_info("%s: Set SM5703 mode to Suspend, W/O for VF check \n",__func__);
+		}
+#endif
 	}
 }
 
@@ -288,9 +302,7 @@ static void sm5703_set_aiclth(struct sm5703_charger_data *charger,
 	if (aiclth >= 4900)
 		aiclth = 4900;
 
-	if(aiclth <= 4300)
-		data &= ~SM5703_AICLTH;
-	else {
+	if(aiclth >= 4300) {
 		temp = (aiclth - 4300)/100;
 		data |= temp;
 	}
@@ -302,6 +314,29 @@ static void sm5703_set_aiclth(struct sm5703_charger_data *charger,
 			__func__, data);    
 	mutex_unlock(&charger->io_lock);
 }
+
+#if EN_AICL_IRQ
+static void sm5703_set_aicl_irq(struct sm5703_charger_data *charger,
+			int mask)
+{
+	struct i2c_client *i2c = charger->sm5703->i2c_client;
+	int data = 0;
+
+	mutex_lock(&charger->io_lock);
+	data = sm5703_reg_read(i2c, SM5703_INTMSK1);
+	data &= 0xFE;
+
+	if (mask)
+		data |= 0x01;
+
+	sm5703_reg_write(i2c, SM5703_INTMSK1, data);
+
+	data = sm5703_reg_read(i2c, SM5703_INTMSK1);
+	pr_info("%s : SM5703_INTMSK1 (AICH-MASK) : 0x%02x, mask : %d\n",
+			__func__, data, mask);
+	mutex_unlock(&charger->io_lock);
+}
+#endif
 
 static void sm5703_set_freqsel(struct sm5703_charger_data *charger,
 		int freqsel_hz)
@@ -338,9 +373,9 @@ static void sm5703_set_input_current_limit(struct sm5703_charger_data *charger,
 	if (current_limit >= 2100)
 		current_limit = 2100;
 
-	if (charger->current_max < current_limit && charger->aicl_state) {
-		pr_info("%s: skip set input current limit(%d <--> %d), aicl_state(%d)\n",
-			__func__, charger->current_max, current_limit, charger->aicl_state);
+	if (charger->current_max < current_limit && charger->is_current_reduced) {
+		pr_info("%s: skip set input current limit(%d <--> %d)\n",
+			__func__, charger->current_max, current_limit);
 	} else {
 		if (current_limit > 100) {
 			temp = ((current_limit - 100) / 50) | data;
@@ -350,6 +385,18 @@ static void sm5703_set_input_current_limit(struct sm5703_charger_data *charger,
 		data = sm5703_reg_read(i2c, SM5703_VBUSCNTL);
 		pr_info("%s : SM5703_VBUSCNTL (Input current limit) : 0x%02x\n",
 				__func__, data);
+
+		if (charger->pdata->chg_vbuslimit
+#if EN_AICL_IRQ
+			/* check aicl state */
+			&& (sm5703_reg_read(i2c, SM5703_STATUS1) & 0x01)
+#endif
+			) {
+			/* start vbuslimit work */
+			wake_lock(&charger->vbuslimit_wake_lock);
+			queue_delayed_work_on(0, charger->wq,
+				&charger->vbuslimit_work, msecs_to_jiffies(START_VBUSLIMIT_DELAY));
+		}
 	}
 
 	mutex_unlock(&charger->io_lock);
@@ -552,37 +599,6 @@ static void sm5703_set_bst_iq3limit(struct sm5703_charger_data *charger,
 	mutex_unlock(&charger->io_lock);
 }
 
-enum {
-	SM5703_AICL_4300MV = 0,
-	SM5703_AICL_4400MV,
-	SM5703_AICL_4500MV,
-	SM5703_AICL_4600MV,
-	SM5703_AICL_4700MV,
-	SM5703_AICL_4800MV,
-	SM5703_AICL_4900MV,
-};
-
-#if ENABLE_AICL
-/* Dedicated charger (non-USB) device
- * will use lower AICL level to get better performance
- */
-static void sm5703_set_aicl_level(struct sm5703_charger_data *charger)
-{
-	int aicl;
-	switch(charger->cable_type) {
-		case POWER_SUPPLY_TYPE_USB ... POWER_SUPPLY_TYPE_USB_ACA:
-			aicl = SM5703_AICL_4500MV;
-			break;
-		default:
-			aicl = SM5703_AICL_4500MV;
-	}
-	mutex_lock(&charger->io_lock);
-	sm5703_assign_bits(charger->sm5703->i2c_client,
-			SM5703_CHGCNTL5, SM5703_AICLTH_MASK, aicl);
-	mutex_unlock(&charger->io_lock);
-}
-#endif /*ENABLE_AICL*/
-
 static void sm5703_configure_charger(struct sm5703_charger_data *charger)
 {
 
@@ -597,9 +613,6 @@ static void sm5703_configure_charger(struct sm5703_charger_data *charger)
 		return;
 	}
 
-#if ENABLE_AICL
-	sm5703_set_aicl_level(charger);
-#endif /*DISABLE_AICL*/
 	psy_do_property("battery", get,
 			POWER_SUPPLY_PROP_CHARGE_NOW, val);
 
@@ -617,6 +630,7 @@ static void sm5703_configure_charger(struct sm5703_charger_data *charger)
 	sm5703_set_regulation_voltage(charger,
 			charger->pdata->chg_float_voltage);
 
+	/* Fast charge and Termination current */
 	/* Selecting termination current */
 	if (charger->pdata->full_check_type_2nd == SEC_BATTERY_FULLCHARGED_CHGPSY) {
 		psy_do_property("battery", get,
@@ -635,21 +649,12 @@ static void sm5703_configure_charger(struct sm5703_charger_data *charger)
 			[charger->cable_type].full_check_current_1st;
 	}
 
-	/* Fast charge and Termination current */
 	pr_info("%s : fast charging current (%dmA), topoff current (%dmA)\n",
 			__func__, charger->charging_current, topoff);
 	sm5703_set_charging_current(charger, topoff, 1);
 
 	/* Charging Enable/Disable. */
 	/* sm5703_enable_charger_switch(charger, 1); */
-
-	/* check aicl state */
-	if ((sm5703_reg_read(charger->sm5703->i2c_client, SM5703_STATUS1) & 0x01) &&
-				!charger->aicl_state) {
-		charger->aicl_state = true;
-		wake_lock(&charger->aicl_wake_lock);
-		queue_delayed_work_on(0, charger->wq, &charger->aicl_work, msecs_to_jiffies(50));
-	}
 }
 
 /* here is set init charger data */
@@ -736,8 +741,8 @@ static int sm5703_get_charging_health(struct sm5703_charger_data *charger)
 	int vbus_status = sm5703_reg_read(charger->sm5703->i2c_client, SM5703_STATUS5);
 	int health = POWER_SUPPLY_HEALTH_GOOD;
 
-	pr_info("%s : charger->is_charging = %d, charger->cable_type = %d, charger->aicl_state = %d\n",
-		__func__, charger->is_charging, charger->cable_type, charger->aicl_state);
+	pr_info("%s : is_charging = %d, cable_type = %d, is_current_reduced = %d\n",
+		__func__, charger->is_charging, charger->cable_type, charger->is_current_reduced);
 
 	// temp for test
 	pr_info("%s : vbus_status = %d\n", __func__, vbus_status);
@@ -835,7 +840,7 @@ static int sec_chg_set_property(struct power_supply *psy,
 	struct sm5703_charger_data *charger =
 		container_of(psy, struct sm5703_charger_data, psy_chg);
 
-	int topoff;
+	int topoff, chg_current;
 	union power_supply_propval value;
 	int previous_cable_type = charger->cable_type;
 
@@ -850,8 +855,16 @@ static int sec_chg_set_property(struct power_supply *psy,
 				charger->current_max = charger->pdata->charging_current_table
 						[charger->cable_type].input_current_limit;
 				charger->charging_current = charger->pdata->charging_current_table
-                        [charger->cable_type].fast_charging_current;
-				charger->aicl_state = false;
+						[charger->cable_type].fast_charging_current;
+
+				charger->is_current_reduced = false;
+				if (charger->pdata->chg_vbuslimit){
+					wake_unlock(&charger->vbuslimit_wake_lock);
+					cancel_delayed_work(&charger->vbuslimit_work);
+				}
+#if EN_AICL_IRQ
+				sm5703_set_aicl_irq(charger, 0);
+#endif
 			}
 
 			if (val->intval == POWER_SUPPLY_TYPE_POWER_SHARING) {
@@ -907,15 +920,20 @@ static int sec_chg_set_property(struct power_supply *psy,
 			break;
 		case POWER_SUPPLY_PROP_CURRENT_AVG:
 #if defined(CONFIG_BATTERY_SWELLING)
-			if (val->intval > charger->pdata->charging_current_table
-				[charger->cable_type].fast_charging_current) {
+			if (val->intval > charger->charging_current) {
 				break;
 			}
 #endif
+			chg_current = val->intval * charger->siop_level / 100;
 			topoff = sm5703_get_current_topoff_setting(charger);
 			pr_info("%s:Set chg current = %d mA, topoff = %d mA\n", __func__,
-					val->intval, topoff);
-			sm5703_set_charging_current(charger, topoff, 0);
+					chg_current, topoff);
+			mutex_lock(&charger->io_lock);
+			__sm5703_set_fast_charging_current(charger->sm5703->i2c_client,
+					chg_current);
+			__sm5703_set_termination_current_limit(
+					charger->sm5703->i2c_client, topoff);
+			mutex_unlock(&charger->io_lock);
 			break;
 		case POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN:
 			if (val->intval == charger->siop_level) {
@@ -1122,73 +1140,6 @@ static irqreturn_t sm5703_chg_topoff_irq_handler(int irq, void *data)
 }
 #endif /*EN_TOPOFF_IRQ*/
 
-static void sm5703_chg_aicl_work(struct work_struct *work)
-{
-	struct sm5703_charger_data *charger =
-		container_of(work, struct sm5703_charger_data, aicl_work.work);
-	struct i2c_client *i2c = charger->sm5703->i2c_client;
-	int reg_data = 0, temp = 0, aicl_state;
-	int current_limit = charger->current_max;
-
-	mutex_lock(&charger->io_lock);
-	/* disable aicl irq */
-	sm5703_assign_bits(i2c, SM5703_INTMSK1, 0x01, 0x01);
-
-	/* reduce input current */
-	reg_data = sm5703_reg_read(i2c, SM5703_VBUSCNTL);
-	reg_data &= ~SM5703_VBUSLIMIT;
-	do {
-		current_limit -= REDUCE_CURRENT_STEP;
-		temp = ((current_limit - 100) / 50) | reg_data;
-		sm5703_reg_write(i2c, SM5703_VBUSCNTL, temp);
-		msleep(200);
-		aicl_state = sm5703_reg_read(i2c, SM5703_STATUS1) & 0x01;
-		pr_info("%s: aicl state(%d), current limit(%d), max(%d)\n",
-			__func__, aicl_state, current_limit, charger->current_max);
-	} while (aicl_state && current_limit > MINIMUM_INPUT_CURRENT);
-	charger->current_max = current_limit;
-
-	/* check slow charging */
-	if (charger->current_max <= SLOW_CHARGING_CURRENT_STANDARD &&
-		charger->cable_type != POWER_SUPPLY_TYPE_BATTERY) {
-		union power_supply_propval value;
-		psy_do_property("battery", set,
-			POWER_SUPPLY_PROP_CHARGE_TYPE, value);
-		pr_info("%s: slow charging on : input current(%dmA), cable type(%d)\n",
-			__func__, charger->current_max, charger->cable_type);
-	}
-
-	/* enable aicl irq */
-	sm5703_assign_bits(i2c, SM5703_INTMSK1, 0x01, 0x00);
-	mutex_unlock(&charger->io_lock);
-	
-	wake_unlock(&charger->aicl_wake_lock);
-}
-
-#if EN_AICL_IRQ
-static irqreturn_t sm5703_chg_aicl_irq_handler(int irq, void *data)
-{
-	struct sm5703_charger_data *info = data;
-	struct i2c_client *iic = info->sm5703->i2c_client;
-
-#if EN_TEST_READ
-	sm5703_test_read(iic);
-#endif
-
-	pr_info("%s: cable type:%d, current max:%d, aicl_state:%d\n",
-		__func__, info->cable_type, info->current_max, info->aicl_state);
-
-	if (info->cable_type != POWER_SUPPLY_TYPE_BATTERY &&
-		info->current_max > MINIMUM_INPUT_CURRENT &&
-		!info->aicl_state) {
-		info->aicl_state = true;
-		wake_lock(&info->aicl_wake_lock);
-		queue_delayed_work_on(0, info->wq, &info->aicl_work, msecs_to_jiffies(50));
-	}
-	return IRQ_HANDLED;
-}
-#endif
-
 #if EN_CHGON_IRQ
 static irqreturn_t sm5703_chg_chgon_irq_handler(int irq, void *data)
 {
@@ -1232,6 +1183,93 @@ static irqreturn_t sm5703_chg_otgfail_irq_handler(int irq, void *data)
 }
 #endif /*EN_CHGON_IRQ*/
 
+static void sm5703_chg_vbuslimit_work(struct work_struct *work)
+{
+	struct sm5703_charger_data *charger =
+			container_of(work, struct sm5703_charger_data, vbuslimit_work.work);
+	struct i2c_client *i2c = charger->sm5703->i2c_client;
+
+	if (charger->cable_type != POWER_SUPPLY_TYPE_BATTERY) {
+		int vbuslimit_state;
+
+		vbuslimit_state = sm5703_reg_read(i2c, SM5703_STATUS1) & 0x08;
+		if (vbuslimit_state || (charger->current_max <= MINIMUM_INPUT_CURRENT)) {
+			/* check slow charging */
+			if (charger->is_current_reduced &&
+				charger->current_max <= SLOW_CHARGING_CURRENT_STANDARD) {
+				union power_supply_propval value;
+				psy_do_property("battery", set,
+					POWER_SUPPLY_PROP_CHARGE_TYPE, value);
+				pr_info("%s: slow charging on : input current(%dmA), cable type(%d)\n",
+					__func__, charger->current_max, charger->cable_type);
+			}
+			wake_unlock(&charger->vbuslimit_wake_lock);
+		} else {
+			/* reduce input current & restart vbuslimit work */
+			int reg_data, temp;
+
+			mutex_lock(&charger->io_lock);
+			charger->is_current_reduced = true;
+
+			charger->current_max -= REDUCE_CURRENT_STEP;
+			reg_data = sm5703_reg_read(i2c, SM5703_VBUSCNTL);
+			reg_data &= ~SM5703_VBUSLIMIT;
+			temp = ((charger->current_max - 100) / 50) | reg_data;
+			sm5703_reg_write(i2c, SM5703_VBUSCNTL, temp);
+			pr_info("%s: reduce input current(%d)\n", __func__, charger->current_max);
+			mutex_unlock(&charger->io_lock);
+
+			queue_delayed_work_on(0, charger->wq,
+				&charger->vbuslimit_work, msecs_to_jiffies(VBUSLIMIT_DELAY));
+		}
+		pr_info("%s: vbuslimit state(%d)\n", __func__, vbuslimit_state);
+	} else {
+		wake_unlock(&charger->vbuslimit_wake_lock);
+	}
+}
+
+#if EN_VBUSLIMIT_IRQ
+static irqreturn_t sm5703_chg_vbuslimit_irq_handler(int irq, void *data)
+{
+	struct sm5703_charger_data *charger = data;
+	struct i2c_client *i2c = charger->sm5703->i2c_client;
+
+	pr_info("%s: VBUS Limit\n", __func__);
+
+#if EN_TEST_READ
+	sm5703_test_read(i2c);
+#endif
+
+	return IRQ_HANDLED;
+}
+#endif /* EN_VBUSLIMIT_IRQ */
+
+#if EN_AICL_IRQ
+static irqreturn_t sm5703_chg_aicl_irq_handler(int irq, void *data)
+{
+	struct sm5703_charger_data *charger = data;
+	struct i2c_client *i2c = charger->sm5703->i2c_client;
+
+	pr_info("%s: AICL\n", __func__);
+
+	sm5703_set_aicl_irq(charger, 1);
+
+	if (charger->pdata->chg_vbuslimit &&
+		charger->cable_type != POWER_SUPPLY_TYPE_BATTERY) {
+		/* start vbuslimit work */
+		wake_lock(&charger->vbuslimit_wake_lock);
+		queue_delayed_work_on(0, charger->wq,
+			&charger->vbuslimit_work, msecs_to_jiffies(START_VBUSLIMIT_DELAY));
+	}
+
+#if EN_TEST_READ
+	sm5703_test_read(i2c);
+#endif
+
+	return IRQ_HANDLED;
+}
+#endif /* EN_AICL_IRQ */
+
 const struct sm5703_chg_irq_handler sm5703_chg_irq_handlers[] = {
 #if EN_NOBAT_IRQ    
 	{
@@ -1261,13 +1299,6 @@ const struct sm5703_chg_irq_handler sm5703_chg_irq_handlers[] = {
 		.irq_index = SM5703_CHGON_IRQ,
 	},
 #endif /*EN_CHGON_IRQ*/
-#if EN_AICL_IRQ
-	{
-		.name = SM5703_AICL_IRQ_NAME,
-		.handler = sm5703_chg_aicl_irq_handler,
-		.irq_index = SM5703_AICL_IRQ,
-	},
-#endif /* EN_AICL_IRQ */
 #if EN_OTGFAIL_IRQ
 	{
 		.name = "OTGFAIL",
@@ -1275,6 +1306,20 @@ const struct sm5703_chg_irq_handler sm5703_chg_irq_handlers[] = {
 		.irq_index = SM5703_OTGFAIL_IRQ,
 	},
 #endif /* EN_OTGFAIL_IRQ */
+#if EN_VBUSLIMIT_IRQ
+	{
+		.name = "VBUSLIMIT",
+		.handler = sm5703_chg_vbuslimit_irq_handler,
+		.irq_index = SM5703_VBUSLIMIT_IRQ,
+	},
+#endif /* EN_VBUSLIMIT_IRQ */
+#if EN_AICL_IRQ
+	{
+		.name = "AICL",
+		.handler = sm5703_chg_aicl_irq_handler,
+		.irq_index = SM5703_AICL_IRQ,
+	},
+#endif /* EN_VBUSLIMIT_IRQ */
 };
 
 
@@ -1377,6 +1422,12 @@ static int sm5703_charger_parse_dt(struct device *dev,
 	if (ret < 0) {
 		pr_info("%s : cannot get chg aiclth\n", __func__);
 		pdata->chg_aiclth = 4500;
+	}
+
+	ret = of_property_read_u32(np, "chg_vbuslimit", &pdata->chg_vbuslimit);
+	if (ret < 0) {
+		pr_info("%s : cannot get chg vbuslimit\n", __func__);
+		pdata->chg_vbuslimit = 0;
 	}
 
 	ret = of_property_read_u32(np, "fg_vol_val", &pdata->fg_vol_val);
@@ -1524,10 +1575,11 @@ static int sm5703_charger_probe(struct platform_device *pdev)
 	sm5703_chg_init(charger);
 
 	charger->wq = create_workqueue("sm5703chg_workqueue");
-	wake_lock_init(&charger->aicl_wake_lock, WAKE_LOCK_SUSPEND, "sm5703-aicl");
-#if EN_AICL_IRQ
-	INIT_DELAYED_WORK(&charger->aicl_work, sm5703_chg_aicl_work);
-#endif
+	if (charger->pdata->chg_vbuslimit) {
+		INIT_DELAYED_WORK(&charger->vbuslimit_work, sm5703_chg_vbuslimit_work);
+		wake_lock_init(&charger->vbuslimit_wake_lock, WAKE_LOCK_SUSPEND, "sm5703-vbuslimit");
+	}
+
 	ret = power_supply_register(&pdev->dev, &charger->psy_chg);
 	if (ret) {
 		pr_err("%s: Failed to Register psy_chg\n", __func__);
@@ -1551,7 +1603,9 @@ err_reg_irq:
 	power_supply_unregister(&charger->psy_chg);
 err_power_supply_register:
 	destroy_workqueue(charger->wq);
-	wake_lock_destroy(&charger->aicl_wake_lock);
+	if (charger->pdata->chg_vbuslimit) {
+		wake_lock_destroy(&charger->vbuslimit_wake_lock);
+	}
 err_parse_dt:
 err_parse_dt_nomem:
 	mutex_destroy(&charger->io_lock);
@@ -1566,7 +1620,9 @@ static int sm5703_charger_remove(struct platform_device *pdev)
 	unregister_irq(pdev, charger);
 	power_supply_unregister(&charger->psy_chg);
 	destroy_workqueue(charger->wq);
-	wake_lock_destroy(&charger->aicl_wake_lock);
+	if (charger->pdata->chg_vbuslimit) {
+		wake_lock_destroy(&charger->vbuslimit_wake_lock);
+	}
 	mutex_destroy(&charger->io_lock);
 	kfree(charger);
 	return 0;

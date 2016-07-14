@@ -26,8 +26,6 @@
 #include "fimc-is-device-sensor-peri.h"
 #include "fimc-is-core.h"
 
-extern bool assistive_light;
-
 static int flash_gpio_init(struct v4l2_subdev *subdev, u32 val)
 {
 	int ret = 0;
@@ -62,13 +60,6 @@ static int sensor_gpio_flash_control(struct v4l2_subdev *subdev, enum flash_mode
 
 	flash = (struct fimc_is_flash *)v4l2_get_subdevdata(subdev);
 	BUG_ON(!flash);
-
-	pr_info("%s : mode (%d)", __func__, mode);
-
-	if (assistive_light == true && (mode == CAM2_FLASH_MODE_OFF)) {
-		pr_info("%s : Don't Flash OFF.. assistive_light turn on \n", __func__);
-		return 0;
-	}
 
 	if (mode == CAM2_FLASH_MODE_OFF) {
 		ret = control_flash_gpio(flash->flash_gpio, 0);

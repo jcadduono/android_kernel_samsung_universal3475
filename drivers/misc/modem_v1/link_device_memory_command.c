@@ -52,7 +52,7 @@ static bool rild_ready(struct link_device *ld)
 
 	fmt_opened = atomic_read(&fmt_iod->opened);
 	rfs_opened = atomic_read(&rfs_iod->opened);
-	mif_err("%s: %s.opened=%d, %s.opened=%d\n", ld->name,
+	mif_info("%s: %s.opened=%d, %s.opened=%d\n", ld->name,
 		fmt_iod->name, fmt_opened, rfs_iod->name, rfs_opened);
 	if (fmt_opened > 0 && rfs_opened > 0)
 		return true;
@@ -67,7 +67,7 @@ static void cmd_init_start_handler(struct mem_link_device *mld)
 	struct modem_ctl *mc = ld->mc;
 	int err;
 
-	mif_err("%s: INIT_START <- %s (%s.state:%s cp_boot_done:%d)\n",
+	mif_info("%s: INIT_START <- %s (%s.state:%s cp_boot_done:%d)\n",
 		ld->name, mc->name, mc->name, mc_state(mc),
 		atomic_read(&mld->cp_boot_done));
 
@@ -89,7 +89,7 @@ static void cmd_init_start_handler(struct mem_link_device *mld)
 
 	sbd_activate(&mld->sbd_link_dev);
 
-	mif_err("%s: PIF_INIT_DONE -> %s\n", ld->name, mc->name);
+	mif_info("%s: PIF_INIT_DONE -> %s\n", ld->name, mc->name);
 	send_ipc_irq(mld, cmd2int(CMD_PIF_INIT_DONE));
 }
 #endif
@@ -101,7 +101,7 @@ static void cmd_phone_start_handler(struct mem_link_device *mld)
 	unsigned long flags;
 	int err;
 
-	mif_err("%s: CP_START <- %s (%s.state:%s cp_boot_done:%d)\n",
+	mif_info("%s: CP_START <- %s (%s.state:%s cp_boot_done:%d)\n",
 		ld->name, mc->name, mc->name, mc_state(mc),
 		atomic_read(&mld->cp_boot_done));
 
@@ -119,7 +119,7 @@ static void cmd_phone_start_handler(struct mem_link_device *mld)
 		even though it has already been in ONLINE state.
 		*/
 		if (rild_ready(ld)) {
-			mif_err("%s: INIT_END -> %s\n", ld->name, mc->name);
+			mif_info("%s: INIT_END -> %s\n", ld->name, mc->name);
 			send_ipc_irq(mld, cmd2int(CMD_INIT_END));
 		}
 		goto exit;
@@ -132,7 +132,7 @@ static void cmd_phone_start_handler(struct mem_link_device *mld)
 	}
 
 	if (rild_ready(ld)) {
-		mif_err("%s: INIT_END -> %s\n", ld->name, mc->name);
+		mif_info("%s: INIT_END -> %s\n", ld->name, mc->name);
 		send_ipc_irq(mld, cmd2int(CMD_INIT_END));
 		atomic_set(&mld->cp_boot_done, 1);
 	}

@@ -182,7 +182,7 @@ static const unsigned char SEQ_INIT_1[] = {
 
 static const unsigned char SEQ_INIT_2[] = {
 	0xC3,
-	0xC7, 0x00, 0x29
+	0xC7, 0x00, 0x2A
 };
 
 static const unsigned char SEQ_INIT_3[] = {

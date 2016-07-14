@@ -517,12 +517,11 @@ static int s6d7aa0x62_displayon(struct dsim_device *dsim)
 		goto displayon_err;
 	}
 
-
-	//ret = dsim_write_hl_data(dsim, SEQ_BR_OPEN, ARRAY_SIZE(SEQ_BR_OPEN));
-	//if (ret < 0) {
-	//	dsim_err("%s : fail to write CMD : SEQ_BR_OPEN\n", __func__);
-	//	goto displayon_err;
-	//}
+	ret = dsim_write_hl_data(dsim, SEQ_BR_OPEN, ARRAY_SIZE(SEQ_BR_OPEN));
+	if (ret < 0) {
+		dsim_err("%s : fail to write CMD : SEQ_BR_OPEN\n", __func__);
+		goto displayon_err;
+	}
 
 displayon_err:
 	return ret;
@@ -677,6 +676,12 @@ static int s6d7aa0x62_init(struct dsim_device *dsim)
 		goto init_exit;
 	}
 
+	ret = dsim_write_hl_data(dsim, SEQ_S6D7AA0X62_INIT_17, ARRAY_SIZE(SEQ_S6D7AA0X62_INIT_17));
+	if (ret < 0) {
+		dsim_err("%s : fail to write CMD : SEQ_S6D7AA0X62_INIT_17\n", __func__);
+		goto init_exit;
+	}
+
 	ret = dsim_write_hl_data(dsim, SEQ_S6D7AA0X62_INIT_18, ARRAY_SIZE(SEQ_S6D7AA0X62_INIT_18));
 	if (ret < 0) {
 		dsim_err("%s : fail to write CMD : SEQ_S6D7AA0X62_INIT_18\n", __func__);
@@ -707,24 +712,6 @@ static int s6d7aa0x62_init(struct dsim_device *dsim)
 		goto init_exit;
 	}
 
-	//ret = dsim_write_hl_data(dsim, SEQ_CMD_TABLE_3_51, ARRAY_SIZE(SEQ_CMD_TABLE_3_51));
-	//if (ret < 0) {
-	//	dsim_err("%s : fail to write CMD : SEQ_CMD_TABLE_3_51\n", __func__);
-	//	goto init_exit;
-	//}
-
-	ret = dsim_write_hl_data(dsim, SEQ_CMD_TABLE_1_51, ARRAY_SIZE(SEQ_CMD_TABLE_1_51));
-	if (ret < 0) {
-		dsim_err("%s : fail to write CMD : SEQ_CMD_TABLE_1_51\n", __func__);
-		goto init_exit;
-	}
-
-	ret = dsim_write_hl_data(dsim, SEQ_S6D7AA0X62_INIT_22_53, ARRAY_SIZE(SEQ_S6D7AA0X62_INIT_22_53));
-	if (ret < 0) {
-		dsim_err("%s : fail to write CMD : SEQ_S6D7AA0X62_INIT_22_53\n", __func__);
-		goto init_exit;
-	}
-
 	ret = dsim_write_hl_data(dsim, SEQ_S6D7AA0X62_INIT_23, ARRAY_SIZE(SEQ_S6D7AA0X62_INIT_23));
 	if (ret < 0) {
 		dsim_err("%s : fail to write CMD : SEQ_S6D7AA0X62_INIT_23\n", __func__);
@@ -743,9 +730,9 @@ static int s6d7aa0x62_init(struct dsim_device *dsim)
 		goto init_exit;
 	}
 
-	ret = dsim_write_hl_data(dsim, SEQ_TEST_KEY_OFF_F0, ARRAY_SIZE(SEQ_TEST_KEY_OFF_F0));
+	ret = dsim_write_hl_data(dsim, SEQ_TEST_KEY_OFF_FC, ARRAY_SIZE(SEQ_TEST_KEY_OFF_FC));
 	if (ret < 0) {
-		dsim_err("%s : fail to write CMD : SEQ_TEST_KEY_OFF_F0\n", __func__);
+		dsim_err("%s : fail to write CMD : SEQ_TEST_KEY_OFF_FC\n", __func__);
 		goto init_exit;
 	}
 
@@ -755,9 +742,9 @@ static int s6d7aa0x62_init(struct dsim_device *dsim)
 		goto init_exit;
 	}
 
-	ret = dsim_write_hl_data(dsim, SEQ_TEST_KEY_OFF_FC, ARRAY_SIZE(SEQ_TEST_KEY_OFF_FC));
+	ret = dsim_write_hl_data(dsim, SEQ_TEST_KEY_OFF_F0, ARRAY_SIZE(SEQ_TEST_KEY_OFF_F0));
 	if (ret < 0) {
-		dsim_err("%s : fail to write CMD : SEQ_TEST_KEY_OFF_FC\n", __func__);
+		dsim_err("%s : fail to write CMD : SEQ_TEST_KEY_OFF_F0\n", __func__);
 		goto init_exit;
 	}
 

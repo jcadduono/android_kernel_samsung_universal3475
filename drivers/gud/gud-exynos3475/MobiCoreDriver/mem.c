@@ -74,14 +74,14 @@ static int lock_pages(struct task_struct *task, void *virt_start_page_addr,
 
 	/* lock user pages, must hold the mmap_sem to do this. */
 	down_read(&(task->mm->mmap_sem));
-	locked_pages = get_user_pages(
+	locked_pages = __get_user_pages(
 				task,
 				task->mm,
 				(unsigned long)virt_start_page_addr,
 				pages_no,
-				1, /* write access */
-				0,
+				FOLL_TOUCH | FOLL_GET | FOLL_WRITE | FOLL_CMA,
 				pages,
+				NULL,
 				NULL);
 	up_read(&(task->mm->mmap_sem));
 

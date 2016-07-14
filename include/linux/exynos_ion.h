@@ -180,6 +180,11 @@ void ion_exynos_contig_heap_deisolate(int region_id);
 int ion_secure_protect(struct ion_heap *heap);
 int ion_secure_unprotect(struct ion_heap *heap);
 bool ion_is_heap_available(struct ion_heap *heap, unsigned long flags, void *data);
+#ifdef CONFIG_DMA_CMA
+int ion_exynos_isolate_async(int region_id);
+#else
+#define ion_exynos_isolate_async(id) (0)
+#endif
 #else
 #define exynos_ion_sync_dmabuf_for_device(dev, dmabuf, size, dir) \
 							do { } while (0)
@@ -193,6 +198,7 @@ bool ion_is_heap_available(struct ion_heap *heap, unsigned long flags, void *dat
 #define ion_secure_protect(heap) do { } while (0)
 #define ion_secure_unprotect(heap) do { } while (0)
 #define ion_is_heap_available(heap, flags, data) (1)
+#define ion_exynos_isolate_async(id) (0)
 
 static inline int ion_exynos_contig_region_mask(char *region_name)
 {

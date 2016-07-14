@@ -1025,7 +1025,6 @@
 			 compatible = "samsung,exynos7420-sysmmu";
 			 reg = <0x12C90000 0x1000>;
 			 interrupts = <0 359 0>;
-			 sysmmu,block-when-stop;
 			 pb-info {
 				 pb@0 {
 					 master_axi_id_list = <&mfc_0>;

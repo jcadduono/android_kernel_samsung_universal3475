@@ -568,3 +568,7 @@ config SND_SOC_ML26124
 
 config SND_SOC_TPA6130A2
 	tristate
+
+config SND_RF_REF_RCV_STATE
+	bool "RCV state gpio for RF calibration reference"
+	default n	

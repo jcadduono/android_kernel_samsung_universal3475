@@ -238,7 +238,7 @@ void mdm_ready_handler(struct mem_link_device *mld, struct iosm_msg *msg)
 	struct link_device *ld = &mld->link_dev;
 	struct modem_ctl *mc = ld->mc;
 
-	mif_err("%s: %s.state:%s cp_boot_done:%d\n", ld->name,
+	mif_info("%s: %s.state:%s cp_boot_done:%d\n", ld->name,
 		mc->name, mc_state(mc), atomic_read(&mld->cp_boot_done));
 
 	if (!ld->sbd_ipc) {
@@ -323,7 +323,7 @@ void ack_handler(struct mem_link_device *mld, struct iosm_msg *msg)
 	struct link_device *ld = &mld->link_dev;
 	struct modem_ctl *mc = ld->mc;
 
-	mif_err("got ack for msg id = 0x%x\n", msg->ack.msg_id);
+	mif_info("got ack for msg id = 0x%x\n", msg->ack.msg_id);
 
 	switch (msg->ack.msg_id) {
 	case IOSM_A2C_AP_READY:

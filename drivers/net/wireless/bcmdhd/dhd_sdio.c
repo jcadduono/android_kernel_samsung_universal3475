@@ -21,7 +21,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: dhd_sdio.c 557250 2015-05-18 08:52:07Z $
+ * $Id: dhd_sdio.c 584190 2015-09-04 10:46:38Z $
  */
 
 #include <typedefs.h>
@@ -1694,10 +1694,9 @@ dhd_bus_txdata(struct dhd_bus *bus, void *pkt)
 	int ret = BCME_ERROR;
 	osl_t *osh;
 	uint datalen, prec;
-#if defined(DHD_TX_DUMP) || defined(DHD_8021X_DUMP)
+#if defined(DHD_TX_DUMP)
 	uint8 *dump_data;
-	uint16 protocol;
-#endif /* DHD_TX_DUMP || DHD_8021X_DUMP */
+#endif /* DHD_TX_DUMP */
 
 	DHD_TRACE(("%s: Enter\n", __FUNCTION__));
 
@@ -1720,18 +1719,9 @@ dhd_bus_txdata(struct dhd_bus *bus, void *pkt)
 	BCM_REFERENCE(datalen);
 #endif /* SDTEST */
 
-#if defined(DHD_TX_DUMP) || defined(DHD_8021X_DUMP)
+#if defined(DHD_TX_DUMP) && defined(DHD_TX_FULL_DUMP)
 	dump_data = PKTDATA(osh, pkt);
 	dump_data += 4; /* skip 4 bytes header */
-	protocol = (dump_data[12] << 8) | dump_data[13];
-
-	if (protocol == ETHER_TYPE_802_1X) {
-		DHD_ERROR(("ETHER_TYPE_802_1X [TX]: ver %d, type %d, replay %d\n",
-			dump_data[14], dump_data[15], dump_data[30]));
-	}
-#endif /* DHD_TX_DUMP || DHD_8021X_DUMP */
-
-#if defined(DHD_TX_DUMP) && defined(DHD_TX_FULL_DUMP)
 	{
 		int i;
 		DHD_ERROR(("TX DUMP\n"));
@@ -9115,31 +9105,6 @@ static int concate_revision_bcm43341(dhd_bus_t *bus,
 }
 
 static int
-concate_revision_bcm43454(dhd_bus_t *bus,
-        char *fw_path, int fw_path_len, char *nv_path, int nv_path_len)
-{
-	char chipver_tag[10] = {0, };
-#ifdef SUPPORT_MULTIPLE_BOARD_REV_FROM_DT
-	int base_system_rev_for_nv = 0;
-#endif /* SUPPORT_MULTIPLE_BOARD_REV_FROM_DT */
-
-	DHD_TRACE(("%s: BCM43455 Multiple Revision Check\n", __FUNCTION__));
-	if (bus->sih->chip != BCM43454_CHIP_ID) {
-		DHD_ERROR(("%s:Chip is not BCM43454!\n", __FUNCTION__));
-		return -1;
-	}
-#ifdef SUPPORT_MULTIPLE_BOARD_REV_FROM_DT
-	base_system_rev_for_nv = dhd_get_system_rev();
-	if (base_system_rev_for_nv > 0) {
-		DHD_ERROR(("----- Board Rev  [%d]-----\n", base_system_rev_for_nv));
-		sprintf(chipver_tag, "_r%02d", base_system_rev_for_nv);
-	}
-#endif /* SUPPORT_MULTIPLE_BOARD_REV_FROM_DT */
-	strcat(nv_path, chipver_tag);
-	return 0;
-}
-
-static int
 concate_revision_bcm43455(dhd_bus_t *bus,
         char *fw_path, int fw_path_len, char *nv_path, int nv_path_len)
 {
@@ -9214,9 +9179,6 @@ concate_revision(dhd_bus_t *bus, char *fw_path, int fw_path_len, char *nv_path, 
 	case BCM43341_CHIP_ID:
 		res = concate_revision_bcm43341(bus, fw_path, fw_path_len, nv_path, nv_path_len);
 		break;
-	case BCM43454_CHIP_ID:
-		res = concate_revision_bcm43454(bus, fw_path, fw_path_len, nv_path, nv_path_len);
-		break;		
 	case BCM4345_CHIP_ID:
 		res = concate_revision_bcm43455(bus, fw_path, fw_path_len, nv_path, nv_path_len);
 		break;

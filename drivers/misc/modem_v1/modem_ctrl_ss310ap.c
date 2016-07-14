@@ -103,7 +103,7 @@ static void cp_active_handler(void *arg)
 	enum modem_state old_state = mc->phone_state;
 	enum modem_state new_state = mc->phone_state;
 
-	mif_err("old_state:%s cp_on:%d cp_active:%d\n",
+	mif_info("old_state:%s cp_on:%d cp_active:%d\n",
 		cp_state_str(old_state), cp_on, cp_active);
 
 	if (!cp_active) {
@@ -116,7 +116,7 @@ static void cp_active_handler(void *arg)
 	}
 
 	if (old_state != new_state) {
-		mif_err("new_state = %s\n", cp_state_str(new_state));
+		mif_info("new_state = %s\n", cp_state_str(new_state));
 
 		/* Disable debug Snapshot */
 		mif_set_snapshot(false);
@@ -205,8 +205,8 @@ static int ss310ap_on(struct modem_ctl *mc)
 	int cp_active = mbox_get_value(mc->mbx_phone_active);
 	int cp_status = mbox_get_value(mc->mbx_cp_status);
 
-	mif_err("+++\n");
-	mif_err("cp_active:%d cp_status:%d\n", cp_active, cp_status);
+	mif_info("+++\n");
+	mif_info("cp_active:%d cp_status:%d\n", cp_active, cp_status);
 
 	/* Enable debug Snapshot */
 	mif_set_snapshot(true);
@@ -219,7 +219,7 @@ static int ss310ap_on(struct modem_ctl *mc)
 	mbox_set_value(mc->mbx_pda_active, 1);
 
 	if (exynos_get_cp_power_status() > 0) {
-		mif_err("CP aleady Power on, Just start!\n");
+		mif_info("CP aleady Power on, Just start!\n");
 		exynos_cp_release();
 	} else {
 		exynos_set_cp_power_onoff(CP_POWER_ON);
@@ -227,19 +227,19 @@ static int ss310ap_on(struct modem_ctl *mc)
 
 	msleep(300);
 	ret = change_cp_pmu_manual_reset();
-	mif_err("change_mr_reset -> %d\n", ret);
+	mif_info("change_mr_reset -> %d\n", ret);
 
-	mif_err("---\n");
+	mif_info("---\n");
 	return 0;
 }
 
 static int ss310ap_off(struct modem_ctl *mc)
 {
-	mif_err("+++\n");
+	mif_info("+++\n");
 
 	exynos_set_cp_power_onoff(CP_POWER_OFF);
 
-	mif_err("---\n");
+	mif_info("---\n");
 	return 0;
 }
 
@@ -249,7 +249,7 @@ static int ss310ap_shutdown(struct modem_ctl *mc)
 	unsigned long timeout = msecs_to_jiffies(3000);
 	unsigned long remain;
 
-	mif_err("+++\n");
+	mif_info("+++\n");
 
 	if (mc->phone_state == STATE_OFFLINE
 		|| exynos_get_cp_power_status() <= 0)
@@ -268,23 +268,23 @@ static int ss310ap_shutdown(struct modem_ctl *mc)
 
 exit:
 	exynos_set_cp_power_onoff(CP_POWER_OFF);
-	mif_err("---\n");
+	mif_info("---\n");
 	return 0;
 }
 
 static int ss310ap_reset(struct modem_ctl *mc)
 {
-	mif_err("+++\n");
+	mif_info("+++\n");
 
 	if (mc->phone_state == STATE_ONLINE)
 		modem_notify_event(MODEM_EVENT_RESET);
 
 	if (exynos_get_cp_power_status() > 0) {
-		mif_err("CP aleady Power on, try reset\n");
+		mif_info("CP aleady Power on, try reset\n");
 		exynos_cp_reset();
 	}
 
-	mif_err("---\n");
+	mif_info("---\n");
 	return 0;
 }
 
@@ -458,7 +458,7 @@ int ss310ap_init_modemctl_device(struct modem_ctl *mc, struct modem_data *pdata)
 	unsigned long flags = IRQF_NO_SUSPEND | IRQF_NO_THREAD;
 	unsigned int cp_rst_n ;
 
-	mif_err("+++\n");
+	mif_info("+++\n");
 
 	ss310ap_get_ops(mc);
 	ss310ap_get_pdata(mc, pdata);
@@ -514,7 +514,7 @@ int ss310ap_init_modemctl_device(struct modem_ctl *mc, struct modem_data *pdata)
 	if (np)	{
 		cp_rst_n = of_get_named_gpio(np, "modem_ctrl,gpio_cp_rst_n", 0);
 		if (gpio_is_valid(cp_rst_n)) {
-			mif_err("cp_rst_n: %d\n", cp_rst_n);
+			mif_info("cp_rst_n: %d\n", cp_rst_n);
 			ret = gpio_request(cp_rst_n, "CP_RST_N");
 			if (ret)	{
 				mif_err("fail req gpio %s:%d\n", "CP_RST_N", ret);
@@ -538,6 +538,6 @@ int ss310ap_init_modemctl_device(struct modem_ctl *mc, struct modem_data *pdata)
 	busmon_notifier_chain_register(&mc->busmon_nfb);
 #endif
 
-	mif_err("---\n");
+	mif_info("---\n");
 	return 0;
 }

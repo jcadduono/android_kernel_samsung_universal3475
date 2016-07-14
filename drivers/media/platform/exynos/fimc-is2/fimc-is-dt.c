@@ -1101,7 +1101,6 @@ int fimc_is_sensor_module_soc_parse_dt(struct i2c_client *client,
 	return ret;
 
 p_err:
-	kfree(pdata);
 	return ret;
 }
 #endif /*CONFIG_CAMERA_USE_SOC_SENSOR*/

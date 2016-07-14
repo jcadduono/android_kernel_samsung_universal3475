@@ -490,7 +490,7 @@ static int k2hh_open_calibration(struct k2hh_p *data)
 		data->caldata.y = 0;
 		data->caldata.z = 0;
 
-		SENSOR_ERR(" No Calibration\n");
+		SENSOR_INFO(" No Calibration\n");
 
 		return ret;
 	}
@@ -866,6 +866,7 @@ static ssize_t k2hh_raw_data_read(struct device *dev,
 			acc.x, acc.y, acc.z);
 }
 
+#if !defined(K2HH_SMART_ALERT_NOT_SUPPORT)
 static ssize_t k2hh_reactive_alert_show(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
@@ -953,6 +954,7 @@ static ssize_t k2hh_reactive_alert_store(struct device *dev,
 
 	return size;
 }
+#endif
 
 static ssize_t k2hh_selftest_show(struct device *dev,
 	struct device_attribute *attr, char *buf)
@@ -1078,17 +1080,20 @@ static DEVICE_ATTR(calibration, S_IRUGO | S_IWUSR | S_IWGRP,
 static DEVICE_ATTR(lowpassfilter, S_IRUGO | S_IWUSR | S_IWGRP,
 	k2hh_lowpassfilter_show, k2hh_lowpassfilter_store);
 static DEVICE_ATTR(raw_data, S_IRUGO, k2hh_raw_data_read, NULL);
+#if !defined(K2HH_SMART_ALERT_NOT_SUPPORT)
 static DEVICE_ATTR(reactive_alert, S_IRUGO | S_IWUSR | S_IWGRP,
 	k2hh_reactive_alert_show, k2hh_reactive_alert_store);
-
+#endif
 static struct device_attribute *sensor_attrs[] = {
 	&dev_attr_name,
 	&dev_attr_vendor,
 	&dev_attr_calibration,
 	&dev_attr_lowpassfilter,
 	&dev_attr_raw_data,
-	&dev_attr_reactive_alert,
 	&dev_attr_selftest,
+#if !defined(K2HH_SMART_ALERT_NOT_SUPPORT)
+	&dev_attr_reactive_alert,
+#endif
 	NULL,
 };
 

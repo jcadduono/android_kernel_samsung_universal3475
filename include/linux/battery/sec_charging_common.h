@@ -154,6 +154,17 @@ enum sec_battery_full_charged {
 	/* charger power supply property, NO additional full condition */
 	SEC_BATTERY_FULLCHARGED_CHGPSY,
 };
+
+/* Self discharger type */
+enum sec_battery_discharger_type {
+	/* type ADC */
+	SEC_BAT_SELF_DISCHARGING_BY_ADC = 0,
+	/* type Fuel Gauge */
+	SEC_BAT_SELF_DISCHARGING_BY_FG,
+	/* type Charger */
+	SEC_BAT_SELF_DISCHARGING_BY_CHG,
+};
+
 #define sec_battery_full_charged_t \
 	enum sec_battery_full_charged
 
@@ -379,11 +390,23 @@ struct sec_charging_current {
 	unsigned int fast_charging_current;
 	unsigned int full_check_current_1st;
 	unsigned int full_check_current_2nd;
+	unsigned int normal_full_check_current_1st;
+	unsigned int normal_full_check_current_2nd;
+	unsigned int high_full_check_current_1st;
+	unsigned int high_full_check_current_2nd;
+	unsigned int low_full_check_current_1st;
+	unsigned int low_full_check_current_2nd;
 #else
 	int input_current_limit;
 	int fast_charging_current;
 	int full_check_current_1st;
 	int full_check_current_2nd;
+	int normal_full_check_current_1st;
+	int normal_full_check_current_2nd;
+	int high_full_check_current_1st;
+	int high_full_check_current_2nd;
+	int low_full_check_current_1st;
+	int low_full_check_current_2nd;
 #endif
 };
 #define sec_charging_current_t \
@@ -443,7 +466,9 @@ struct sec_battery_platform_data {
 	/* 1 : active high, 0 : active low */
 	int bat_polarity_ta_nconnected;
 	int bat_irq;
+	int cable_irq;
 	int bat_irq_gpio;
+	int cable_irq_gpio;
 	int wchg_ctl;
 	unsigned int bat_irq_attr;
 	int jig_irq;
@@ -478,7 +503,8 @@ struct sec_battery_platform_data {
 	int force_discharging_limit;
 	int force_discharging_recov;
 	int factory_discharging;
-	
+	unsigned int self_discharging_type;
+
 	/* Monitor setting */
 	sec_battery_monitor_polling_t polling_type;
 	/* for initial check */
@@ -498,7 +524,7 @@ struct sec_battery_platform_data {
 	sec_battery_ovp_uvlo_t ovp_uvlo_check_type;
 
 	sec_battery_thermal_source_t thermal_source;
-	
+
 	/*
 	 * inbat_adc_table
 	 * in-battery voltage check for table models:
@@ -524,6 +550,8 @@ struct sec_battery_platform_data {
 	unsigned int chg_temp_check;
 	unsigned int wpc_temp_check;
 	unsigned int inbat_voltage;
+	unsigned int charging_current_table_size;
+
 	/*
 	 * limit can be ADC value or Temperature
 	 * depending on temp_check_type
@@ -602,14 +630,17 @@ struct sec_battery_platform_data {
 	 */
 	int capacity_max;
 	int capacity_max_hv;
+
 	int capacity_max_margin;
 	int capacity_min;
 
 	/* charger */
 	char *charger_name;
+
 	/* wirelss charger */
 	char *wireless_charger_name;
 	int wireless_cc_cv;
+
 	int chg_gpio_en;
 	/* 1 : active high, 0 : active low */
 	int chg_polarity_en;

@@ -26,7 +26,7 @@ struct dsim_panel_ops *mipi_panel_ops = &sc7798d_panel_ops;
 #elif defined(CONFIG_EXYNOS3475_DECON_LCD_S6E88A0)
 struct mipi_dsim_lcd_driver *mipi_lcd_driver = &s6e88a0_mipi_lcd_driver;
 struct dsim_panel_ops *mipi_panel_ops = &s6e88a0_panel_ops;
-#elif defined(CONFIG_EXYNOS3475_DECON_LCD_EA8061S)
+#elif defined(CONFIG_EXYNOS3475_DECON_LCD_EA8061S_J1)
 struct mipi_dsim_lcd_driver *mipi_lcd_driver = &ea8061s_mipi_lcd_driver;
 struct dsim_panel_ops *mipi_panel_ops = &ea8061s_panel_ops;
 #elif defined(CONFIG_PANEL_S6D7AA0_DYNAMIC)

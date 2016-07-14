@@ -119,6 +119,7 @@ struct sensor_regset_table {
 	struct sensor_regset start_stream;
 	struct sensor_regset i2c_check;
 	struct sensor_regset resol_176_144;
+	struct sensor_regset resol_320_240;
 	struct sensor_regset resol_352_288;
 	struct sensor_regset resol_640_480;
 	struct sensor_regset resol_704_576;
@@ -171,7 +172,7 @@ enum sr200_fps_index {
 	I_FPS_12,
 	I_FPS_15,
 	I_FPS_20,
-	I_FPS_25,
+	I_FPS_24,
 	I_FPS_MAX,
 };
 
@@ -192,7 +193,9 @@ enum sr200_fps_index {
 	PREVIEW_SZ_SXGA :		1280x1024
 */
 enum sr200_preview_frame_size {
-	PREVIEW_SZ_CIF=0,		/* 352x288 */
+	PREVIEW_SZ_QCIF,		/* 176x144 */
+	PREVIEW_SZ_CIF,			/* 352x288 */
+	PREVIEW_SZ_320x240,		/* 320x240 */
 	PREVIEW_SZ_VGA,			/* 640x480 : Video mode */
 	PREVIEW_SZ_SVGA,		/* 800x600 : Capture mode */
 	PREVIEW_SZ_MAX,
@@ -315,6 +318,7 @@ struct sr200_state {
 	bool			power_on;
 	bool			hflip;
 	bool			vflip;
+	bool			skip_set_vga_size;
 
 	enum v4l2_pix_format_mode	format_mode;
 	enum v4l2_sensor_mode		sensor_mode;

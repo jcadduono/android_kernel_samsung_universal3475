@@ -261,10 +261,12 @@ static u32 sm5703_get_soc(struct sm5703_fuelgauge_data *fuelgauge)
 
 	/* compensate soc in case of low bat_temp */
 	psy_do_property("battery", get, POWER_SUPPLY_PROP_TEMP, value);
+	if ((value.intval / 10) < 25) {
 	curr_cal = curr_cal + (((25 - (value.intval / 10)) / 6) << 8);
+	}
 
-	dev_info(&fuelgauge->i2c->dev, "%s: fg_get_soc : temp_std = %d, temperature = %d, temp_offset = %d, temp_offset_cal = 0x%x, curr_cal = 0x%x\n",
-		__func__, fuelgauge->info.temp_std, fuelgauge->info.temperature, fuelgauge->info.temp_offset, fuelgauge->info.temp_offset_cal, curr_cal);
+	dev_info(&fuelgauge->i2c->dev, "%s: fg_get_soc : temp_std = %d, temperature = %d, temp_offset = %d, temp_offset_cal = 0x%x, curr_cal = 0x%x, bat_temp = %d\n",
+		__func__, fuelgauge->info.temp_std, fuelgauge->info.temperature, fuelgauge->info.temp_offset, fuelgauge->info.temp_offset_cal, curr_cal, value.intval);
 
 	sm5703_fg_i2c_write_word(fuelgauge->i2c, SM5703_REG_CURR_CAL, curr_cal);
 
@@ -488,7 +490,7 @@ static int calculate_iocv(struct i2c_client *client)
 			__func__, max, min, sum, s_avg);
 	}
 
-	if (((abs(l_avg - s_avg) > 0x29) && (l_minmax_offset < 0xCC)) || (s_avg == 0)){
+	if (((abs(l_avg - s_avg) > 0x29) && (l_minmax_offset < 0x400)) || (s_avg == 0)){
 		ret = l_avg;
 	} else {
 		ret = s_avg;

@@ -140,7 +140,17 @@ int of_update_supported_list(struct i2c_client *i2c,
 				vps_update_supported_attr(mdev, true);
 		} else if (prop_buf[0] == '-') {
 			if (vps_name_to_mdev(&prop_buf[1], &mdev))
+#if defined(CONFIG_MUIC_SUPPORT_VZW_ACC)
+			{
+				if(mdev == ATTACHED_DEV_VZW_INCOMPATIBLE_MUIC || mdev == ATTACHED_DEV_VZW_ACC_MUIC)
+					vps_update_supported_attr(mdev, true);
+				else
+					vps_update_supported_attr(mdev, false);
+			}
+#else
 				vps_update_supported_attr(mdev, false);
+#endif
+
 		} else {
 			pr_err("%s: %c Undefined prop attribute.\n", __func__, prop_buf[0]);
 		}

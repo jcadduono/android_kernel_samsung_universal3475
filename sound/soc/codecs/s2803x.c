@@ -449,13 +449,6 @@ void s2803x_startup(s2803x_if_t interface)
 
 	dev_dbg(s2803x->dev, "aif%d: %s called\n", interface, __func__);
 
-	if (interface == S2803X_IF_BT) {
-		atomic_inc(&s2803x->use_count_bt);
-		if (atomic_read(&s2803x->use_count_bt) == 1)
-			s2803x_cfg_gpio(s2803x->dev, "default");
-	}
-
-
 	/*
 	 * Runtime resume sequence internally checks is_cp_running variable for
 	 * CP call mode. If the value of is_cp_running variable is non-zero, the
@@ -479,6 +472,12 @@ void s2803x_startup(s2803x_if_t interface)
 
 	if ((interface == S2803X_IF_BT) || (interface == S2803X_IF_CP))
 		atomic_inc(&s2803x->is_cp_running);
+
+	if (interface == S2803X_IF_BT) {
+		atomic_inc(&s2803x->use_count_bt);
+		if (atomic_read(&s2803x->use_count_bt) == 1)
+			s2803x_cfg_gpio(s2803x->dev, "default");
+	}
 }
 EXPORT_SYMBOL_GPL(s2803x_startup);
 
@@ -496,7 +495,6 @@ void s2803x_shutdown(s2803x_if_t interface)
 		if (atomic_read(&s2803x->use_count_bt) == 0)
 			s2803x_cfg_gpio(s2803x->dev, "bt-idle");
 	}
-
 
 	if ((interface == S2803X_IF_BT) || (interface == S2803X_IF_CP))
 		atomic_dec(&s2803x->is_cp_running);
@@ -1783,7 +1781,7 @@ static int s2803x_runtime_resume(struct device *dev)
 	lpass_get_sync(dev);
 	s2803x_runtime_power_on(dev);
 	s2803x_clk_enable(dev);
-	s2803x_cfg_gpio(dev, "default");
+	s2803x_cfg_gpio(dev, "bt-idle");
 	/* Reset the codec */
 	s2803x_reset_sys_data();
 	/* set ap path by defaut*/

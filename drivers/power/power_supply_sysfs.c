@@ -50,7 +50,7 @@ static ssize_t power_supply_show_property(struct device *dev,
 		"MHL_500", "MHL_900", "MHL_1500", "MHL_USB",
 		"SMART_OTG", "SMART_NOTG", "POWER_SHARING",
 		"HV_Mains", "HV_Prepare_Mains", "HV_ERR", "MHL_USB_100", "MHL_2000",
-		"HV_Unknown", "MDOCK_TA", "WIRELESS REMOVE"
+		"HV_Unknown", "MDOCK_TA", "HMT_CONNECTED", "HMT_CHARGE"
 	};
 	static char *status_text[] = {
 		"Unknown", "Charging", "Discharging", "Not charging", "Full"
@@ -158,11 +158,13 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(voltage_now),
 	POWER_SUPPLY_ATTR(voltage_avg),
 	POWER_SUPPLY_ATTR(voltage_ocv),
+	POWER_SUPPLY_ATTR(max_voltage),
 	POWER_SUPPLY_ATTR(input_voltage_regulation),
 	POWER_SUPPLY_ATTR(current_max),
 	POWER_SUPPLY_ATTR(input_current_max),
 	POWER_SUPPLY_ATTR(current_now),
 	POWER_SUPPLY_ATTR(current_avg),
+	POWER_SUPPLY_ATTR(chg_current),
 	POWER_SUPPLY_ATTR(power_now),
 	POWER_SUPPLY_ATTR(power_avg),
 	POWER_SUPPLY_ATTR(charge_full_design),
@@ -218,6 +220,7 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(afc_charger_mode),
 	POWER_SUPPLY_ATTR(usb_hc),
 	POWER_SUPPLY_ATTR(model_name),
+	POWER_SUPPLY_ATTR(charge_aicl_control),
 };
 
 static struct attribute *
