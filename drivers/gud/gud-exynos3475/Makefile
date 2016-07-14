@@ -1,7 +1,7 @@
 #
 # Makefile for the kernel mobicore drivers
 #
-GUD_ROOT_FOLDER := drivers/gud/gud-exynos3475
+GUD_ROOT_FOLDER := $(srctree)/drivers/gud/gud-exynos3475
 # add our modules to kernel.
 obj-$(CONFIG_MOBICORE_API) += mcKernelApi.o
 obj-$(CONFIG_MOBICORE_DRIVER) += mcDrvModule.o
@@ -27,9 +27,8 @@ ccflags-y += -DMC_NETLINK_COMPAT_V37
 ccflags-$(CONFIG_MOBICORE_DEBUG) += -DDEBUG
 ccflags-$(CONFIG_MOBICORE_VERBOSE) += -DDEBUG_VERBOSE
 
-# Choose one platform from the folder
-MOBICORE_PLATFORM := $(shell (ls -1 $(GUD_ROOT_FOLDER)/MobiCoreDriver/platforms | tail -1) )
-# Use the available platform folder
+MOBICORE_PLATFORM := EXYNOS_3475_STD
+
 ccflags-y += -I$(GUD_ROOT_FOLDER)/MobiCoreDriver/platforms/$(MOBICORE_PLATFORM)
 # MobiCore Driver includes
 ccflags-y += -I$(GUD_ROOT_FOLDER)/MobiCoreDriver/public
