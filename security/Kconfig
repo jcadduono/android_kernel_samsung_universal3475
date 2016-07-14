@@ -125,6 +125,7 @@ source security/yama/Kconfig
 
 source security/integrity/Kconfig
 source security/tz_iccc/Kconfig
+source security/tima_uevent/Kconfig
 
 choice
 	prompt "Default security module"

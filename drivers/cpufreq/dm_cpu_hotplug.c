@@ -735,7 +735,7 @@ void event_hotplug_in(void)
 }
 #endif
 
-static int exynos_dm_hotplug_notifier(struct notifier_block *notifier,
+static int __ref exynos_dm_hotplug_notifier(struct notifier_block *notifier,
 					unsigned long pm_event, void *v)
 {
 	int i, ret = 0;
