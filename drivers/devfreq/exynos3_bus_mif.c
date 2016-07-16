@@ -389,7 +389,6 @@ static int exynos3_devfreq_mif_suspend(struct device *dev)
 	uint32_t reg, tmp;
 
 	pm_qos_update_request(&exynos3_mif_qos, MIF_RESUME_FREQ);
-	pm_qos_update_request(&exynos3_mif_qos_max, MIF_RESUME_FREQ);
 
 	/* enable ABR */
 	reg = __raw_readl(data->base_drex + MEMCONTROL);

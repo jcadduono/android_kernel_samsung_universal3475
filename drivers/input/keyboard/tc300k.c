@@ -289,9 +289,10 @@ static void tc300k_release_all_fingers(struct tc300k_data *data)
 
 static void tc300k_reset(struct tc300k_data *data)
 {
+	disable_irq_nosync(data->client->irq);
+
 	tc300k_release_all_fingers(data);
 
-	disable_irq(data->client->irq);
 	data->pdata->keyled(false);
 	data->pdata->power(false);
 
@@ -346,7 +347,11 @@ int tc300k_get_fw_version(struct tc300k_data *data, bool probe)
 		}
 	}
 	data->fw_ver = (u8)buf;
-	dev_info(&client->dev, "[TK]fw_ver : 0x%x\n", data->fw_ver);
+
+	buf = i2c_smbus_read_byte_data(client, TC300K_MDVER);
+	data->md_ver = (u8)buf;
+
+	dev_info(&client->dev, "[TK]fw_ver : 0x%x  md_ver : 0x%x \n", data->fw_ver, data->md_ver);
 
 	return 0;
 }
@@ -579,13 +584,13 @@ static irqreturn_t tc300k_interrupt(int irq, void *dev_id)
 			input_report_key(data->input_dev,
 				data->tsk_ev_val[i].tsk_keycode, data->tsk_ev_val[i].tsk_status);
 #ifdef CONFIG_SAMSUNG_PRODUCT_SHIP
-			dev_notice(&client->dev, "[TK] key %s\n",
-				data->tsk_ev_val[i].tsk_status? "P" : "R");
+			dev_notice(&client->dev, "[TK] key %s fw%x\n",
+				data->tsk_ev_val[i].tsk_status? "P" : "R", data->fw_ver);
 #else
 			dev_notice(&client->dev,
-				"[TK] key %s : %s(0x%02X)\n",
+				"[TK] key %s : %s(0x%02X) fw%x\n",
 				data->tsk_ev_val[i].tsk_status? "P" : "R",
-				data->tsk_ev_val[i].tsk_keyname, key_val);
+				data->tsk_ev_val[i].tsk_keyname, key_val, data->fw_ver);
 #endif
 #ifdef CONFIG_INPUT_BOOSTER
 			input_booster_send_event(data->tsk_ev_val[i].tsk_keycode,
@@ -703,8 +708,8 @@ static int load_fw_in_kernel(struct tc300k_data *data)
 	}
 	data->fw_img = (struct fw_image *)data->fw->data;
 
-	dev_info(&client->dev, "[TK] 0x%x firm (size=%d)\n",
-		data->fw_img->first_fw_ver, data->fw_img->fw_len);
+	dev_info(&client->dev, "[TK] 0x%x firm (size=%d) md ver 0x%x\n",
+		data->fw_img->first_fw_ver, data->fw_img->fw_len, (u8)data->fw_img->second_fw_ver);
 	dev_info(&client->dev, "[TK] %s done\n", __func__);
 
 	return 0;
@@ -1129,6 +1134,13 @@ static int tc300k_fw_update(struct tc300k_data *data, u8 fw_path, bool force)
 			return -1;
 
 		data->fw_ver_bin = data->fw_img->first_fw_ver;
+
+		if(data->md_ver != data->fw_img->second_fw_ver){
+			dev_notice(&client->dev,
+				"[TK] fw md version miss, Excute firmware update!\n");
+			force = 1;
+		}
+
 		if (!force && (data->fw_ver >= data->fw_ver_bin)) {
 			dev_notice(&client->dev, "[TK] do not need firm update (IC:0x%x, BIN:0x%x)\n",
 				data->fw_ver, data->fw_ver_bin);

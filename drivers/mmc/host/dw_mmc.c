@@ -172,6 +172,7 @@ struct idmac_desc {
 #define MAX_RETRY_CNT	2
 #define DRTO		200
 #define DRTO_MON_PERIOD	50
+#define DW_MCI_BUSY_WAIT_TIMEOUT	250
 
 static struct dma_attrs dw_mci_direct_attrs;
 
@@ -1567,7 +1568,7 @@ static void dw_mci_submit_data(struct dw_mci *host, struct mmc_data *data)
 static bool dw_mci_wait_data_busy(struct dw_mci *host, struct mmc_request *mrq)
 {
 	u32 status;
-	unsigned long timeout = jiffies + msecs_to_jiffies(500);
+	unsigned long timeout = jiffies + msecs_to_jiffies(DW_MCI_BUSY_WAIT_TIMEOUT);
 	struct dw_mci_slot *slot = host->cur_slot;
 	int try = 2;
 	u32 clkena;
@@ -1599,7 +1600,7 @@ static bool dw_mci_wait_data_busy(struct dw_mci *host, struct mmc_request *mrq)
 			mci_send_cmd(host->cur_slot,
 				SDMMC_CMD_UPD_CLK | SDMMC_CMD_PRV_DAT_WAIT, 0);
 		}
-		timeout = jiffies + msecs_to_jiffies(500);
+		timeout = jiffies + msecs_to_jiffies(DW_MCI_BUSY_WAIT_TIMEOUT);
 	} while (--try);
 out:
 	if (host->cur_slot) {
@@ -4384,8 +4385,11 @@ static struct dw_mci_board *dw_mci_parse_dt(struct dw_mci *host)
 		pdata->ext_cd_cleanup = ext_cd_cleanup_callback;
 	}
 
-	if (of_find_property(np, "cd-type-gpio", NULL))
+	if (of_find_property(np, "cd-type-gpio", NULL)) {
 		pdata->cd_type = DW_MCI_CD_GPIO;
+		/* enable detect on err feature for sd card */
+		pdata->caps2 |= MMC_CAP2_DETECT_ON_ERR;
+	}
 
 	if (of_find_property(np, "enable-sdio-wakeup", NULL))
 		pdata->pm_caps |= MMC_PM_WAKE_SDIO_IRQ;
@@ -4879,8 +4883,6 @@ int dw_mci_suspend(struct dw_mci *host)
 		host->transferred_cnt = 0;
 		host->cmd_cnt = 0;
 	}
-	if (host->vmmc && regulator_is_enabled(host->vmmc))
-		regulator_disable(host->vmmc);
 
 	if (host->pdata->enable_cclk_on_suspend) {
 		host->pdata->on_suspend = true;
@@ -4909,19 +4911,6 @@ int dw_mci_resume(struct dw_mci *host)
 		host->pdata->on_suspend = false;
 
 	host->current_speed = 0;
-
-	if (host->pdata->ext_setpower)
-		host->pdata->ext_setpower(host,
-			DW_MMC_EXT_VMMC_ON | DW_MMC_EXT_VQMMC_ON);
-
-	if (host->vmmc && !regulator_is_enabled(host->vmmc)) {
-		ret = regulator_enable(host->vmmc);
-		if (ret) {
-			dev_err(host->dev,
-				"failed to enable regulator: %d\n", ret);
-			return ret;
-		}
-	}
 
 	mci_writel(host, DDR200_ENABLE_SHIFT, 0x0);
 

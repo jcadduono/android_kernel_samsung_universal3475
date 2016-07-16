@@ -1721,6 +1721,7 @@ int sec_touch_sysfs(struct ist30xx_data *data)
 {
 	int ret;
 
+#if IST30XX_USE_KEY
 	/* /sys/class/sec/sec_touchkey */
 	sec_touchkey = sec_device_create(data, "sec_touchkey");
 	if (IS_ERR(sec_touchkey)) {
@@ -1732,7 +1733,7 @@ int sec_touch_sysfs(struct ist30xx_data *data)
 		tsp_err("Failed to create sysfs group(%s)!\n", "sec_touchkey");
 		goto err_sec_touchkey_attr;
 	}
-
+#endif
 	/* /sys/class/sec/tsp */
 	sec_fac_dev = sec_device_create(data, "tsp");
 	if (IS_ERR(sec_fac_dev)) {
@@ -1750,12 +1751,19 @@ int sec_touch_sysfs(struct ist30xx_data *data)
 
 	return 0;
 
+#if IST30XX_USE_KEY
 err_sec_fac_dev_attr:
 	sec_device_destroy(2);
 err_sec_fac_dev:
 err_sec_touchkey_attr:
 	sec_device_destroy(1);
 err_sec_touchkey:
+#else
+	err_sec_fac_dev_attr:
+		sec_device_destroy(1);
+	err_sec_fac_dev:
+#endif
+
 	return -ENODEV;
 }
 EXPORT_SYMBOL(sec_touch_sysfs);

@@ -522,6 +522,34 @@ bool is_cp_aud_enabled(void)
 }
 EXPORT_SYMBOL_GPL(is_cp_aud_enabled);
 
+void aud_mixer_MCLKO_enable(void)
+{
+	if (s2803x == NULL)
+		return;
+
+	atomic_inc(&s2803x->is_cp_running);
+
+#ifdef CONFIG_PM_RUNTIME
+	pm_runtime_get_sync(s2803x->dev);
+#endif
+
+}
+EXPORT_SYMBOL_GPL(aud_mixer_MCLKO_enable);
+
+void aud_mixer_MCLKO_disable(void)
+{
+	if (s2803x == NULL)
+		return;
+
+	atomic_dec(&s2803x->is_cp_running);
+
+#ifdef CONFIG_PM_RUNTIME
+	pm_runtime_put_sync(s2803x->dev);
+#endif
+
+}
+EXPORT_SYMBOL_GPL(aud_mixer_MCLKO_disable);
+
 /* thread run whenever the cp event received */
 static void s2803x_cp_notification_work(struct work_struct *work)
 {
@@ -1628,6 +1656,14 @@ static int s2803x_probe(struct snd_soc_codec *codec)
 				S2803X_RPM_SUSPEND_DELAY_MS);
 	pm_runtime_get_sync(s2803x->dev);
 #endif
+
+	ret = clk_set_rate(s2803x->dout_audmixer, S2803X_SYS_CLK_FREQ_48KHZ);
+	if (ret != 0) {
+		dev_err(s2803x->dev,
+				"%s: Error setting mixer sysclk rate as %u\n",
+				__func__, S2803X_SYS_CLK_FREQ_48KHZ);
+		return ret;
+	}
 
 	if (update_fw)
 		exynos_regmap_update_fw(S2803X_FIRMWARE_NAME,

@@ -36,23 +36,6 @@
 #define TSP_CH_KEY                  (3)
 #define TSP_CH_UNKNOWN              (-1)
 
-#define CMCS_FLAG_CM                (1 << 0)
-#define CMCS_FLAG_CM_SPEC           (1 << 1)
-#define CMCS_FLAG_CM_SLOPE0         (1 << 2)
-#define CMCS_FLAG_CM_SLOPE1         (1 << 3)
-#define CMCS_FLAG_CMJIT             (1 << 4)
-#define CMCS_FLAG_CS                (1 << 8)
-
-#define CMCS_READY                  (0)
-#define CMCS_NOT_READY              (-1)
-
-#define CMCS_TIMEOUT                (10000) // unit : msec
-
-#define CMCS_CMJIT                  ("CMJIT")
-#define CMCS_CM                     ("CM")
-#define CMCS_CS                     ("CS")
-
-#define CMCS_PARSING_DEBUG          (0)
 #define CMCS_TAGS_PARSE_OK          (0)
 
 int cmcs_ready = CMCS_READY;
@@ -113,7 +96,7 @@ int ist30xx_parse_cmcs_bin(const u8 *buf, const u32 size)
 			sizeof(struct CMCS_SPEC_TOTAL) * ts_cmcs->items.cnt,
 			GFP_KERNEL);
 		for (i = 0; i < ts_cmcs->items.cnt; i++) {
-			if (!strncmp(ts_cmcs->items.item[i].spec_type, "N", 64)) {
+			if (!strcmp(ts_cmcs->items.item[i].spec_type, "N")) {
 				memcpy(&node_spec_cnt, &buf[idx], sizeof(node_spec_cnt));
 				ts_cmcs->spec_item[i].spec_node.node_cnt = node_spec_cnt;
 				idx += sizeof(node_spec_cnt);
@@ -121,7 +104,7 @@ int ist30xx_parse_cmcs_bin(const u8 *buf, const u32 size)
 				idx += node_spec_cnt * sizeof(s16);
 				ts_cmcs->spec_item[i].spec_node.buf_max = (u16 *)&buf[idx];
 				idx += node_spec_cnt * sizeof(s16);
-			} else if (!strncmp(ts_cmcs->items.item[i].spec_type, "T", 64)) {
+			} else if (!strcmp(ts_cmcs->items.item[i].spec_type, "T")) {
 				memcpy(&ts_cmcs->spec_item[i].spec_total, &buf[idx],
 				       sizeof(struct CMCS_SPEC_TOTAL));
 				idx += sizeof(struct CMCS_SPEC_TOTAL);
@@ -131,11 +114,7 @@ int ist30xx_parse_cmcs_bin(const u8 *buf, const u32 size)
 		ts_cmcs->buf_cmcs = (u8 *)&buf[idx];
 		idx += ts_cmcs->param.cmcs_size;
 
-		ts_cmcs->buf_cm_sensor = (u32 *)&buf[idx];
-		idx += ts_cmcs->param.cm_sensor1_size + ts_cmcs->param.cm_sensor2_size
-		       + ts_cmcs->param.cm_sensor3_size;
-
-		ts_cmcs->buf_cs_sensor = (u32 *)&buf[idx];
+		ts_cmcs->buf_sensor = (u32 *)&buf[idx];
 
 		ret = 0;
 	}
@@ -154,24 +133,21 @@ int ist30xx_parse_cmcs_bin(const u8 *buf, const u32 size)
 			 i, ts_cmcs->cmds.cmd[i].addr, ts_cmcs->cmds.cmd[i].value);
 	tsp_verb(" param\n");
 	tsp_verb("  fw: 0x%08x, %d\n", ts_cmcs->param.cmcs_size_addr,
-		 ts_cmcs->param.cmcs_size);
-	tsp_verb("  enable: 0x%08x\n", ts_cmcs->param.enable_addr);
-	tsp_verb("  checksum: 0x%08x\n", ts_cmcs->param.checksum_addr);
-	tsp_verb("  endnotify: 0x%08x\n", ts_cmcs->param.end_notify_addr);
-	tsp_verb("  cm sensor1: 0x%08x, %d\n", ts_cmcs->param.sensor1_addr,
-		 ts_cmcs->param.cm_sensor1_size);
-	tsp_verb("  cm sensor2: 0x%08x, %d\n", ts_cmcs->param.sensor2_addr,
-		 ts_cmcs->param.cm_sensor2_size);
-	tsp_verb("  cm sensor3: 0x%08x, %d\n", ts_cmcs->param.sensor3_addr,
-		 ts_cmcs->param.cm_sensor3_size);
-	tsp_verb("  cs sensor1: 0x%08x, %d\n", ts_cmcs->param.sensor1_addr,
-		 ts_cmcs->param.cs_sensor1_size);
-	tsp_verb("  cs sensor2: 0x%08x, %d\n", ts_cmcs->param.sensor2_addr,
-		 ts_cmcs->param.cs_sensor2_size);
-	tsp_verb("  cs sensor3: 0x%08x, %d\n", ts_cmcs->param.sensor3_addr,
-		 ts_cmcs->param.cs_sensor3_size);
+		ts_cmcs->param.cmcs_size);
+	tsp_verb("  cm sensor1: 0x%08x, %d\n", ts_cmcs->param.cm_sensor1_addr,
+		ts_cmcs->param.cm_sensor1_size);
+	tsp_verb("  cm sensor2: 0x%08x, %d\n", ts_cmcs->param.cm_sensor2_addr,
+		ts_cmcs->param.cm_sensor2_size);
+	tsp_verb("  cm sensor3: 0x%08x, %d\n", ts_cmcs->param.cm_sensor3_addr,
+		ts_cmcs->param.cm_sensor3_size);
+	tsp_verb("  cs sensor1: 0x%08x, %d\n", ts_cmcs->param.cs_sensor1_addr,
+		ts_cmcs->param.cs_sensor1_size);
+	tsp_verb("  cs sensor2: 0x%08x, %d\n", ts_cmcs->param.cs_sensor2_addr,
+		ts_cmcs->param.cs_sensor2_size);
+	tsp_verb("  cs sensor3: 0x%08x, %d\n", ts_cmcs->param.cs_sensor3_addr,
+		ts_cmcs->param.cs_sensor3_size);
 	tsp_verb("  chksum: 0x%08x\n", ts_cmcs->param.cmcs_chksum,
-		 ts_cmcs->param.cm_sensor_chksum, ts_cmcs->param.cs_sensor_chksum);
+		ts_cmcs->param.cm_sensor_chksum, ts_cmcs->param.cs_sensor_chksum);
 	tsp_verb(" slope(%s)\n", ts_cmcs->spec_slope.name);
 	tsp_verb("  x(%d,%d),y(%d,%d),gtx_x(%d,%d),gtx_y(%d,%d),key(%d,%d)\n",
 		 ts_cmcs->spec_slope.x_min, ts_cmcs->spec_slope.x_max,
@@ -184,7 +160,7 @@ int ist30xx_parse_cmcs_bin(const u8 *buf, const u32 size)
 		 ts_cmcs->spec_cr.gtx_min, ts_cmcs->spec_cr.gtx_max,
 		 ts_cmcs->spec_cr.key_min, ts_cmcs->spec_cr.key_max);
 	for (i = 0; i < ts_cmcs->items.cnt; i++) {
-		if (!strncmp(ts_cmcs->items.item[i].spec_type, "N", 64)) {
+		if (!strcmp(ts_cmcs->items.item[i].spec_type, "N")) {
 			tsp_verb(" %s\n", ts_cmcs->items.item[i].name);
 			tsp_verb(" min: %x, %x, %x, %x\n",
 				 ts_cmcs->spec_item[i].spec_node.buf_min[0],
@@ -196,7 +172,7 @@ int ist30xx_parse_cmcs_bin(const u8 *buf, const u32 size)
 				 ts_cmcs->spec_item[i].spec_node.buf_max[1],
 				 ts_cmcs->spec_item[i].spec_node.buf_max[2],
 				 ts_cmcs->spec_item[i].spec_node.buf_max[3]);
-		} else if (!strncmp(ts_cmcs->items.item[i].spec_type, "T", 64)) {
+		} else if (!strcmp(ts_cmcs->items.item[i].spec_type, "T")) {
 			tsp_verb(" %s: screen(%4d, %4d), gtx(%4d, %4d), key(%4d, %4d)\n",
 				 ts_cmcs->items.item[i].name,
 				 ts_cmcs->spec_item[i].spec_total.screen_min,
@@ -208,13 +184,10 @@ int ist30xx_parse_cmcs_bin(const u8 *buf, const u32 size)
 		}
 	}
 	tsp_verb(" cmcs: %x, %x, %x, %x\n", ts_cmcs->buf_cmcs[0],
-		 ts_cmcs->buf_cmcs[1], ts_cmcs->buf_cmcs[2], ts_cmcs->buf_cmcs[3]);
-	tsp_verb(" cm sensor: %x, %x, %x, %x\n",
-		 ts_cmcs->buf_cm_sensor[0], ts_cmcs->buf_cm_sensor[1],
-		 ts_cmcs->buf_cm_sensor[2], ts_cmcs->buf_cm_sensor[3]);
-	tsp_verb(" cs sensor: %x, %x, %x, %x\n",
-		 ts_cmcs->buf_cs_sensor[0], ts_cmcs->buf_cs_sensor[1],
-		 ts_cmcs->buf_cs_sensor[2], ts_cmcs->buf_cs_sensor[3]);
+		ts_cmcs->buf_cmcs[1], ts_cmcs->buf_cmcs[2], ts_cmcs->buf_cmcs[3]);
+	tsp_verb(" sensor: %x, %x, %x, %x\n",
+		ts_cmcs->buf_sensor[0], ts_cmcs->buf_sensor[1],
+		ts_cmcs->buf_sensor[2], ts_cmcs->buf_sensor[3]);
 
 	return ret;
 }
@@ -233,102 +206,94 @@ int ist30xx_get_cmcs_info(const u8 *buf, const u32 size)
 }
 
 int ist30xx_set_cmcs_sensor(struct i2c_client *client, CMCS_PARAM param,
-			    u32 *buf32, int mode)
+			    u32 *buf32)
 {
 	int ret;
 	int len = 0;
 	u32 waddr;
 
-	if (mode == CMCS_FLAG_CM) {
-		waddr = IST30XX_DA_ADDR(param.sensor1_addr);
-		len = (param.cm_sensor1_size / IST30XX_DATA_LEN) - 2;
-		buf32 += 2;
-		tsp_verb("%08x %08x %08x %08x\n",
-			 buf32[0], buf32[1], buf32[2], buf32[3]);
-		tsp_verb("%08x(%d)\n", waddr, len);
+	waddr = IST30XX_DA_ADDR(param.cm_sensor1_addr);
+	len = (param.cm_sensor1_size / IST30XX_DATA_LEN) - 2;
+	buf32 += 2;
+	tsp_verb("%08x %08x %08x %08x\n", buf32[0], buf32[1], buf32[2], buf32[3]);
+	tsp_verb("%08x(%d)\n", waddr, len);
 
-		if (len > 0) {
-			ret = ist30xx_burst_write(client, waddr, buf32, len);
-			if (ret)
-				return ret;
+	if (len > 0) {
+		ret = ist30xx_burst_write(client, waddr, buf32, len);
+		if (ret)
+			return ret;
 
-			tsp_info("cm sensor reg1 loaded!\n");
-		}
+		tsp_info("cm sensor reg1 loaded!\n");
+	}
 
-		buf32 += len;
-		waddr = IST30XX_DA_ADDR(param.sensor2_addr);
-		len = param.cm_sensor2_size / IST30XX_DATA_LEN;
-		tsp_verb("%08x %08x %08x %08x\n",
-			 buf32[0], buf32[1], buf32[2], buf32[3]);
-		tsp_verb("%08x(%d)\n", waddr, len);
+	buf32 += len;
+	waddr = IST30XX_DA_ADDR(param.cm_sensor2_addr);
+	len = param.cm_sensor2_size / IST30XX_DATA_LEN;
+	tsp_verb("%08x %08x %08x %08x\n", buf32[0], buf32[1], buf32[2], buf32[3]);
+	tsp_verb("%08x(%d)\n", waddr, len);
 
-		if (len > 0) {
-			ret = ist30xx_burst_write(client, waddr, buf32, len);
-			if (ret)
-				return ret;
+	if (len > 0) {
+		ret = ist30xx_burst_write(client, waddr, buf32, len);
+		if (ret)
+			return ret;
 
-			tsp_info("cm sensor reg2 loaded!\n");
-		}
+		tsp_info("cm sensor reg2 loaded!\n");
+	}
 
-		buf32 += len;
-		waddr = IST30XX_DA_ADDR(param.sensor3_addr);
-		len = param.cm_sensor3_size / IST30XX_DATA_LEN;
-		tsp_verb("%08x %08x %08x %08x\n",
-			 buf32[0], buf32[1], buf32[2], buf32[3]);
-		tsp_verb("%08x(%d)\n", waddr, len);
+	buf32 += len;
+	waddr = IST30XX_DA_ADDR(param.cm_sensor3_addr);
+	len = param.cm_sensor3_size / IST30XX_DATA_LEN;
+	tsp_verb("%08x %08x %08x %08x\n", buf32[0], buf32[1], buf32[2], buf32[3]);
+	tsp_verb("%08x(%d)\n", waddr, len);
 
-		if (len > 0) {
-			ret = ist30xx_burst_write(client, waddr, buf32, len);
-			if (ret)
-				return ret;
+	if (len > 0) {
+		ret = ist30xx_burst_write(client, waddr, buf32, len);
+		if (ret)
+			return ret;
 
-			tsp_info("cm sensor reg3 loaded!\n");
-		}
-	} else if (mode == CMCS_FLAG_CS) {
-		waddr = IST30XX_DA_ADDR(param.sensor1_addr);
-		len = (param.cs_sensor1_size / IST30XX_DATA_LEN) - 2;
-		buf32 += 2;
-		tsp_verb("%08x %08x %08x %08x\n",
-			 buf32[0], buf32[1], buf32[2], buf32[3]);
-		tsp_verb("%08x(%d)\n", waddr, len);
+		tsp_info("cm sensor reg3 loaded!\n");
+	}
 
-		if (len > 0) {
-			ret = ist30xx_burst_write(client, waddr, buf32, len);
-			if (ret)
-				return ret;
+	buf32 += len;
+	waddr = IST30XX_DA_ADDR(param.cs_sensor1_addr);
+	len = param.cs_sensor1_size / IST30XX_DATA_LEN;
+	tsp_verb("%08x %08x %08x %08x\n", buf32[0], buf32[1], buf32[2], buf32[3]);
+	tsp_verb("%08x(%d)\n", waddr, len);
 
-			tsp_info("cs sensor reg1 loaded!\n");
-		}
+	if (len > 0) {
+		ret = ist30xx_burst_write(client, waddr, buf32, len);
+		if (ret)
+			return ret;
 
-		buf32 += len;
-		waddr = IST30XX_DA_ADDR(param.sensor2_addr);
-		len = param.cs_sensor2_size / IST30XX_DATA_LEN;
-		tsp_verb("%08x %08x %08x %08x\n",
-			 buf32[0], buf32[1], buf32[2], buf32[3]);
-		tsp_verb("%08x(%d)\n", waddr, len);
+		tsp_info("cs sensor reg1 loaded!\n");
+	}
 
-		if (len > 0) {
-			ret = ist30xx_burst_write(client, waddr, buf32, len);
-			if (ret)
-				return ret;
+	buf32 += len;
+	waddr = IST30XX_DA_ADDR(param.cs_sensor2_addr);
+	len = param.cs_sensor2_size / IST30XX_DATA_LEN;
+	tsp_verb("%08x %08x %08x %08x\n", buf32[0], buf32[1], buf32[2], buf32[3]);
+	tsp_verb("%08x(%d)\n", waddr, len);
 
-			tsp_info("cs sensor reg2 loaded!\n");
-		}
+	if (len > 0) {
+		ret = ist30xx_burst_write(client, waddr, buf32, len);
+		if (ret)
+			return ret;
 
-		buf32 += len;
-		waddr = IST30XX_DA_ADDR(param.sensor3_addr);
-		len = param.cs_sensor3_size / IST30XX_DATA_LEN;
-		tsp_verb("%08x %08x %08x %08x\n",
-			 buf32[0], buf32[1], buf32[2], buf32[3]);
-		tsp_verb("%08x(%d)\n", waddr, len);
+		tsp_info("cs sensor reg2 loaded!\n");
+	}
 
-		if (len > 0) {
-			ret = ist30xx_burst_write(client, waddr, buf32, len);
-			if (ret)
-				return ret;
+	buf32 += len;
+	waddr = IST30XX_DA_ADDR(param.cs_sensor3_addr);
+	len = param.cs_sensor3_size / IST30XX_DATA_LEN;
+	tsp_verb("%08x %08x %08x %08x\n", buf32[0], buf32[1], buf32[2], buf32[3]);
+	tsp_verb("%08x(%d)\n", waddr, len);
 
-			tsp_info("cs sensor reg3 loaded!\n");
-		}
+	if (len > 0) {
+		ret = ist30xx_burst_write(client, waddr, buf32, len);
+		if (ret)
+			return ret;
+
+		tsp_info("cs sensor reg3 loaded!\n");
 	}
 
 	return 0;
@@ -379,6 +344,8 @@ int ist30xx_apply_cmcs_slope(struct ist30xx_data *data, CMCS_BUF *cmcs_buf)
 	int width = tsp->screen.rx;
 	int height = tsp->screen.tx;
 	s16 *presult;
+	s16 slope_x = 0;
+	s16 slope_y = 0;
 	s16 *pspec_min = (s16 *)cmcs_buf->spec_min;
 	s16 *pspec_max = (s16 *)cmcs_buf->spec_max;
 	s16 *pslope0 = (s16 *)cmcs_buf->slope0;
@@ -387,14 +354,13 @@ int ist30xx_apply_cmcs_slope(struct ist30xx_data *data, CMCS_BUF *cmcs_buf)
 	memset(cmcs_buf->slope0, 0, sizeof(cmcs_buf->slope0));
 	memset(cmcs_buf->slope1, 0, sizeof(cmcs_buf->slope1));
 
-	if (!strncmp(ts_cmcs->spec_slope.name, CMCS_CS, 64))
+	if (!strcmp(ts_cmcs->spec_slope.name, IST30XX_CMCS_CS))
 		presult = (s16 *)&cmcs_buf->cs;
 	else
 		presult = (s16 *)&cmcs_buf->cm;
 
 	for (i = 0; i < ts_cmcs->items.cnt; i++) {
-		if (!strncmp(ts_cmcs->spec_slope.name,
-			     ts_cmcs->items.item[i].name, 64)) {
+		if (!strcmp(ts_cmcs->spec_slope.name, ts_cmcs->items.item[i].name)) {
 			idx1 = idx2 = gtx_idx = key_idx = 0;
 			gtx_idx = tsp->screen.tx * tsp->screen.rx;
 			key_idx = gtx_idx + (tsp->gtx.num * tsp->screen.rx);
@@ -455,58 +421,126 @@ int ist30xx_apply_cmcs_slope(struct ist30xx_data *data, CMCS_BUF *cmcs_buf)
 	}
 #endif
 
-	tsp_verb("# Apply slope0_x\n");
-	for (i = 0; i < height; i++) {
-		for (j = 0; j < width - 1; j++) {
-			idx1 = (i * tsp->ch_num.rx) + j;
-			idx2 = idx1 + 1;
+	if (data->dt_data->octa_hw) {
+		tsp_verb("# Apply slope\n");
+		for (i = 0; i < height; i++) {
+			for (j = 0; j < width; j++) {
+				idx1 = (i * tsp->ch_num.rx) + j;
+				idx2 = idx1 + 1;
+				if (j == (width - 1)) {
+					slope_x = 0;
+				} else {
+					slope_x = 100 - ((presult[idx1] * 100) / presult[idx2]);
+					if (slope_x < 0)
+						slope_x *= -1;
+				}
 
-			pslope0[idx1] = (presult[idx2] - presult[idx1]);
-			pslope0[idx1] +=
-				(((pspec_min[idx1] + pspec_max[idx1]) / 2) -
-				 ((pspec_min[idx2] + pspec_max[idx2]) / 2));
+				idx2 = idx1 + tsp->ch_num.rx;
+				if (i == (height - 1)) {
+					slope_y = 0;
+				} else {
+					slope_y = 100 - ((presult[idx1] * 100) / presult[idx2]);
+					if (slope_y < 0)
+						slope_y *= -1;
+				}
+
+				if (slope_x > slope_y) {
+					pslope0[idx1] = (s16)slope_x;
+					pslope1[idx1] = (s16)slope_x;
+				} else {
+					pslope0[idx1] = (s16)slope_y;
+					pslope1[idx1] = (s16)slope_y;
+				}
+			}
 		}
-	}
 
-	tsp_verb("# Apply slope1_y\n");
-	for (i = 0; i < height - 1; i++) {
-		for (j = 0; j < width; j++) {
-			idx1 = (i * tsp->ch_num.rx) + j;
-			idx2 = idx1 + tsp->ch_num.rx;
+		tsp_verb("# Apply slope_gtx\n");
+		for (i = 0; i < tsp->gtx.num; i++) {
+			if (tsp->gtx.ch_num[i] > height) {
+				for (j = 0; j < width; j++) {
+					idx1 = (tsp->gtx.ch_num[i] * tsp->ch_num.rx) + j;
+					idx2 = idx1 + 1;
+					if (j == (width - 1)) {
+						slope_x = 0;
+					} else {
+						slope_x = 100 - ((presult[idx1] * 100) / presult[idx2]);
+						if (slope_x < 0)
+							slope_x *= -1;
+					}
 
-			pslope1[idx1] = (presult[idx2] - presult[idx1]);
-			pslope1[idx1] +=
-				(((pspec_min[idx1] + pspec_max[idx1]) / 2) -
-				 ((pspec_min[idx2] + pspec_max[idx2]) / 2));
+					idx2 = idx1 + tsp->ch_num.rx;
+					if (i == (tsp->gtx.num - 1)) {
+						slope_y = 0;
+					} else {
+						slope_y = 100 - ((presult[idx1] * 100) / presult[idx2]);
+						if (slope_y < 0)
+							slope_y *= -1;
+					}
+
+					if (slope_x > slope_y) {
+						pslope0[idx1] = (s16)slope_x;
+						pslope1[idx1] = (s16)slope_x;
+					} else {
+						pslope0[idx1] = (s16)slope_y;
+						pslope1[idx1] = (s16)slope_y;
+					}
+				}
+			}
 		}
-	}
-
-	tsp_verb("# Apply slope0_gtx_x\n");
-	for (i = 0; i < tsp->gtx.num; i++) {
-		if (tsp->gtx.ch_num[i] > height) {
+	} else {
+		tsp_verb("# Apply slope0_x\n");
+		for (i = 0; i < height; i++) {
 			for (j = 0; j < width - 1; j++) {
-				idx1 = (tsp->gtx.ch_num[i] * tsp->ch_num.rx) + j;
+				idx1 = (i * tsp->ch_num.rx) + j;
 				idx2 = idx1 + 1;
 
 				pslope0[idx1] = (presult[idx2] - presult[idx1]);
 				pslope0[idx1] +=
 					(((pspec_min[idx1] + pspec_max[idx1]) / 2) -
-					 ((pspec_min[idx2] + pspec_max[idx2]) / 2));
+					((pspec_min[idx2] + pspec_max[idx2]) / 2));
 			}
 		}
-	}
 
-	tsp_verb("# Apply slope1_gtx_y\n");
-	for (i = 0; i < (tsp->gtx.num - 1); i++) {
-		if (tsp->gtx.ch_num[i] > height) {
+		tsp_verb("# Apply slope1_y\n");
+		for (i = 0; i < height - 1; i++) {
 			for (j = 0; j < width; j++) {
-				idx1 = (tsp->gtx.ch_num[i] * tsp->ch_num.rx) + j;
+				idx1 = (i * tsp->ch_num.rx) + j;
 				idx2 = idx1 + tsp->ch_num.rx;
 
 				pslope1[idx1] = (presult[idx2] - presult[idx1]);
 				pslope1[idx1] +=
 					(((pspec_min[idx1] + pspec_max[idx1]) / 2) -
-					 ((pspec_min[idx2] + pspec_max[idx2]) / 2));
+					((pspec_min[idx2] + pspec_max[idx2]) / 2));
+			}
+		}
+
+		tsp_verb("# Apply slope0_gtx_x\n");
+		for (i = 0; i < tsp->gtx.num; i++) {
+			if (tsp->gtx.ch_num[i] > height) {
+				for (j = 0; j < width - 1; j++) {
+					idx1 = (tsp->gtx.ch_num[i] * tsp->ch_num.rx) + j;
+					idx2 = idx1 + 1;
+
+					pslope0[idx1] = (presult[idx2] - presult[idx1]);
+					pslope0[idx1] +=
+						(((pspec_min[idx1] + pspec_max[idx1]) / 2) -
+						((pspec_min[idx2] + pspec_max[idx2]) / 2));
+				}
+			}
+		}
+
+		tsp_verb("# Apply slope1_gtx_y\n");
+		for (i = 0; i < (tsp->gtx.num - 1); i++) {
+			if (tsp->gtx.ch_num[i] > height) {
+				for (j = 0; j < width; j++) {
+					idx1 = (tsp->gtx.ch_num[i] * tsp->ch_num.rx) + j;
+					idx2 = idx1 + tsp->ch_num.rx;
+
+					pslope1[idx1] = (presult[idx2] - presult[idx1]);
+					pslope1[idx1] +=
+						(((pspec_min[idx1] + pspec_max[idx1]) / 2) -
+						((pspec_min[idx2] + pspec_max[idx2]) / 2));
+				}
 			}
 		}
 	}
@@ -560,14 +594,14 @@ int ist30xx_apply_cmcs_slope(struct ist30xx_data *data, CMCS_BUF *cmcs_buf)
 int ist30xx_get_cmcs_buf(struct ist30xx_data *data, const char *mode,
 			 CMCS_ITEM items, s16 *buf)
 {
-	int ret = 0;
+	int ret = -EINVAL;
 	int i;
 	bool success = false;
 	u32 waddr;
 	u16 len;
 
 	for (i = 0; i < items.cnt; i++) {
-		if (!strncmp(items.item[i].name, mode, 64)) {
+		if (!strcmp(items.item[i].name, mode)) {
 			waddr = IST30XX_DA_ADDR(items.item[i].addr);
 			len = items.item[i].size / IST30XX_DATA_LEN;
 			ret = ist30xx_burst_read(data->client,
@@ -591,42 +625,20 @@ int ist30xx_get_cmcs_buf(struct ist30xx_data *data, const char *mode,
 	return ret;
 }
 
-int ist30xx_cmcs_wait(struct ist30xx_data *data, int mode)
+int ist30xx_cmcs_wait(struct ist30xx_data *data)
 {
-	int cnt = CMCS_TIMEOUT / 100;
+	int cnt = IST30XX_CMCS_TIMEOUT / 100;
 
 	data->status.cmcs = 0;
 	while (cnt-- > 0) {
 		msleep(100);
 
 		if (data->status.cmcs) {
-			if (mode == CMCS_FLAG_CM)
-				goto cm_end;
-			else if (mode == CMCS_FLAG_CS)
-				goto cs_end;
-			else
-				return -EPERM;
+			tsp_info("CMCS test complete\n");
+			return 0;
 		}
 	}
 	tsp_warn("cmcs time out\n");
-
-	return -EPERM;
-
-cm_end:
-	if ((data->status.cmcs & CMCS_MSG_MASK) == CM_MSG_VALID)
-		if (!(data->status.cmcs & 0x1))
-			return 0;
-
-	tsp_warn("CM test fail\n");
-
-	return -EPERM;
-
-cs_end:
-	if ((data->status.cmcs & CMCS_MSG_MASK) == CS_MSG_VALID)
-		if (!(data->status.cmcs & 0x1))
-			return 0;
-
-	tsp_warn("CS test fail\n");
 
 	return -EPERM;
 }
@@ -638,6 +650,7 @@ int ist30xx_cmcs_test(struct ist30xx_data *data, const u8 *buf, int size)
 	int len;
 	u32 waddr;
 	u32 val;
+	u32 cs_chksum = 0;
 	u32 chksum = 0;
 	u32 *buf32;
 
@@ -647,7 +660,16 @@ int ist30xx_cmcs_test(struct ist30xx_data *data, const u8 *buf, int size)
     ist30xx_reset(data, false);
 
 	ret = ist30xx_write_cmd(data->client,
-				IST30XX_HIB_CMD, (eHCOM_RUN_RAMCODE << 16) | 0);
+		IST30XX_HIB_CMD, (eHCOM_RUN_RAMCODE << 16) | 0);
+	cmcs_next_step(ret);
+
+	/* Set sensor register */
+	buf32 = ts_cmcs->buf_sensor;
+	ret = ist30xx_set_cmcs_sensor(data->client, ts_cmcs->param, buf32);
+	cmcs_next_step(ret);
+
+	/* Set command */
+	ret = ist30xx_set_cmcs_cmd(data->client, ts_cmcs->cmds);
 	cmcs_next_step(ret);
 
 	/* Load cmcs test code */
@@ -668,109 +690,73 @@ int ist30xx_cmcs_test(struct ist30xx_data *data, const u8 *buf, int size)
 
 	tsp_info("cmcs code loaded!\n");
 
-	/* Set command */
-	ret = ist30xx_set_cmcs_cmd(data->client, ts_cmcs->cmds);
-	cmcs_next_step(ret);
-	tsp_info("cmcs command loaded!\n");
-
 	/* Cal checksum & run cmcs */
 	ret = ist30xx_write_cmd(data->client,
-				IST30XX_HIB_CMD, (eHCOM_RUN_RAMCODE << 16) | 1);
+		IST30XX_HIB_CMD, (eHCOM_RUN_RAMCODE << 16) | 1);
 	cmcs_next_step(ret);
 
 	/* Check checksum */
-	waddr = IST30XX_DA_ADDR(ts_cmcs->param.checksum_addr);
-	ret = ist30xx_read_reg(data->client, waddr, &chksum);
+	ret = ist30xx_read_reg(data->client, IST30XX_CMCS_CHECKSUM, &chksum);
 	cmcs_next_step(ret);
 	if (chksum != ts_cmcs->param.cmcs_chksum)
 		goto end;
 
-	/* Set cm sensor register */
-	buf32 = ts_cmcs->buf_cm_sensor;
-	ret = ist30xx_set_cmcs_sensor(data->client,
-				      ts_cmcs->param, buf32, CMCS_FLAG_CM);
+	/* Check cs sensor checksum */
+	ret = ist30xx_read_reg(data->client, IST30XX_CMCS_CS_CHECKSUM, &cs_chksum);
 	cmcs_next_step(ret);
+	if (cs_chksum != ts_cmcs->param.cs_sensor_chksum)
+		 goto end;
 
-	waddr = IST30XX_DA_ADDR(ts_cmcs->param.enable_addr);
-	val = CMCS_FLAG_CM;
-	ret = ist30xx_write_cmd(data->client, waddr, val);
-	cmcs_next_step(ret);
-	tsp_info("CM test ready!!\n");
+	tsp_info("CM/CS code ready!!\n");
 
-	/* Wait CM test result */
 	ist30xx_enable_irq(data);
-	if (ist30xx_cmcs_wait(data, CMCS_FLAG_CM) == 0) {
-		tsp_info("CM test OK\n");
+	/* Wait CMCS test result */
+	if (ist30xx_cmcs_wait(data) == 0) {
+		tsp_info("CM/CS test OK\n");
 	} else {
-		tsp_info("CM test Fail!\n");
-		ret = -ENOEXEC;
-		goto end;
+		tsp_info("CM/CS test Fail!\n");
+	ret = -ENOEXEC;
+	goto end;
 	}
 	ist30xx_disable_irq(data);
-
-	/* Read CMJIT data */
-	memset(ts_cmcs_buf->cm_jit, 0, sizeof(ts_cmcs_buf->cm_jit));
-
-	ret = ist30xx_get_cmcs_buf(data,
-				   CMCS_CMJIT, ts_cmcs->items, ts_cmcs_buf->cm_jit);
-	cmcs_next_step(ret);
 
 	/* Read CM data */
 	memset(ts_cmcs_buf->cm, 0, sizeof(ts_cmcs_buf->cm));
 
-	ret = ist30xx_get_cmcs_buf(data, CMCS_CM, ts_cmcs->items, ts_cmcs_buf->cm);
+	ret = ist30xx_get_cmcs_buf(data,
+		IST30XX_CMCS_CM, ts_cmcs->items, ts_cmcs_buf->cm);
 	cmcs_next_step(ret);
-
-	/* Set cs sensor register */
-	buf32 = ts_cmcs->buf_cs_sensor;
-	ret = ist30xx_set_cmcs_sensor(data->client,
-				      ts_cmcs->param, buf32, CMCS_FLAG_CS);
-	cmcs_next_step(ret);
-
-	waddr = IST30XX_DA_ADDR(ts_cmcs->param.enable_addr);
-	val = CMCS_FLAG_CS;
-	ret = ist30xx_write_cmd(data->client, waddr, val);
-	cmcs_next_step(ret);
-	tsp_info("CS test ready!!\n");
-
-	/* Wait CS test result */
-	ist30xx_enable_irq(data);
-	if (ist30xx_cmcs_wait(data, CMCS_FLAG_CS) == 0) {
-		tsp_info("CS test OK\n");
-	} else {
-		tsp_info("CS test Fail!\n");
-		ret = -ENOEXEC;
-		goto end;
-	}
-	ist30xx_disable_irq(data);
 
 	/* Read CS data */
 	memset(ts_cmcs_buf->cs, 0, sizeof(ts_cmcs_buf->cs));
 
-	ret = ist30xx_get_cmcs_buf(data, CMCS_CS, ts_cmcs->items, ts_cmcs_buf->cs);
+	ret = ist30xx_get_cmcs_buf(data,
+		IST30XX_CMCS_CS, ts_cmcs->items, ts_cmcs_buf->cs);
 	cmcs_next_step(ret);
 
-	/* Calculate CmCs data */
 	ret = ist30xx_apply_cmcs_slope(data, ts_cmcs_buf);
 	cmcs_next_step(ret);
 
 	cmcs_ready = CMCS_READY;
 end:
 	if (unlikely(ret)) {
-		tsp_warn("CmCs test Fail!, ret=%d\n", ret);
+		tsp_warn("CM/CS test Fail!, ret=%d\n", ret);
 	} else if (unlikely(chksum != ts_cmcs->param.cmcs_chksum)) {
 		tsp_warn("Error CheckSum: %x(%x)\n",
-			 chksum, ts_cmcs->param.cmcs_chksum);
+			chksum, ts_cmcs->param.cmcs_chksum);
+		ret = -ENOEXEC;
+	} else if (unlikely(cs_chksum != ts_cmcs->param.cs_sensor_chksum)) {
+		tsp_warn("Error CS Sensor CheckSum: %x(%x)\n",
+			cs_chksum, ts_cmcs->param.cs_sensor_chksum);
 		ret = -ENOEXEC;
 	}
 
-    ist30xx_reset(data, false);
+	ist30xx_reset(data, false);
 	ist30xx_start(data);
 	ist30xx_enable_irq(data);
 
 	return ret;
 }
-
 
 int check_tsp_type(struct ist30xx_data *data, int tx, int rx)
 {
@@ -931,8 +917,8 @@ ssize_t ist30xx_cmcs_info_show(struct device *dev,
 
 	/* CS */
 	for (i = 0; i < ts_cmcs->items.cnt; i++) {
-		if (!strncmp(ts_cmcs->items.item[i].name, CMCS_CS, 64)) {
-			if (!strncmp(ts_cmcs->items.item[i].spec_type, "T", 64)) {
+		if (!strcmp(ts_cmcs->items.item[i].name, IST30XX_CMCS_CS)) {
+			if (!strcmp(ts_cmcs->items.item[i].spec_type, "T")) {
 				count += sprintf(msg, "%d %d %d %d %d %d ",
 						 ts_cmcs->spec_item[i].spec_total.screen_min,
 						 ts_cmcs->spec_item[i].spec_total.screen_max,
@@ -951,22 +937,6 @@ ssize_t ist30xx_cmcs_info_show(struct device *dev,
 			 ts_cmcs->spec_cr.gtx_min, ts_cmcs->spec_cr.gtx_max,
 			 ts_cmcs->spec_cr.key_min, ts_cmcs->spec_cr.key_max);
 	strcat(buf, msg);
-
-	/* CMJIT */
-	for (i = 0; i < ts_cmcs->items.cnt; i++) {
-		if (!strncmp(ts_cmcs->items.item[i].name, CMCS_CMJIT, 64)) {
-			if (!strncmp(ts_cmcs->items.item[i].spec_type, "T", 64)) {
-				count += sprintf(msg, "%d %d %d %d %d %d ",
-						 ts_cmcs->spec_item[i].spec_total.screen_min,
-						 ts_cmcs->spec_item[i].spec_total.screen_max,
-						 ts_cmcs->spec_item[i].spec_total.gtx_min,
-						 ts_cmcs->spec_item[i].spec_total.gtx_max,
-						 ts_cmcs->spec_item[i].spec_total.key_min,
-						 ts_cmcs->spec_item[i].spec_total.key_max);
-				strcat(buf, msg);
-			}
-		}
-	}
 
 	tsp_verb("%s\n", buf);
 
@@ -1048,7 +1018,7 @@ ssize_t ist30xx_cmcs_sdcard_show(struct device *dev,
 		 IST30XX_CMCS_NAME);
 	fp = filp_open(fw_path, O_RDONLY, 0);
 	if (IS_ERR(fp)) {
-		tsp_info("file %s open error:%d\n", fw_path, (s32)fp);
+		tsp_info("file %s open error\n", fw_path);
 		ret = -ENOENT;
 		goto err_file_open;
 	}
@@ -1097,21 +1067,6 @@ sdcard_end:
 	tsp_info("size: %d\n", sprintf(buf, (ret == 0 ? "OK\n" : "Fail\n")));
 
 	return sprintf(buf, (ret == 0 ? "OK\n" : "Fail\n"));
-}
-
-/* sysfs: /sys/class/touch/cmcs/cm_jit */
-ssize_t ist30xx_cm_jit_show(struct device *dev, struct device_attribute *attr,
-			    char *buf)
-{
-	struct ist30xx_data *data = dev_get_drvdata(dev);
-	TSP_INFO *tsp = &data->tsp_info;
-
-	if (cmcs_ready == CMCS_NOT_READY)
-		return sprintf(buf, "CMCS test is not work!!\n");
-
-	tsp_verb("CMJIT (%d * %d)\n", tsp->ch_num.tx, tsp->ch_num.rx);
-
-	return print_cmcs(data, ts_cmcs_buf->cm_jit, buf);
 }
 
 /* sysfs: /sys/class/touch/cmcs/cm */
@@ -1326,8 +1281,7 @@ int print_cm_key_slope_result(struct ist30xx_data *data, s16 *buf16, char *buf,
 	return count;
 }
 
-int print_total_result(struct ist30xx_data *data, s16 *buf16, char *buf,
-		       const char *mode)
+int print_cs_result(struct ist30xx_data *data, s16 *buf16, char *buf)
 {
 	int i, j;
 	bool success = false;
@@ -1340,8 +1294,8 @@ int print_total_result(struct ist30xx_data *data, s16 *buf16, char *buf,
 	struct CMCS_SPEC_TOTAL *spec;
 
 	for (i = 0; i < ts_cmcs->items.cnt; i++) {
-		if (!strncmp(ts_cmcs->items.item[i].name, mode, 64)) {
-			if (!strncmp(ts_cmcs->items.item[i].spec_type, "T", 64)) {
+		if (!strcmp(ts_cmcs->items.item[i].name, IST30XX_CMCS_CS)) {
+			if (!strcmp(ts_cmcs->items.item[i].spec_type, "T")) {
 				spec =
 					(struct CMCS_SPEC_TOTAL *)&ts_cmcs->spec_item[i].spec_total;
 				success = true;
@@ -1395,18 +1349,6 @@ int print_total_result(struct ist30xx_data *data, s16 *buf16, char *buf,
 	strcat(buf, msg);
 
 	return count;
-}
-
-/* sysfs: /sys/class/touch/cmcs/cm_jit_result */
-ssize_t ist30xx_cm_jit_result_show(struct device *dev,
-				   struct device_attribute *attr, char *buf)
-{
-	struct ist30xx_data *data = dev_get_drvdata(dev);
-
-	if (cmcs_ready == CMCS_NOT_READY)
-		return sprintf(buf, "CMCS test is not work!!\n");
-
-	return print_total_result(data, ts_cmcs_buf->cm_jit, buf, CMCS_CMJIT);
 }
 
 /* sysfs: /sys/class/touch/cmcs/cm_result */
@@ -1505,19 +1447,7 @@ ssize_t ist30xx_cs_result_show(struct device *dev,
 	if (cmcs_ready == CMCS_NOT_READY)
 		return sprintf(buf, "CMCS test is not work!!\n");
 
-	return print_total_result(data, ts_cmcs_buf->cs, buf, CMCS_CS);
-}
-
-/* sysfs: /sys/class/touch/cmcs/line_cm_jit */
-ssize_t ist30xx_line_cm_jit_show(struct device *dev,
-				 struct device_attribute *attr, char *buf)
-{
-	struct ist30xx_data *data = dev_get_drvdata(dev);
-
-	if (cmcs_ready == CMCS_NOT_READY)
-		return sprintf(buf, "CMCS test is not work!!\n");
-
-	return print_line_cmcs(data, CMCS_FLAG_CMJIT, ts_cmcs_buf->cm_jit, buf);
+	return print_cs_result(data, ts_cmcs_buf->cs, buf);
 }
 
 /* sysfs: /sys/class/touch/cmcs/line_cm */
@@ -1603,14 +1533,12 @@ static DEVICE_ATTR(info, S_IRUGO, ist30xx_cmcs_info_show, NULL);
 static DEVICE_ATTR(cmcs_binary, S_IRUGO, ist30xx_cmcs_binary_show, NULL);
 static DEVICE_ATTR(cmcs_custom, S_IRUGO, ist30xx_cmcs_custom_show, NULL);
 static DEVICE_ATTR(cmcs_sdcard, S_IRUGO, ist30xx_cmcs_sdcard_show, NULL);
-static DEVICE_ATTR(cm_jit, S_IRUGO, ist30xx_cm_jit_show, NULL);
 static DEVICE_ATTR(cm, S_IRUGO, ist30xx_cm_show, NULL);
 static DEVICE_ATTR(cm_spec_min, S_IRUGO, ist30xx_cm_spec_min_show, NULL);
 static DEVICE_ATTR(cm_spec_max, S_IRUGO, ist30xx_cm_spec_max_show, NULL);
 static DEVICE_ATTR(cm_slope0, S_IRUGO, ist30xx_cm_slope0_show, NULL);
 static DEVICE_ATTR(cm_slope1, S_IRUGO, ist30xx_cm_slope1_show, NULL);
 static DEVICE_ATTR(cs, S_IRUGO, ist30xx_cs_show, NULL);
-static DEVICE_ATTR(cm_jit_result, S_IRUGO, ist30xx_cm_jit_result_show, NULL);
 static DEVICE_ATTR(cm_result, S_IRUGO, ist30xx_cm_result_show, NULL);
 static DEVICE_ATTR(cm_slope0_result, S_IRUGO,
 		   ist30xx_cm_slope0_result_show, NULL);
@@ -1619,7 +1547,6 @@ static DEVICE_ATTR(cm_slope1_result, S_IRUGO,
 static DEVICE_ATTR(cm_key_slope_result, S_IRUGO,
 		   ist30xx_cm_key_slope_result_show, NULL);
 static DEVICE_ATTR(cs_result, S_IRUGO, ist30xx_cs_result_show, NULL);
-static DEVICE_ATTR(line_cm_jit, S_IRUGO, ist30xx_line_cm_jit_show, NULL);
 static DEVICE_ATTR(line_cm, S_IRUGO, ist30xx_line_cm_show, NULL);
 static DEVICE_ATTR(line_cm_slope0, S_IRUGO, ist30xx_line_cm_slope0_show, NULL);
 static DEVICE_ATTR(line_cm_slope1, S_IRUGO, ist30xx_line_cm_slope1_show, NULL);
@@ -1632,20 +1559,17 @@ static struct attribute *cmcs_attributes[] = {
 	&dev_attr_cmcs_binary.attr,
 	&dev_attr_cmcs_custom.attr,
 	&dev_attr_cmcs_sdcard.attr,
-	&dev_attr_cm_jit.attr,
 	&dev_attr_cm.attr,
 	&dev_attr_cm_spec_min.attr,
 	&dev_attr_cm_spec_max.attr,
 	&dev_attr_cm_slope0.attr,
 	&dev_attr_cm_slope1.attr,
 	&dev_attr_cs.attr,
-	&dev_attr_cm_jit_result.attr,
 	&dev_attr_cm_result.attr,
 	&dev_attr_cm_slope0_result.attr,
 	&dev_attr_cm_slope1_result.attr,
 	&dev_attr_cm_key_slope_result.attr,
 	&dev_attr_cs_result.attr,
-	&dev_attr_line_cm_jit.attr,
 	&dev_attr_line_cm.attr,
 	&dev_attr_line_cm_slope0.attr,
 	&dev_attr_line_cm_slope1.attr,

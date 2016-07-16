@@ -56,6 +56,15 @@
 		samsung,pin-val	= <_val>;		\
 	}
 
+#define PIN_OUT_SET_PULL(_pin, _pull, _val, _drv)		\
+	_pin {							\
+		samsung,pins = #_pin;				\
+		samsung,pin-function = <1>;			\
+		samsung,pin-pud = <PIN_PULL_ ##_pull>;		\
+		samsung,pin-drv = <PIN_DRV_ ##_drv>;		\
+		samsung,pin-val = <_val>;			\
+	}
+
 #define PIN_SLP(_pin, _mode, _pull)				\
 	_pin {							\
 		samsung,pins = #_pin;				\

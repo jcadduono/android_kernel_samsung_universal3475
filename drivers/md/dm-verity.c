@@ -20,6 +20,11 @@
 #include <linux/device-mapper.h>
 #include <crypto/hash.h>
 
+#if defined(CONFIG_TZ_ICCC)
+#include <linux/smc.h>
+#define SMC_CMD_DMV_WRITE_STATUS (0x83000014)
+#endif
+
 #define DM_MSG_PREFIX			"verity"
 
 #define DM_VERITY_IO_VEC_INLINE		16
@@ -29,6 +34,19 @@
 #define DM_VERITY_MAX_LEVELS		63
 
 #define VERIFY_META_ONLY
+
+#ifdef VERIFY_META_ONLY
+extern struct rb_root *ext4_system_zone_root(struct super_block *sb);
+
+static struct rb_root *system_blks;
+
+struct ext4_system_zone {
+    struct rb_node  node;
+    unsigned long long  start_blk;
+    unsigned int    count;
+};
+int start_meta = 0 ;
+#endif
 
 static unsigned dm_verity_prefetch_cluster = DM_VERITY_DEFAULT_PREFETCH_SIZE;
 
@@ -383,6 +401,9 @@ test_block_hash:
 				(unsigned long long)(io->block + b));
 			if (io->block != 0) {
 			v->hash_failed = 1;
+#if defined(CONFIG_TZ_ICCC)
+			printk(KERN_ERR "ICCC smc ret = %d \n",exynos_smc(SMC_CMD_DMV_WRITE_STATUS, 1, 0, 0));
+#endif
 			return -EIO;
 		}
 	}
@@ -488,20 +509,22 @@ static void verity_submit_prefetch(struct dm_verity *v, struct dm_verity_io *io)
 }
 
 #ifdef VERIFY_META_ONLY
-/* Check this block belong to metablock or not 
- * EXT4 file system using FLEX_BG which is saved metablock at first Group. 
- * One FLEX_BG has 16 Group, so we going to verify first group which has metablock 
- */
-#define METABLOCK_SIZE 32768
-#define FLEX_BG_SIZE 524288
 static bool is_metablock(unsigned long long n_block)
 {
-	while (n_block > FLEX_BG_SIZE)
-		n_block -= FLEX_BG_SIZE;
-	if (n_block < METABLOCK_SIZE)
-		return true;    
-	else 
-		return false;
+    struct rb_node *node;
+    struct ext4_system_zone *entry;
+    bool result = false;
+
+    node = rb_first(system_blks);
+    while (node) {
+        entry = rb_entry(node, struct ext4_system_zone, node);
+        if (n_block >= entry->start_blk && n_block <= entry->start_blk + entry->count - 1 ) {
+            result = true;
+            return result;
+        }
+        node = rb_next(node);
+    }
+    return result;
 }
 #endif
 
@@ -513,7 +536,13 @@ static int verity_map(struct dm_target *ti, struct bio *bio)
 {
 	struct dm_verity *v = ti->private;
 	struct dm_verity_io *io;
-
+#ifdef VERIFY_META_ONLY
+	if (!start_meta && bio->bi_bdev->bd_super) {
+		system_blks = ext4_system_zone_root(bio->bi_bdev->bd_super);
+		DMERR_LIMIT("Successfully Get the system block information");
+		start_meta = 1;
+	}
+#endif
 	bio->bi_bdev = v->data_dev->bdev;
 	bio->bi_sector = verity_map_sector(v, bio->bi_sector);
 
@@ -533,7 +562,7 @@ static int verity_map(struct dm_target *ti, struct bio *bio)
 		return -EIO;
 
 #ifdef VERIFY_META_ONLY
-	if (!is_metablock(bio->bi_sector >> (v->data_dev_block_bits - SECTOR_SHIFT)))
+	if (start_meta && !is_metablock(bio->bi_sector >> (v->data_dev_block_bits - SECTOR_SHIFT)))
 		goto skip_verity;
 #endif
 

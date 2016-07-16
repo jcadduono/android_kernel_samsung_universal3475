@@ -29,6 +29,7 @@
 #define __S2MU005_H__
 #include <linux/platform_device.h>
 #include <linux/regmap.h>
+#include <linux/notifier.h>
 
 #include <linux/battery/sec_charging_common.h>
 //#include <linux/battery/charger/s2mu005_charger.h>
@@ -38,7 +39,6 @@
 #define M2SH(m) ((m) & 0x0F ? ((m) & 0x03 ? ((m) & 0x01 ? 0 : 1) : ((m) & 0x04 ? 2 : 3)) : \
 		((m) & 0x30 ? ((m) & 0x10 ? 4 : 5) : ((m) & 0x40 ? 6 : 7)))
 
-#ifdef CONFIG_VIBETONZ
 struct s2mu005_haptic_platform_data {
 	u16 max_timeout;
 	u16 duty;
@@ -50,7 +50,7 @@ struct s2mu005_haptic_platform_data {
 	void (*init_hw) (void);
 	void (*motor_en) (bool);
 };
-#endif
+extern int s2m_acok_notify_call_chain(void);
 
 struct s2mu005_regulator_data {
 	int id;
@@ -62,7 +62,9 @@ typedef struct s2mu005_charger_platform_data {
 	sec_charging_current_t *charging_current_table;
 	int chg_float_voltage;
 	char *charger_name;
+	bool chg_eoc_dualpath;
 	uint32_t is_1MHz_switching:1;
+	bool always_enable;
 	/* 2nd full check */
 	 sec_battery_full_charged_t full_check_type_2nd;
 } s2mu005_charger_platform_data_t;
@@ -72,18 +74,14 @@ struct s2mu005_platform_data {
 	int irq_base;
 	int irq_gpio;
 	bool wakeup;
-#if defined(CONFIG_CHARGER_S2MU003)
+#if defined(CONFIG_CHARGER_S2MU005)
 	s2mu005_charger_platform_data_t *pdata;
-	sec_charger_platform_data_t *charger_data;
-//	sec_fuelgauge_platform_data_t *fuelgauge_data;
 #endif
 
 	int num_regulators;
 	struct s2mu005_regulator_data *regulators;
-#ifdef CONFIG_VIBETONZ
 	/* haptic motor data */
 	struct s2mu005_haptic_platform_data *haptic_data;
-#endif
 	struct mfd_cell *sub_devices;
 	int num_subdevs;
 };

@@ -92,12 +92,33 @@ config CAMERA_O5LTE
         help
           This camera is Galaxy O5LTE Project.
 
+config CAMERA_ON5LTE
+        bool "This camera is Galaxy ON5LTE Project"
+        depends on VIDEO_EXYNOS_FIMC_IS
+        default n
+        help
+          This camera is Galaxy ON5LTE Project.
+
 config CAMERA_J1XLTE
         bool "This camera is Galaxy J1XLTE Project"
         depends on VIDEO_EXYNOS_FIMC_IS
         default n
         help
           This camera is Galaxy J1XLTE Project.
+
+config CAMERA_J3XLTE
+        bool "This camera is Galaxy J3XLTE Project"
+        depends on VIDEO_EXYNOS_FIMC_IS
+        default n
+        help
+          This camera is Galaxy J3XLTE Project.
+
+config CAMERA_XCOVER3VELTE
+        bool "This camera is Galaxy XCOVER3VELTE Project"
+        depends on VIDEO_EXYNOS_FIMC_IS
+        default n
+        help
+          This camera is Galaxy XCOVER3VELTE Project.
 
 config CAMERA_REAR_SENSOR_VFLIP
         bool "This rear sensor of camera is v-flip"

@@ -80,7 +80,6 @@ struct cod3025x_priv {
 	unsigned int mic_bias1_voltage;
 	unsigned int mic_bias2_voltage;
 	unsigned int mic_bias_ldo_voltage;
-	unsigned int adc_trace_num2;
 	unsigned int aifrate;
 	bool update_fw;
 	bool use_external_jd;
@@ -97,6 +96,7 @@ struct cod3025x_priv {
 	struct delayed_work jack_det_work;
 	struct workqueue_struct *jack_det_wq;
 	bool mic_bias2_highquality;
+	bool use_ldet_threshold;
 #ifdef CONFIG_SND_RF_REF_RCV_STATE
 	int rcv_state_gpio;
 #endif

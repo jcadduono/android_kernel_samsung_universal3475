@@ -22,6 +22,7 @@
 #include <linux/mfd/samsung/s2mu005-private.h>
 #include <linux/leds-s2mu005.h>
 #include <linux/platform_device.h>
+#include <linux/sec_batt.h>
 
 extern struct class *camera_class;
 struct device *flash_dev;
@@ -59,6 +60,8 @@ struct s2mu005_led_data {
 	unsigned int torch_brightness;
 	unsigned int factory_brightness;
 };
+
+u8 CH_FLASH_TORCH_EN = S2MU005_REG_FLED_RSVD;
 
 #ifdef CONFIG_MUIC_NOTIFIER
 static void attach_cable_check(muic_attached_dev_t attached_dev,
@@ -125,10 +128,10 @@ static int ta_notification(struct notifier_block *nb,
 		}
 #else
 		s2mu005_read_reg(led_data->i2c,
-				S2MU005_REG_FLED_CTRL4, &temp);
+				CH_FLASH_TORCH_EN, &temp);
 		if ((temp & S2MU005_TORCH_ON_I2C) == S2MU005_TORCH_ON_I2C) {
 			ret = s2mu005_update_reg(led_data->i2c,
-				S2MU005_REG_FLED_CTRL4,
+				CH_FLASH_TORCH_EN,
 				S2MU005_FLASH_TORCH_OFF,
 				S2MU005_TORCH_ENABLE_MASK);
 
@@ -226,10 +229,12 @@ static void led_set(struct s2mu005_led_data *led_data)
 #endif
 		/* torch mode off sequence */
 		if (id && led_data->attach_ta) {
-			ret = s2mu005_update_reg(led_data->i2c,
-				S2MU005_REG_FLED_CTRL1, 0x00, 0x80);
-			if (ret < 0)
-				goto error_set_bits;
+			if (!factory_mode) {
+				ret = s2mu005_update_reg(led_data->i2c,
+					S2MU005_REG_FLED_CTRL1, 0x00, 0x80);
+				if (ret < 0)
+					goto error_set_bits;
+			}
 		}
 #ifndef CONFIG_S2MU005_LEDS_I2C
 		goto gpio_free_data;
@@ -267,7 +272,7 @@ static void led_set(struct s2mu005_led_data *led_data)
 		S2MU005_FLASH_ENABLE_MASK;
 
 	ret = s2mu005_update_reg(led_data->i2c,
-		S2MU005_REG_FLED_CTRL4,
+		CH_FLASH_TORCH_EN,
 		value, enable_mask);
 
 	if (ret < 0)
@@ -339,9 +344,9 @@ static int s2mu005_led_setup(struct s2mu005_led_data *led_data)
 			goto out;
 	}
 
-	/* Controlled Channel1, Channel2 by CHannel1 registers */
+	/* Controlled Channel1, Channel2 independently */
 	ret = s2mu005_update_reg(led_data->i2c, S2MU005_REG_FLED_CTRL2,
-			0x80, S2MU005_EN_CHANNEL_SHARE_MASK);
+			0x00, S2MU005_EN_CHANNEL_SHARE_MASK);
 	if (ret < 0)
 		goto out;
 
@@ -363,17 +368,19 @@ static int s2mu005_led_setup(struct s2mu005_led_data *led_data)
 	if (ret < 0)
 		goto out;
 
-	/* flash timer Maximum set */
-	ret = s2mu005_update_reg(led_data->i2c, S2MU005_REG_FLED_CH1_CTRL3,
-			leds_time_max[S2MU005_FLASH_LED], S2MU005_TIMEOUT_MAX);
-	if (ret < 0)
-		goto out;
-
-	/* torch timer Maximum set */
-	ret = s2mu005_update_reg(led_data->i2c, S2MU005_REG_FLED_CH1_CTRL2,
-			leds_time_max[S2MU005_TORCH_LED], S2MU005_TIMEOUT_MAX);
-	if (ret < 0)
-		goto out;
+	if (led_data->data->id == S2MU005_FLASH_LED) {
+		/* flash timer Maximum set */
+		ret = s2mu005_update_reg(led_data->i2c, S2MU005_REG_FLED_CH1_CTRL3,
+				led_data->data->timeout, S2MU005_TIMEOUT_MAX);
+		if (ret < 0)
+			goto out;
+	} else {
+		/* torch timer Maximum set */
+		ret = s2mu005_update_reg(led_data->i2c, S2MU005_REG_FLED_CH1_CTRL2,
+				led_data->data->timeout, S2MU005_TIMEOUT_MAX);
+		if (ret < 0)
+			goto out;
+	}
 
 	/* flash brightness set */
 	ret = s2mu005_update_reg(led_data->i2c, S2MU005_REG_FLED_CH1_CTRL0,
@@ -387,13 +394,24 @@ static int s2mu005_led_setup(struct s2mu005_led_data *led_data)
 	if (ret < 0)
 		goto out;
 
+	/* factory mode additional setting */
+	if (factory_mode) {
+		ret = s2mu005_update_reg(led_data->i2c, S2MU005_REG_FLED_CTRL1,
+						0x80, 0x80);
+		if (ret < 0)
+			goto out;
+		ret = s2mu005_update_reg(led_data->i2c, 0xAC,0x40, 0x40);
+		if (ret < 0)
+			goto out;
+	}
+
 #ifdef CONFIG_S2MU005_LEDS_I2C
 	value =	S2MU005_FLASH_TORCH_OFF;
 #else
 	value = S2MU005_FLASH_ON_GPIO | S2MU005_TORCH_ON_GPIO;
 #endif
 	mask = S2MU005_TORCH_ENABLE_MASK | S2MU005_FLASH_ENABLE_MASK;
-	ret = s2mu005_update_reg(led_data->i2c, S2MU005_REG_FLED_CTRL4,
+	ret = s2mu005_update_reg(led_data->i2c, CH_FLASH_TORCH_EN,
 		value, mask);
 	if (ret < 0)
 		goto out;
@@ -526,6 +544,7 @@ err:
 }
 
 static DEVICE_ATTR(rear_flash, 0644, rear_flash_show, rear_flash_store);
+static DEVICE_ATTR(rear_torch_flash, 0644, rear_flash_show, rear_flash_store);
 
 #if defined(CONFIG_OF)
 static int s2mu005_led_dt_parse_pdata(struct device *dev,
@@ -646,12 +665,19 @@ int create_flash_sysfs(void)
 		pr_err("flash_sysfs: failed to create device file, %s\n",
 				dev_attr_rear_flash.attr.name);
 	}
+
+	err = device_create_file(flash_dev, &dev_attr_rear_torch_flash);
+	if (unlikely(err < 0)) {
+		pr_err("flash_sysfs: failed to create device file, %s\n",
+				dev_attr_rear_torch_flash.attr.name);
+	}
 	return 0;
 }
 
 static int s2mu005_led_probe(struct platform_device *pdev)
 {
 	int ret = 0, i = 0;
+	u8 temp = 0;
 
 	struct s2mu005_dev *s2mu005 = dev_get_drvdata(pdev->dev.parent);
 #ifndef CONFIG_OF
@@ -773,6 +799,10 @@ static int s2mu005_led_probe(struct platform_device *pdev)
 			} else {
 				led_data->torch_pin = pdata->torch_pin;
 				led_data->flash_pin = pdata->flash_pin;
+				gpio_request_one(pdata->torch_pin, GPIOF_OUT_INIT_LOW, "LED_GPIO_OUTPUT_LOW");
+				gpio_request_one(pdata->flash_pin, GPIOF_OUT_INIT_LOW, "LED_GPIO_OUTPUT_LOW");
+				gpio_free(pdata->torch_pin);
+				gpio_free(pdata->flash_pin);
 			}
 		}
 #endif
@@ -782,6 +812,15 @@ static int s2mu005_led_probe(struct platform_device *pdev)
 		led_data->movie_brightness = pdata->movie_brightness;
 		led_data->torch_brightness = pdata->torch_brightness;
 		led_data->factory_brightness = pdata->factory_brightness;
+
+		ret = s2mu005_read_reg(led_data->i2c, 0x73, &temp);	/* EVT0 0x73[3:0] == 0x0 */
+		if (ret < 0)
+			pr_err("%s : s2mu005 reg fled read fail\n",__func__);
+
+		if ((temp & 0xf) == 0x00) {
+			/* FLED_CTRL4 = 0x3A */
+			CH_FLASH_TORCH_EN = S2MU005_REG_FLED_CTRL4;
+		}
 
 #ifdef CONFIG_MUIC_NOTIFIER
 		muic_notifier_register(&led_data->batt_nb,
@@ -815,6 +854,15 @@ static int s2mu005_led_remove(struct platform_device *pdev)
 		g_led_datas[i] = NULL;
 	}
 	kfree(led_datas);
+
+	if (flash_dev) {
+		device_remove_file(flash_dev, &dev_attr_rear_flash);
+		device_remove_file(flash_dev, &dev_attr_rear_torch_flash);
+	}
+
+	if (camera_class && flash_dev) {
+		device_destroy(camera_class, flash_dev->devt);
+	}
 
 	return 0;
 }

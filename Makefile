@@ -192,8 +192,9 @@ SUBARCH := $(shell uname -m | sed -e s/i.86/x86/ -e s/x86_64/x86/ \
 # "make" in the configured kernel build directory always uses that.
 # Default value for CROSS_COMPILE is not to prefix executables
 # Note: Some architectures assign CROSS_COMPILE in their arch/*/Makefile
-ARCH		?= $(SUBARCH)
-CROSS_COMPILE	?= $(CONFIG_CROSS_COMPILE:"%"=%)
+export KBUILD_BUILDHOST := $(SUBARCH)
+ARCH		?=arm
+CROSS_COMPILE	?=../PLATFORM/prebuilts/gcc/linux-x86/arm/arm-eabi-4.8/bin/arm-eabi-
 
 # Architecture as present in compile.h
 UTS_MACHINE 	:= $(ARCH)
@@ -666,6 +667,11 @@ KBUILD_ARFLAGS := $(call ar-option,D)
 # check for 'asm goto'
 ifeq ($(shell $(CONFIG_SHELL) $(srctree)/scripts/gcc-goto.sh $(CC)), y)
 	KBUILD_CFLAGS += -DCC_HAVE_ASM_GOTO
+endif
+
+#ICCC
+ifeq ($(CONFIG_TZ_ICCC),y)
+    KBUILD_CFLAGS += -Idrivers/gud/gud-exynos3475/MobiCoreKernelApi/include/
 endif
 
 # Add user supplied CPPFLAGS, AFLAGS and CFLAGS as the last assignments

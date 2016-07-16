@@ -41,3 +41,14 @@ static int sec_bat_get_fg_reset(char *val)
 	return 1;
 }
 __setup("fg_reset=", sec_bat_get_fg_reset);
+
+int factory_mode;
+EXPORT_SYMBOL(factory_mode);
+
+static int sec_bat_get_factory_mode(char *val)
+{
+        factory_mode = strncmp(val, "1", 1) ? 0 : 1;
+        pr_info("%s, factory_mode : %d\n", __func__, factory_mode);
+        return 1;
+}
+__setup("factory_mode=", sec_bat_get_factory_mode);

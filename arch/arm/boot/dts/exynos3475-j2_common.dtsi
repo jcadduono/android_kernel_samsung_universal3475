@@ -741,9 +741,9 @@
 			delay = <10000 11000>, <10000 11000>;
 		};
 		dsim_reset_panel {
-			type = "gpio,high", "delay,usleep", "gpio,low", "delay,usleep", "gpio,high", "delay,usleep", "delay,usleep";
+			type = "gpio,high", "delay,usleep", "gpio,low", "delay,usleep", "gpio,high", "delay,usleep";
 			gpios = <&gpd2 2 0x1>, <&gpd2 2 0x1>, <&gpd2 2 0x1>;
-			delay = <5000 6000>, <5000 6000>, <10000 11000>, <40000 41000>;
+			delay = <5000 6000>, <5000 6000>, <10000 11000>;
 		};
 	};
 
@@ -1199,7 +1199,12 @@
 					   50 897000 0 559000 100000 0 1
 					  100 1196000 0 666000 100000 0 1>;
 		};
-
+		boot_device@2 {
+			net_boost,label="USB";
+			net_boost,node="rndis0";
+			net_boost,table_size = <1>;
+			net_boost,table= < 1 0 0 0 0 0 1 >;
+		};
 		/* Example
 		   boot_device@2 {
 		   net_boost,label="EMMC";

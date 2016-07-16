@@ -27,6 +27,9 @@
 #include <linux/mfd/samsung/s2mps11.h>
 #include <linux/mfd/samsung/s2mps13.h>
 #include <linux/mfd/samsung/s2mpu04.h>
+#if defined(CONFIG_S2MU005_ACOK_NOTIFY)
+#include <linux/mfd/samsung/s2mu005.h>
+#endif
 #if defined(CONFIG_RTC_ALARM_BOOT)
 #include <linux/reboot.h>
 #include <linux/wakelock.h>
@@ -38,6 +41,11 @@ struct s2m_rtc_info {
 	struct rtc_device	*rtc_dev;
 	struct mutex		lock;
 	struct work_struct	irq_work;
+#if defined(CONFIG_S2MU005_ACOK_NOTIFY)
+	struct work_struct	acok_work;
+	int			acokf_irq;
+	int			acokr_irq;
+#endif
 	int			irq;
 #if defined(CONFIG_RTC_ALARM_BOOT)
 	int alarm_boot_irq;
@@ -612,6 +620,49 @@ static irqreturn_t s2m_rtc_alarm_irq(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+#if defined(CONFIG_S2MU005_ACOK_NOTIFY)
+static irqreturn_t s2m_acokf_irq(int irq, void *data)
+{
+	struct s2m_rtc_info *info = data;
+
+	if (!info->rtc_dev)
+		return IRQ_HANDLED;
+
+	dev_info(info->dev, "%s:irq(%d)\n", __func__, irq);
+
+	schedule_work(&info->acok_work);
+
+	return IRQ_HANDLED;
+}
+
+static irqreturn_t s2m_acokr_irq(int irq, void *data)
+{
+	struct s2m_rtc_info *info = data;
+
+	if (!info->rtc_dev)
+		return IRQ_HANDLED;
+
+	dev_info(info->dev, "%s:irq(%d)\n", __func__, irq);
+
+	schedule_work(&info->acok_work);
+
+	return IRQ_HANDLED;
+}
+
+static void s2m_acok_work(struct work_struct *work)
+{
+#if defined(CONFIG_S2MU005_ACOK_NOTIFY)
+	s2m_acok_notify_call_chain();
+#endif
+	//switch(info->iodev->device_type) {
+	/* smpl_warn interrupt is active high */
+	//case S2MPU04X:
+	//	s2m_acok_notify_call_chain();
+	//	break;
+	//}
+}
+#endif
+
 #if defined(CONFIG_RTC_ALARM_BOOT)
 static irqreturn_t s2m_rtc_alarm1_irq(int irq, void *data)
 {
@@ -864,6 +915,11 @@ static int s2m_rtc_probe(struct platform_device *pdev)
 		info->alarm_check = true;
 		info->wudr_mask = RTC_WUDR_MASK_REV;
 		info->audr_mask = RTC_AUDR_MASK_REV;
+#if defined(CONFIG_S2MU005_ACOK_NOTIFY)
+		info->acokf_irq = irq_base + S2MPU04_IRQ_ACOKF;
+		info->acokr_irq = irq_base + S2MPU04_IRQ_ACOKR;
+		INIT_WORK(&info->acok_work, s2m_acok_work);
+#endif
 #if defined(CONFIG_RTC_ALARM_BOOT)
 		info->alarm_boot_irq = irq_base + S2MPU04_IRQ_RTCA1;
 #endif
@@ -931,6 +987,22 @@ static int s2m_rtc_probe(struct platform_device *pdev)
 			info->irq, ret);
 		goto err_rtc_irq;
 	}
+#if defined(CONFIG_S2MU005_ACOK_NOTIFY)
+	ret = devm_request_threaded_irq(&pdev->dev, info->acokf_irq, NULL,
+			s2m_acokf_irq, 0, "rtc-acokf", info);
+	if (ret < 0) {
+		dev_err(&pdev->dev, "Failed to request acokf IRQ: %d: %d\n",
+			info->acokf_irq, ret);
+		goto err_rtc_init_reg;
+	}
+	ret = devm_request_threaded_irq(&pdev->dev, info->acokr_irq, NULL,
+			s2m_acokr_irq, 0, "rtc-acokr", info);
+	if (ret < 0) {
+		dev_err(&pdev->dev, "Failed to request acokr IRQ: %d: %d\n",
+			info->acokr_irq, ret);
+		goto err_rtc_init_reg;
+	}
+#endif
 	disable_irq(info->irq);
 	disable_irq(info->irq);
 	info->use_irq = true;

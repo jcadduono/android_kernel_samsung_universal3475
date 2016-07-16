@@ -65,11 +65,21 @@
 #define CHIP_DEV_NAME	"GP2AP002"
 #define CHIP_DEV_VENDOR	"SHARP"
 
+enum {
+	OFF = 0,
+	ON,
+};
+
 struct gp2a_data;
 
 struct gp2a_platform_data {
 	int p_out;
 	int power_en;
+#if defined(CONFIG_SENSORS_GP2A002_LDO_EN)
+
+	int gpio_sensors_ldo_en;
+
+#endif
 };
 
 #ifdef CONFIG_SENSORS_LDO_CONTROL
@@ -164,6 +174,19 @@ int gp2a_write(struct gp2a_data *gp2a, u8 reg, u8 val)
 
 	return err;
 }
+#if defined(CONFIG_SENSORS_GP2A002_LDO_EN)
+static int sensor_ldo_gpio_onoff(struct gp2a_data *data, bool onoff)
+{
+	struct gp2a_platform_data *pdata = data->pdata;
+
+	gpio_direction_output(pdata->gpio_sensors_ldo_en, onoff);
+	if (onoff)
+		msleep(20);
+
+	return 0;
+}
+#endif
+
 #ifndef CONFIG_SENSORS_GP2A002_PMIC_LEDA
 static int gp2a_leda_onoff(struct gp2a_data *gp2a, int power)
 {
@@ -414,6 +437,7 @@ static int gp2a_pmic_leda_onoff(struct device *dev, bool onoff)
 
 #endif
 
+#ifndef CONFIG_SENSORS_GP2A002_LDO_EN
 static int gp2a_regulator_onoff(struct device *dev, bool onoff)
 {
 	struct regulator *gp2a_vio;
@@ -467,7 +491,7 @@ static int gp2a_regulator_onoff(struct device *dev, bool onoff)
 
 	return 0;
 }
-
+#endif
 static ssize_t proximity_enable_show(struct device *dev,
 				 struct device_attribute *attr, char *buf)
 {
@@ -558,6 +582,25 @@ static struct attribute *proximity_sysfs_attrs[] = {
 static struct attribute_group proximity_attribute_group = {
 	.attrs = proximity_sysfs_attrs,
 };
+
+#if defined(CONFIG_SENSORS_GP2A002_LDO_EN)
+static int setup_sensor_ldo_gpio(struct gp2a_data *gp2a)
+{
+	int ret;
+	struct gp2a_platform_data *pdata = gp2a->pdata;
+
+	ret = gpio_request(pdata->gpio_sensors_ldo_en, "sensor_ldo_en");
+	if (ret < 0){
+		SENSOR_ERR("gpio sensor_ldo_en request failed \n");
+		return ret;
+	}
+	ret = gpio_direction_output(pdata->gpio_sensors_ldo_en, 1);
+	if (ret)
+		SENSOR_ERR("unable to set_direction for sensor_ldo_en\n");
+
+	return ret;
+}
+#endif
 
 static void gp2a_prox_work_func(struct work_struct *work)
 {
@@ -675,6 +718,14 @@ static int gp2a_parse_dt(struct device *dev, struct gp2a_platform_data *pdata)
 	struct device_node *np = dev->of_node;
 	enum of_gpio_flags flags;
 
+#if defined(CONFIG_SENSORS_GP2A002_LDO_EN)
+	pdata->gpio_sensors_ldo_en = of_get_named_gpio(np, "gp2a,gpio_sensors_ldo_en", 0);
+	if(pdata->gpio_sensors_ldo_en < 0) {
+		pr_err("get prox_ldo_gpio error\n");
+		return -ENODEV;
+	}
+#endif
+
 	pdata->p_out = of_get_named_gpio_flags(np, "gp2a,irq-gpio",
 				0, &flags);
 	if (pdata->p_out < 0) {
@@ -703,13 +754,13 @@ static int gp2a_probe(struct i2c_client *client,
 	struct gp2a_platform_data *pdata = client->dev.platform_data;
 
 	pr_info("%s, probe start\n", __func__);
-
+#ifndef CONFIG_SENSORS_GP2A002_LDO_EN
 	ret = gp2a_regulator_onoff(&client->dev, true);
 	if (ret) {
 		pr_err("%s, Power Up Failed\n", __func__);
 		return ret;
 	}
-
+#endif
 	if (client->dev.of_node) {
 		pdata = devm_kzalloc(&client->dev,
 		sizeof(struct gp2a_platform_data), GFP_KERNEL);
@@ -751,6 +802,15 @@ static int gp2a_probe(struct i2c_client *client,
 	wake_lock_init(&gp2a->prx_wake_lock, WAKE_LOCK_SUSPEND,
 		       "prx_wake_lock");
 	mutex_init(&gp2a->power_lock);
+#if defined(CONFIG_SENSORS_GP2A002_LDO_EN)
+	/* setup sensor_ldo_gpio */
+	ret = setup_sensor_ldo_gpio(gp2a);
+	if (ret) {
+		SENSOR_ERR("could not setup sensor_ldo_gpio\n");
+		return ret;
+	}
+	sensor_ldo_gpio_onoff(gp2a, ON);
+#endif
 
 	input_dev = input_allocate_device();
 	if (!input_dev) {

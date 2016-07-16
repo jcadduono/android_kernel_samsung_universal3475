@@ -544,5 +544,9 @@ config REGULATOR_SM5703
 	  This driver controls a SM5703 regulator
 	  via I2C bus.
 
+config AP_S2MPU04_LDO16_CONTROL
+	tristate "AP S2MPU04 LDO16 control"
+	help
+	  This enable to control S2MPU04 LDO16 in AP.
+	  
 endif
-

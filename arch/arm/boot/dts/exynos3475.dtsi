@@ -253,6 +253,10 @@
 		compatible = "samsung,exynos3475-uart";
 		samsung,separate-uart-clk;
 		reg = <0x13820000 0x100>;
+		irq_affinity = <4>;
+		mif_qos_val = <633000>;
+		cpu_qos_val = <800000>;
+		qos_timeout = <1000000>; 
 		interrupts = <0 423 0>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&uart2_bus>;

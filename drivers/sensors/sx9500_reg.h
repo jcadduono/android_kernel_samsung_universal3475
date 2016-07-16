@@ -75,7 +75,7 @@ static const struct smtc_reg_data setup_reg[] = {
 	},
 	{
 		.reg = SX9500_CPS_CTRL0_REG,
-		.val = 0x10, /* SCANPERIOD: 60ms */
+		.val = 0x00, /* SCANPERIOD: 30ms */
 	},
 	{
 		.reg = SX9500_CPS_CTRL1_REG,

@@ -318,6 +318,10 @@ static struct regulator_desc regulators[S2MPU04_REGULATOR_MAX] = {
 			_REG(_L5CTRL), _REG(_L5CTRL), _TIME(_LDO)),
 	LDO_DESC("LDO6", _LDO(6), &_ldo_ops(), _LDO(_MIN1), _LDO(_STEP2),
 			_REG(_L6CTRL), _REG(_L6CTRL), _TIME(_LDO)),
+#ifdef CONFIG_AP_S2MPU04_LDO16_CONTROL
+	LDO_DESC("LDO16", _LDO(16), &_ldo_ops(), _LDO(_MIN2), _LDO(_STEP2),
+			_REG(_L16CTRL), _REG(_L16CTRL), _TIME(_LDO)),
+#endif
 	LDO_DESC("LDO17", _LDO(17), &_ldo_ops(), _LDO(_MIN1), _LDO(_STEP2),
 			_REG(_L17CTRL), _REG(_L17CTRL), _TIME(_LDO)),
 	LDO_DESC("LDO18", _LDO(18), &_ldo_ops(), _LDO(_MIN2), _LDO(_STEP2),

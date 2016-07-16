@@ -4,6 +4,12 @@
 #include <linux/types.h>
 #include <linux/kernel.h>
 
+struct lcd_seq_info {
+	unsigned char	*cmd;
+	unsigned int	len;
+	unsigned int	sleep;
+};
+
 enum {
 	HBM_STATUS_OFF,
 	HBM_STATUS_ON,

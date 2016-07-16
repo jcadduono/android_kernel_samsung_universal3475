@@ -19,6 +19,8 @@ void s2803x_startup(s2803x_if_t interface);
 void s2803x_shutdown(s2803x_if_t interface);
 void s2803x_get_sync(void);
 void s2803x_put_sync(void);
+void aud_mixer_MCLKO_enable(void);
+void aud_mixer_MCLKO_disable(void);
 
 /**
  * is_cp_aud_enabled(void): Checks the current status of CP path

@@ -48,7 +48,7 @@
 			secure;
 			reg = <0x30000000 0x200000>;
 			id = <8>;
-		};		
+		};
 
 		mfc_nfw {
 			compatible = "exynos5433-ion,mfc_nfw";
@@ -1220,6 +1220,28 @@
 			net_boost,table_size = <1>;
 			net_boost,table= < 1 0 0 0 0 0 1 >;
 		};
+		
+		 boot_device@3 {
+			net_boost,label="P2P";
+			net_boost,node="p2p-wlan0-0";
+			net_boost,table_size = <3>;
+			net_boost,table= <
+				30 1196000 0 413000 0 0 0
+				50 1300000 0 413000 275000 0 0
+				90 1300000 0 666000 275000 1 1
+				>;
+		};
+		boot_device@4 {
+			net_boost,label="WIFI";
+			net_boost,node="wlan0";
+			net_boost,table_size = <3>;
+			net_boost,table= <
+				10 1001000 0 413000 0 0 0
+				60 1300000 0 666000 275000 1 1
+				120 1300000 0 666000 275000 1 1
+				>;
+		 };
+	
 		/* Example
 		   boot_device@2 {
 		   net_boost,label="EMMC";

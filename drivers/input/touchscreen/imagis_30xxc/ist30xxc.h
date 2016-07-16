@@ -20,7 +20,7 @@
 #include <linux/input/tsp_ta_callback.h>
 #endif
 
-#ifdef CONFIG_VBUS_NOTIFIER
+#if defined(CONFIG_VBUS_NOTIFIER) || defined(CONFIG_MUIC_NOTIFIER)
 #include <linux/muic/muic.h>
 #include <linux/muic/muic_notifier.h>
 #include <linux/vbus_notifier.h>
@@ -50,6 +50,8 @@
 #define IMAGIS_TSP_IC			IMAGIS_IST3026C
 #elif defined(CONFIG_TOUCHSCREEN_IST3032C)
 #define IMAGIS_TSP_IC			IMAGIS_IST3032C
+#elif defined(CONFIG_TOUCHSCREEN_IST3038C)
+#define IMAGIS_TSP_IC			IMAGIS_IST3038C
 #endif
 
 /* SEC defined [*/
@@ -115,7 +117,7 @@
 
 #define IST30XX_TA_RESET		(1)
 
-#if defined(CONFIG_TOUCHSCREEN_IST3026C)
+#if defined(CONFIG_TOUCHSCREEN_IST3026C) || defined(CONFIG_TOUCHSCREEN_IST3038C)
 #define IST30XX_USE_KEY			(0)
 #else
 #define IST30XX_USE_KEY			(1)
@@ -518,6 +520,7 @@ struct ist30xx_dt_data {
 	const char *tsp_vdd_name;
 	struct regulator *tsp_power;
 	int fw_bin;
+	int octa_hw;
 	const char *ic_version;
 	const char *project_name;
 	char fw_path[FIRMWARE_PATH_LENGTH];
@@ -588,6 +591,9 @@ struct ist30xx_data {
 	bool touch_stopped;
 #ifdef USE_TSP_TA_CALLBACKS
 	struct tsp_callbacks	callbacks;
+#endif
+#ifdef CONFIG_MUIC_NOTIFIER
+	struct notifier_block muic_nb;
 #endif
 #ifdef CONFIG_VBUS_NOTIFIER
 	struct notifier_block vbus_nb;

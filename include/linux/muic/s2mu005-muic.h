@@ -139,6 +139,7 @@
 #define DEV_TYPE_USB		(0x1 << 2)
 #define DEV_TYPE_CDPCHG		(0x1 << 1)
 #define DEV_TYPE_DCPCHG		(0x1 << 0)
+#define DEV_TYPE_CHG_TYPE		(CHG_TYPE_VBUS_R255 | DEV_TYPE_U200 | DEV_TYPE_SDP_1P8S)
 
 #define MANUAL_SW_JIG_EN		(0x1 << 0)
 
@@ -164,12 +165,12 @@
 
 enum s2mu005_reg_manual_sw_value {
 	MANSW_OPEN		=	(MANUAL_SW_OPEN),
-	MANSW_OPEN_WITH_VBUS	=	(MANUAL_SW_CHARGER),
-	MANSW_USB		=	(MANUAL_SW_USB | MANUAL_SW_CHARGER),
-	MANSW_AUDIO	=	(MANUAL_SW_AUDIO | MANUAL_SW_CHARGER), /* Not Used */
-	MANSW_OTG		=	(MANUAL_SW_USB | MANUAL_SW_OTGEN),
-	MANSW_UART		=	(MANUAL_SW_UART | MANUAL_SW_CHARGER),
-	MANSW_OPEN_RUSTPROOF	=	(MANUAL_SW_OPEN | MANUAL_SW_CHARGER),
+	MANSW_OPEN_WITH_VBUS	=	(MANUAL_SW_OPEN),
+	MANSW_USB		=	(MANUAL_SW_USB),
+	MANSW_AUDIO	=	(MANUAL_SW_AUDIO), /* Not Used */
+	MANSW_OTG		=	(MANUAL_SW_USB),
+	MANSW_UART		=	(MANUAL_SW_UART),
+	MANSW_OPEN_RUSTPROOF	=	(MANUAL_SW_OPEN),
 };
 
 /* muic chip specific internal data structure
@@ -214,6 +215,7 @@ struct s2mu005_muic_data {
 	bool	is_factory_start;
 	bool	is_rustproof;
 	bool	is_otg_test;
+	bool	undefined_range;
 
 #if !defined(CONFIG_MUIC_S2MU005_ENABLE_AUTOSW)
 	bool	is_jig_on;
@@ -227,6 +229,17 @@ struct s2mu005_muic_data {
 	int rev_id;
 };
 
+#define MUIC_SUPPORTED_VPS	1
+#define MUIC_UNSUPPORTED_VPS	0
+
+struct vps_tbl_data {
+	u8 adc;
+	char *rid;
+	char *name;
+	bool supported;
+};
+
+#define MDEV(name) ATTACHED_DEV_##name##_MUIC
 
 extern struct device *switch_device;
 extern unsigned int system_rev;

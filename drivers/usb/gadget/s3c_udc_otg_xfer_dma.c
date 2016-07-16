@@ -760,10 +760,18 @@ static void udc_set_address(struct s3c_udc *dev, unsigned char address)
 static inline void s3c_udc_ep0_set_stall(struct s3c_ep *ep)
 {
 	struct s3c_udc *dev;
-	u32		ep_ctrl = 0;
+	struct usb_ctrlrequest *usb_ctrl;
+	u32 ep_ctrl = 0;
+	u32 ep_direction;
 
 	dev = ep->dev;
-	ep_ctrl = __raw_readl(dev->regs + S3C_UDC_OTG_DIEPCTL(EP0_CON));
+	usb_ctrl = dev->usb_ctrl;
+	ep_direction = (usb_ctrl->bRequestType & USB_DIR_IN) ? 1 : 0;
+
+	if (ep_direction)
+		ep_ctrl = __raw_readl(dev->regs + S3C_UDC_OTG_DIEPCTL(EP0_CON));
+	else
+		ep_ctrl = __raw_readl(dev->regs + S3C_UDC_OTG_DOEPCTL(EP0_CON));
 
 	/* set the disable and stall bits */
 	if (ep_ctrl & DEPCTL_EPENA)
@@ -771,11 +779,17 @@ static inline void s3c_udc_ep0_set_stall(struct s3c_ep *ep)
 
 	ep_ctrl |= DEPCTL_STALL;
 
-	__raw_writel(ep_ctrl, dev->regs + S3C_UDC_OTG_DIEPCTL(EP0_CON));
+	if (ep_direction) {
+		__raw_writel(ep_ctrl, dev->regs + S3C_UDC_OTG_DIEPCTL(EP0_CON));
+		ep_ctrl = S3C_UDC_OTG_DIEPCTL(EP0_CON);
+	} else {
+		__raw_writel(ep_ctrl, dev->regs + S3C_UDC_OTG_DOEPCTL(EP0_CON));
+		ep_ctrl = S3C_UDC_OTG_DOEPCTL(EP0_CON);
+	}
 
-	DEBUG_EP0("%s: set ep%d stall, DIEPCTL0 = 0x%x\n",
-		__func__, ep_index(ep),
-		__raw_readl(dev->regs + S3C_UDC_OTG_DIEPCTL(EP0_CON)));
+	DEBUG_EP0("%s: set ep%d stall, DEPCTL0 = 0x%x\n",
+		__func__, ep_index(ep), ep_ctrl);
+
 	/*
 	 * The application can only set this bit, and the core clears it,
 	 * when a SETUP token is received for this endpoint

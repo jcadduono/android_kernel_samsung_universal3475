@@ -705,11 +705,11 @@ int ping_v4_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
 	 */
 
 	if (msg->msg_name) {
-		struct sockaddr_in *usin = (struct sockaddr_in *)msg->msg_name;
+		DECLARE_SOCKADDR(struct sockaddr_in *, usin, msg->msg_name);
 		if (msg->msg_namelen < sizeof(*usin))
 			return -EINVAL;
 		if (usin->sin_family != AF_INET)
-			return -EINVAL;
+			return -EAFNOSUPPORT;
 		daddr = usin->sin_addr.s_addr;
 		/* no remote port */
 	} else {

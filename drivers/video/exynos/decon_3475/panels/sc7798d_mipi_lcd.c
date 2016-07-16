@@ -17,7 +17,6 @@
 #include <linux/platform_device.h>
 
 #include "../dsim.h"
-#include "lcd_ctrl.h"
 #include "decon_lcd.h"
 #include "sc7798d_param.h"
 

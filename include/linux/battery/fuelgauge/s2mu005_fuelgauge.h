@@ -31,7 +31,7 @@
 #define S2MU005_REG_STATUS		0x00
 #define S2MU005_REG_IRQ			0x02
 #define S2MU005_REG_RVBAT		0x04
-#define S2MU005_REG_ROCV		0x06
+#define S2MU005_REG_RCUR_CC		0x06
 #define S2MU005_REG_RSOC		0x08
 #define S2MU005_REG_MONOUT		0x0A
 #define S2MU005_REG_MONOUT_SEL		0x0C
@@ -41,6 +41,13 @@
 #define S2MU005_REG_RBATZ1		0x18
 #define S2MU005_REG_IRQ_LVL		0x1A
 #define S2MU005_REG_START		0x1E
+
+enum {
+	CURRENT_MODE = 0,
+	LOW_SOC_VOLTAGE_MODE,
+	HIGH_SOC_VOLTAGE_MODE,
+	END_MODE,
+};
 
 struct sec_fg_info {
 	/* test print count */
@@ -56,7 +63,17 @@ struct sec_fg_info {
 	bool is_low_batt_alarm;
 
 	/* battery info */
-	u32 soc;
+	int soc;
+
+	/* copy from platform data /
+	 * DTS or update by shell script */
+	int battery_table1[88];
+	int battery_table2[22];
+	int battery_table3[88];
+	int battery_table4[22];
+	int soc_arr_evt2[22];
+	int ocv_arr_evt2[22];
+	int batcap[4];
 
 	/* miscellaneous */
 	unsigned long fullcap_check_interval;
@@ -81,38 +98,44 @@ struct s2mu005_platform_data {
 };
 
 struct s2mu005_fuelgauge_data {
-        struct device           *dev;
-        struct i2c_client       *i2c;
-        struct i2c_client       *pmic;
-        struct mutex            fuelgauge_mutex;
-        struct s2mu005_platform_data *pdata;
-        struct power_supply	psy_fg;
-        /* struct delayed_work isr_work; */
+	struct device           *dev;
+	struct i2c_client       *i2c;
+	struct i2c_client       *pmic;
+	struct mutex            fuelgauge_mutex;
+	struct s2mu005_platform_data *pdata;
+	struct power_supply	psy_fg;
+	/* struct delayed_work isr_work; */
 
-        int cable_type;
-        bool is_charging;
+	int cable_type;
+	bool is_charging;
+	int mode;
+	int revision;
 
-        /* HW-dedicated fuel guage info structure
-         * used in individual fuel gauge file only
-         * (ex. dummy_fuelgauge.c)
-         */
-        struct sec_fg_info      info;
-        bool is_fuel_alerted;
-        struct wake_lock fuel_alert_wake_lock;
+	/* HW-dedicated fuel guage info structure
+	 * used in individual fuel gauge file only
+	 * (ex. dummy_fuelgauge.c)
+	 */
+	struct sec_fg_info      info;
+	bool is_fuel_alerted;
+	struct wake_lock fuel_alert_wake_lock;
 
-        unsigned int capacity_old;      /* only for atomic calculation */
-        unsigned int capacity_max;      /* only for dynamic calculation */
-        unsigned int standard_capacity;
+	unsigned int capacity_old;      /* only for atomic calculation */
+	unsigned int capacity_max;      /* only for dynamic calculation */
+	unsigned int standard_capacity;
 
-        bool initial_update_of_soc;
-        struct mutex fg_lock;
-struct delayed_work register_work;
-struct workqueue_struct *register_wq;
-        /* register programming */
-        int reg_addr;
-        u8 reg_data[2];
+	bool initial_update_of_soc;
+	struct mutex fg_lock;
+	struct delayed_work isr_work;
 
-        unsigned int pre_soc;
-        int fg_irq;
+	/* register programming */
+	int reg_addr;
+	u8 reg_data[2];
+
+	unsigned int pre_soc;
+	int fg_irq;
+	int diff_soc;
+	int target_ocv;
+	int vm_soc;
+	bool cc_on;
 };
 #endif /* __S2MU005_FUELGAUGE_H */

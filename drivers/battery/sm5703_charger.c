@@ -232,7 +232,7 @@ static void sm5703_enable_charger_switch(struct sm5703_charger_data *charger,
 			sm5703_assign_bits(charger->sm5703->i2c_client,
 					SM5703_CNTL, SM5703_OPERATION_MODE_MASK,
 					SM5703_OPERATION_MODE_SUSPEND);
-			pr_info("%s: Set SM5703 mode to Suspend, W/O for VF check \n",__func__);
+			pr_info("%s: Set SM5703 mode to Suspend, W/O for VF check \n", __func__);
 		}
 #endif
 	}
@@ -377,6 +377,15 @@ static void sm5703_set_input_current_limit(struct sm5703_charger_data *charger,
 		pr_info("%s: skip set input current limit(%d <--> %d)\n",
 			__func__, charger->current_max, current_limit);
 	} else {
+#ifdef CONFIG_CHARGER_SM5703_SOFT_START_CHARGING
+		/* Soft Start Charging */
+		if ((charger->cable_type != POWER_SUPPLY_TYPE_BATTERY) && !lpcharge) {
+			data = sm5703_reg_read(charger->sm5703->i2c_client, SM5703_VBUSCNTL);
+			data &= ~SM5703_VBUSLIMIT;
+			sm5703_reg_write(charger->sm5703->i2c_client, SM5703_VBUSCNTL, data);
+			msleep(100);
+		}
+#endif
 		if (current_limit > 100) {
 			temp = ((current_limit - 100) / 50) | data;
 			sm5703_reg_write(i2c, SM5703_VBUSCNTL, temp);
@@ -720,7 +729,6 @@ static int sm5703_get_charging_status(struct sm5703_charger_data *charger)
 			status = POWER_SUPPLY_STATUS_NOT_CHARGING;
 	}
 
-
 	/* TEMP_TEST : when OTG is enabled(charging_current -1), handle OTG func. */
 	if (charger->charging_current < 0) {
 		/* For OTG mode, SM5703 would still report "charging" */
@@ -740,9 +748,14 @@ static int sm5703_get_charging_health(struct sm5703_charger_data *charger)
 {
 	int vbus_status = sm5703_reg_read(charger->sm5703->i2c_client, SM5703_STATUS5);
 	int health = POWER_SUPPLY_HEALTH_GOOD;
+	int chg_cntl = 0, nCHG = 0;
 
 	pr_info("%s : is_charging = %d, cable_type = %d, is_current_reduced = %d\n",
 		__func__, charger->is_charging, charger->cable_type, charger->is_current_reduced);
+
+	chg_cntl = sm5703_reg_read(charger->sm5703->i2c_client, SM5703_CNTL);
+	nCHG = gpio_get_value(charger->pdata->chgen_gpio);
+	pr_info("%s: SM5703_CNTL, nCHG : 0x%x, %d\n", __func__, chg_cntl, nCHG);
 
 	// temp for test
 	pr_info("%s : vbus_status = %d\n", __func__, vbus_status);

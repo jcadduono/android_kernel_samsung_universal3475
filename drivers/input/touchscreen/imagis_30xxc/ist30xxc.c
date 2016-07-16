@@ -640,6 +640,7 @@ static void report_input_data(struct ist30xx_data *data, int finger_counts,
 				fingers[idx].bit_field.area);
 		if (data->jig_mode)
 			input_report_abs(data->input_dev, ABS_MT_PRESSURE, z_values[idx]);
+
 		idx++;
 	}
 
@@ -770,9 +771,8 @@ static irqreturn_t ist30xx_irq_thread(int irq, void *ptr)
 	}
 
 #if IST30XX_CMCS_TEST
-	if (((*msg & CMCS_MSG_MASK) == CM_MSG_VALID) ||
-	    ((*msg & CMCS_MSG_MASK) == CS_MSG_VALID)) {
-		data->status.cmcs = *msg;
+	if (unlikely(*msg == IST30XX_CMCS_MSG_VALID)) {
+		data->status.cmcs = 1;
 		tsp_info("cmcs status: 0x%08x\n", *msg);
 
 		goto irq_end;
@@ -1133,6 +1133,34 @@ static void ist30xx_register_callback(struct tsp_callbacks *cb)
 }
 #endif
 
+#if defined(CONFIG_MUIC_NOTIFIER)
+int otg_flag = 0;
+
+static int tsp_muic_notification(struct notifier_block *nb,
+		unsigned long action, void *data)
+{
+	muic_attached_dev_t attached_dev = *(muic_attached_dev_t *)data;
+
+	switch (action) {
+	case MUIC_NOTIFY_CMD_DETACH:
+	case MUIC_NOTIFY_CMD_LOGICALLY_DETACH:
+		otg_flag = 0;
+		break;
+	case MUIC_NOTIFY_CMD_ATTACH:
+	case MUIC_NOTIFY_CMD_LOGICALLY_ATTACH:
+		if(attached_dev==ATTACHED_DEV_OTG_MUIC){
+			otg_flag = 1;
+			tsp_info("%s : otg_flag 1\n", __func__);
+		}
+		break;
+	default:
+		break;
+	}
+
+	return 0;
+}
+#endif
+
 #ifdef CONFIG_VBUS_NOTIFIER
 static int tsp_vbus_notification(struct notifier_block *nb,
 		unsigned long cmd, void *data)
@@ -1144,6 +1172,9 @@ static int tsp_vbus_notification(struct notifier_block *nb,
 	switch (vbus_type) {
 	case STATUS_VBUS_HIGH:
 		tsp_info("%s : attach\n",__func__);
+#if defined(CONFIG_MUIC_NOTIFIER)
+		if(!otg_flag)
+#endif
 		ist30xx_set_ta_mode(true);
 		break;
 	case STATUS_VBUS_LOW:
@@ -1408,6 +1439,9 @@ static int ist30xx_parse_dt(struct device *dev, struct ist30xx_data *data)
 		tsp_info("%s() cmcs bin path: %s\n", __func__, data->dt_data->cmcs_path);
 	}
 
+	if (of_property_read_u32(np, "imagis,octa-hw",	&data->dt_data->octa_hw) >= 0)
+		tsp_info("%s() octa-hw: %d\n", __func__, data->dt_data->octa_hw);
+
 	rc = of_property_read_string(np, "vdd_ldo_name", &data->dt_data->tsp_vdd_name);
 	if (rc < 0)
 		tsp_err("%s: Unable to read TSP ldo name\n", __func__);
@@ -1441,6 +1475,7 @@ static int ist30xx_set_input_device(struct ist30xx_data *data)
 			0, data->max_y - 1, 0, 0);
 
 	input_set_abs_params(data->input_dev, ABS_MT_TOUCH_MAJOR, 0, IST30XX_MAX_W, 0, 0);
+
 #ifdef CONFIG_SEC_FACTORY
 	input_set_abs_params(data->input_dev, ABS_MT_PRESSURE, 0, 0x1000, 0, 0);
 #endif
@@ -1715,6 +1750,10 @@ static int ist30xx_probe(struct i2c_client *client,
 	data->callbacks.inform_charger = charger_enable;
 	ist30xx_register_callback(&data->callbacks);
 #endif
+#if defined(CONFIG_MUIC_NOTIFIER)
+	muic_notifier_register(&data->muic_nb, tsp_muic_notification,
+			MUIC_NOTIFY_DEV_CHARGER);
+#endif
 #ifdef CONFIG_VBUS_NOTIFIER
 		vbus_notifier_register(&data->vbus_nb, tsp_vbus_notification,
 			       VBUS_NOTIFY_DEV_CHARGER);
@@ -1730,8 +1769,8 @@ static int ist30xx_probe(struct i2c_client *client,
 
 	return 0;
 
-err_sec_sysfs:
 #if SEC_FACTORY_MODE
+err_sec_sysfs:
 	sec_fac_cmd_remove(data);
 	sec_touch_sysfs_remove(data);
 #endif
@@ -1772,9 +1811,9 @@ static int ist30xx_remove(struct i2c_client *client)
 	ist30xx_disable_irq(data);
 	free_irq(client->irq, data);
 	ist30xx_power_off(data);
-
+#if SEC_FACTORY_MODE
 	sec_fac_cmd_remove(data);
-
+#endif
 	if (data->dt_data)
 		ist30xx_free_gpio(data);
 

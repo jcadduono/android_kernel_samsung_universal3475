@@ -72,8 +72,8 @@
 	pinctrl-names = "sleep";
 	pinctrl-0 = <&sleep4>;
 	sleep4: sleep-state {
-		PIN_SLP(gpm0-0, INPUT, NONE);	/* PMIC_I2C_SDA */
-		PIN_SLP(gpm0-1, INPUT, NONE);	/* PMIC_I2C_SCL */
+		PIN_SLP(gpm0-0, PREV, NONE);	/* PMIC_I2C_SDA */
+		PIN_SLP(gpm0-1, PREV, NONE);	/* PMIC_I2C_SCL */
 	};
 };
 

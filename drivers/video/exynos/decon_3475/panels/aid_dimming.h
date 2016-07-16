@@ -21,6 +21,8 @@
 #include "s6e3hf2_wqhd_dimming.h"
 #elif defined(CONFIG_EXYNOS3475_DECON_LCD_S6E88A0)
 #include "s6e88a0_dimming.h"
+#elif defined(CONFIG_EXYNOS3475_DECON_LCD_S6E8AA5X01)
+#include "s6e8aa5x01_dimming.h"
 #elif defined(CONFIG_EXYNOS3475_DECON_LCD_EA8061S_J1)
 #include "ea8061s_dimming_j1.h"
 #else

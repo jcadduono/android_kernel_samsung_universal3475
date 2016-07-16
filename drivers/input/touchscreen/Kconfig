@@ -913,4 +913,6 @@ source "drivers/input/touchscreen/synaptics_dsx/Kconfig"
 source "drivers/input/touchscreen/imagis_30xxc/Kconfig"
 source "drivers/input/touchscreen/zinitix/Kconfig"
 source "drivers/input/touchscreen/melfas_mms400/Kconfig"
+source "drivers/input/touchscreen/cyttsp5/Kconfig"
+
 endif

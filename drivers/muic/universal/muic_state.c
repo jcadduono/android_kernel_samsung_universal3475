@@ -49,6 +49,14 @@
 #include "muic_i2c.h"
 #include "muic_vps.h"
 
+extern int muic_wakeup_noti;
+
+void muic_set_wakeup_noti(int flag)
+{
+	pr_info("%s: %d\n", __func__, flag);
+	muic_wakeup_noti = flag;
+}
+
 static void muic_handle_attach(muic_data_t *pmuic,
 			muic_attached_dev_t new_dev, int adc, u8 vbvolt)
 {
@@ -76,6 +84,7 @@ static void muic_handle_attach(muic_data_t *pmuic,
 			ret = detach_usb(pmuic);
 		}
 		break;
+	case ATTACHED_DEV_HMT_MUIC:
 	case ATTACHED_DEV_OTG_MUIC:
 	/* OTG -> LANHUB, meaning TA is attached to LANHUB(OTG) */
 		if (new_dev == ATTACHED_DEV_USB_LANHUB_MUIC) {
@@ -128,15 +137,21 @@ static void muic_handle_attach(muic_data_t *pmuic,
 
 			if (pmuic->is_factory_start)
 				ret = detach_deskdock(pmuic);
-			else {
-				noti_f = false;
+			else
 				ret = detach_jig_uart_boot_on(pmuic);
-			}
+
+			muic_set_wakeup_noti(pmuic->is_factory_start ? 1: 0);
 		}
 		break;
 	case ATTACHED_DEV_DESKDOCK_MUIC:
 	case ATTACHED_DEV_DESKDOCK_VB_MUIC:
-		if (new_dev != pmuic->attached_dev) {
+		if (new_dev == ATTACHED_DEV_DESKDOCK_MUIC || 
+				new_dev == ATTACHED_DEV_DESKDOCK_VB_MUIC) {
+			pr_warn("%s:%s new(%d)!=attached(%d), assume same device\n",
+					MUIC_DEV_NAME, __func__, new_dev,
+					pmuic->attached_dev);
+			noti_f = false;
+		} else if (new_dev != pmuic->attached_dev) {
 			pr_warn("%s:%s new(%d)!=attached(%d), assume detach\n",
 					MUIC_DEV_NAME, __func__, new_dev,
 					pmuic->attached_dev);
@@ -175,6 +190,7 @@ static void muic_handle_attach(muic_data_t *pmuic,
 	case ATTACHED_DEV_CDP_MUIC:
 		ret = attach_usb(pmuic, new_dev);
 		break;
+	case ATTACHED_DEV_HMT_MUIC:
 	case ATTACHED_DEV_OTG_MUIC:
 	case ATTACHED_DEV_USB_LANHUB_MUIC:
 		ret = attach_otg_usb(pmuic, new_dev);
@@ -196,10 +212,10 @@ static void muic_handle_attach(muic_data_t *pmuic,
 		 */
 		 if (pmuic->is_factory_start)
 			ret = attach_deskdock(pmuic, new_dev);
-		 else {
-			noti_f = false;
+		else
 			ret = attach_jig_uart_boot_on(pmuic, new_dev);
-		}
+
+		muic_set_wakeup_noti(pmuic->is_factory_start ? 1: 0);
 		break;
 	case ATTACHED_DEV_JIG_USB_OFF_MUIC:
 		ret = attach_jig_usb_boot_off(pmuic, vbvolt);
@@ -211,8 +227,7 @@ static void muic_handle_attach(muic_data_t *pmuic,
 		ret = attach_mhl(pmuic);
 		break;
 	case ATTACHED_DEV_DESKDOCK_MUIC:
-		if (vbvolt)
-			new_dev = ATTACHED_DEV_DESKDOCK_VB_MUIC;
+	case ATTACHED_DEV_DESKDOCK_VB_MUIC:
 		ret = attach_deskdock(pmuic, new_dev);
 		break;
 	case ATTACHED_DEV_UNIVERSAL_MMDOCK_MUIC:
@@ -263,6 +278,7 @@ static void muic_handle_detach(muic_data_t *pmuic)
 	case ATTACHED_DEV_CDP_MUIC:
 		ret = detach_usb(pmuic);
 		break;
+	case ATTACHED_DEV_HMT_MUIC:
 	case ATTACHED_DEV_OTG_MUIC:
 	case ATTACHED_DEV_USB_LANHUB_MUIC:
 		ret = detach_otg_usb(pmuic);
@@ -278,10 +294,10 @@ static void muic_handle_detach(muic_data_t *pmuic)
 	case ATTACHED_DEV_JIG_UART_ON_MUIC:
 		if (pmuic->is_factory_start)
 			ret = detach_deskdock(pmuic);
-		else {
-			noti_f = false;
+		else
 			ret = detach_jig_uart_boot_on(pmuic);
-		}
+
+		muic_set_wakeup_noti(pmuic->is_factory_start ? 1: 0);
 		break;
 	case ATTACHED_DEV_DESKDOCK_MUIC:
 	case ATTACHED_DEV_DESKDOCK_VB_MUIC:
@@ -314,7 +330,7 @@ static void muic_handle_detach(muic_data_t *pmuic)
 	}
 
 	if (noti_f)
-	muic_notifier_detach_attached_dev(pmuic->attached_dev);
+		muic_notifier_detach_attached_dev(pmuic->attached_dev);
 
 	else
 		pr_info("%s:%s detach Noti. for (%d) discarded.\n",

@@ -641,6 +641,7 @@ int mms_fw_update_from_kernel(struct mms_ts_info *info, bool force)
 	return 0;
 
 ERROR:
+	mutex_unlock(&info->lock);
 	tsp_debug_err(true, &info->client->dev, "%s [ERROR]\n", __func__);
 	return -1;
 }

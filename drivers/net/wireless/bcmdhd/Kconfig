@@ -132,7 +132,7 @@ config BCM4335BT
 
 config WLAN_REGION_CODE
 	int "---Region codes for Broadcom WiFi Driver"
-	depends on (BCM4330 || BCM4343 || BCM4334 || BCM4335 || BCM4339 || BCM4354 || BCM43241)
+	depends on (BCM4330 || BCM4343 || BCM4334 || BCM4335 || BCM4339 || BCM4354 || BCM43241 || BCM43455 || BCM43454)
 	default 100
 	---help---
 		This is a region code for Broadcom Wi-Fi featured functions.

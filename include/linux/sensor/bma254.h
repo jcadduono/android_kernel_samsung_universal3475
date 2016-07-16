@@ -14,6 +14,13 @@
 #define LINUX_BMA254_MODULE_H
 
 
+#define BMA254_RANGE_SEL_REG                    0x0F
+
+#define BMA254_RANGE_SEL__POS             0
+#define BMA254_RANGE_SEL__LEN             4
+#define BMA254_RANGE_SEL__MSK             0x0F
+#define BMA254_RANGE_SEL__REG             BMA254_RANGE_SEL_REG
+
 #define BMA254_CHIP_ID		0x00
 #define BMA254_XOUT		0x02
 #define BMA254_YOUT		0x04
@@ -27,7 +34,7 @@
 #define BMA254_REG14		0x14
 #define SOFT_RESEET			0xB6
 
-#define BMA2X2_RANGE_SET		3
+#define BMA2X2_RANGE_SET		5
 #define MAX_DELAY				200
 #define ABSMIN				-128
 #define ABSMAX				128
@@ -38,6 +45,56 @@
 #define BMA254_MODE_SUSPEND			0x80
 #define BMA254_MODE_DEEP_SUSPEND	0x20
 
+ /*register define for selt test*/
+#define BMA254_SELF_TEST_REG                    0x32
+
+#define BMA254_EN_SELF_TEST__REG                BMA254_SELF_TEST_REG
+#define BMA254_EN_SELF_TEST__POS                0
+#define BMA254_EN_SELF_TEST__LEN                2
+#define BMA254_EN_SELF_TEST__MSK                0x03
+
+#define BMA254_NEG_SELF_TEST__POS               2
+#define BMA254_NEG_SELF_TEST__LEN               1
+#define BMA254_NEG_SELF_TEST__MSK               0x04
+#define BMA254_NEG_SELF_TEST__REG               BMA254_SELF_TEST_REG
+
+#define BMA254_ACC_X_LSB__POS           4
+#define BMA254_ACC_X_LSB__LEN           4
+#define BMA254_ACC_X_LSB__MSK           0xF0
+#define BMA254_ACC_X_LSB__REG           BMA254_X_AXIS_LSB_REG
+
+#define BMA254_ACC_X_MSB__POS           0
+#define BMA254_ACC_X_MSB__LEN           8
+#define BMA254_ACC_X_MSB__MSK           0xFF
+#define BMA254_ACC_X_MSB__REG           BMA254_X_AXIS_MSB_REG
+
+#define BMA254_ACC_Y_LSB__POS           4
+#define BMA254_ACC_Y_LSB__LEN           4
+#define BMA254_ACC_Y_LSB__MSK           0xF0
+#define BMA254_ACC_Y_LSB__REG           BMA254_Y_AXIS_LSB_REG
+
+#define BMA254_ACC_Y_MSB__POS           0
+#define BMA254_ACC_Y_MSB__LEN           8
+#define BMA254_ACC_Y_MSB__MSK           0xFF
+#define BMA254_ACC_Y_MSB__REG           BMA254_Y_AXIS_MSB_REG
+
+#define BMA254_ACC_Z_LSB__POS           4
+#define BMA254_ACC_Z_LSB__LEN           4
+#define BMA254_ACC_Z_LSB__MSK           0xF0
+#define BMA254_ACC_Z_LSB__REG           BMA254_Z_AXIS_LSB_REG
+
+#define BMA254_ACC_Z_MSB__POS           0
+#define BMA254_ACC_Z_MSB__LEN           8
+#define BMA254_ACC_Z_MSB__MSK           0xFF
+#define BMA254_ACC_Z_MSB__REG           BMA254_Z_AXIS_MSB_REG
+
+#define BMA254_X_AXIS_LSB_REG                   0x02
+#define BMA254_X_AXIS_MSB_REG                   0x03
+#define BMA254_Y_AXIS_LSB_REG                   0x04
+#define BMA254_Y_AXIS_MSB_REG                   0x05
+#define BMA254_Z_AXIS_LSB_REG                   0x06
+#define BMA254_Z_AXIS_MSB_REG                   0x07
+
 /* Bandwidth */
 #define BANDWIDTH_07_81		0x08
 #define BANDWIDTH_15_63		0x09
@@ -45,6 +102,7 @@
 #define BANDWIDTH_62_50		0x0B
 #define BANDWIDTH_125		0x0C
 #define BANDWIDTH_250		0x0D
+#define BANDWIDTH_1000		0x0F
 
 /*add register for calibartion*/
 #define BMA254_EEPROM_CTRL_REG                  0x33
@@ -106,6 +164,18 @@
 #define BMA254_EE_WRITE_SETTING_S__LEN          1
 #define BMA254_EE_WRITE_SETTING_S__MSK          0x04
 #define BMA254_EE_WRITE_SETTING_S__REG          BMA254_EEPROM_CTRL_REG
+
+#define BMA254_RANGE_2G                 3
+#define BMA254_RANGE_4G                 5
+#define BMA254_RANGE_8G                 8
+#define BMA254_RANGE_16G                12
+
+static const u8 bma254_valid_range[] = {
+	BMA254_RANGE_2G,
+	BMA254_RANGE_4G,
+	BMA254_RANGE_8G,
+	BMA254_RANGE_16G,
+};
 
 #ifdef CONFIG_BMA254_SMART_ALERT
 #define BMA254_STATUS1_REG						0x09

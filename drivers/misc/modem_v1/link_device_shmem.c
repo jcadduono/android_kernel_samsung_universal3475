@@ -328,6 +328,13 @@ static void cmd_phone_start_handler(struct mem_link_device *mld)
 	struct modem_ctl *mc = ld->mc;
 	unsigned long flags;
 	int err;
+#ifdef CONFIG_FREE_CP_RSVD_MEMORY
+	struct page *page;
+    size_t sh_addr = (size_t)shm_get_phys_base();
+    size_t size = (size_t)shm_get_phys_size();
+    int i;
+    volatile u8 __iomem *addr;
+#endif
 
 	mif_info("%s: CP_START <- %s (%s.state:%s cp_boot_done:%d)\n",
 		ld->name, mc->name, mc->name, mc_state(mc),
@@ -367,6 +374,26 @@ static void cmd_phone_start_handler(struct mem_link_device *mld)
 
 	mld->state = LINK_STATE_IPC;
 	complete_all(&mc->init_cmpl);
+
+#ifdef CONFIG_FREE_CP_RSVD_MEMORY
+	addr = ioremap(0x10460000, 0x50);
+    while(readl(addr + 0x38) != 0x1) {
+            usleep_range(10000, 20000);
+            mif_err("%s: read register 0x%08X\n", ld->name, readl(addr + 0x38));
+    }
+
+    mif_err("%s: cp power-down status[0x%08X]\n", ld->name, readl(addr + 0x38));
+    err = exynos_smc(SMC_ID, 2, 0, 0);
+
+    mif_info("%s: free reserved memory(addr: 0x%08X, size: 0x%08X)\n",
+                    ld->name, (unsigned int)sh_addr, (unsigned int)size);
+    for (i = 0; i < (size >> PAGE_SHIFT); i++) {
+            page = phys_to_page(sh_addr);
+            sh_addr += PAGE_SIZE;
+
+            free_reserved_page(page);
+    }
+#endif
 
 exit:
 	spin_unlock_irqrestore(&mld->state_lock, flags);
@@ -1752,6 +1779,8 @@ static int shmem_security_request(struct link_device *ld, struct io_device *iod,
 	err = exynos_smc(SMC_ID, msr.mode, param2, param3);
 	exynos_smc(SMC_ID_CLK, SSS_CLK_DISABLE, 0, 0);
 	mif_info("%s: return_value=%d\n", ld->name, err);
+#else
+	exynos_cp_dump_pmu_reg();
 #endif
 exit:
 	return err;

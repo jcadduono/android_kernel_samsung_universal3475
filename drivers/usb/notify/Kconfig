@@ -39,7 +39,7 @@ config USB_STORAGE_DETECT
 	help
 	  This feature enables to detect inserting or removing
           sd card in sd reader device.
-          This must to be defined in /usb/storage/Kconfig
+          This must to be defined in /usb/storage/Kconfig 
           directory originally. But this feature is defined
           in this Kconfig to gather samsung feature about usb host.
 

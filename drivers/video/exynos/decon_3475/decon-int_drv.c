@@ -232,7 +232,7 @@ void decon_int_set_clocks(struct decon_device *decon)
 		decon_clk_set_rate(dev, decon->res.d_decon0_vclk, 35 * MHZ);
 		decon_clk_set_rate(dev, decon->res.d_sclk_disp_decon0_eclk, 207 * MHZ);
 		decon_clk_set_rate(dev, decon->res.d_decon0_eclk, 42 * MHZ);
-	} else if (IS_ENABLED(CONFIG_PANEL_S6D7AA0_DYNAMIC)) {
+	} else if (IS_ENABLED(CONFIG_EXYNOS3475_DECON_LCD_S6D7AA0)) {
 		clk_set_parent(decon->res.d_sclk_disp_decon0_eclk, decon->res.m_sclk_disp_decon0_eclk);
 
 		decon_clk_set_rate(dev, decon->res.d_sclk_disp_decon0_vclk, 69 * MHZ);
@@ -247,13 +247,23 @@ void decon_int_set_clocks(struct decon_device *decon)
 	} else if (IS_ENABLED(CONFIG_EXYNOS3475_DECON_LCD_EA8061S_J1)) {
 		clk_set_parent(decon->res.d_sclk_disp_decon0_eclk, decon->res.m_sclk_disp_decon0_eclk);
 
-		decon_clk_set_rate(dev, decon->res.d_decon0_vclk, 25 * MHZ);
-		decon_clk_set_rate(dev, decon->res.d_decon0_eclk, 30* MHZ);
+		decon_clk_set_rate(dev, decon->res.d_decon0_vclk, 31 * MHZ);
+		decon_clk_set_rate(dev, decon->res.d_decon0_eclk, 35* MHZ);
+	} else if (IS_ENABLED(CONFIG_EXYNOS3475_DECON_LCD_SC7798D_XCOVER3)) {
+		clk_set_parent(decon->res.d_sclk_disp_decon0_eclk, decon->res.m_sclk_disp_decon0_eclk);
+
+		decon_clk_set_rate(dev, decon->res.d_decon0_vclk, 43 * MHZ);
+		decon_clk_set_rate(dev, decon->res.d_decon0_eclk, 47* MHZ);
 	} else if (IS_ENABLED(CONFIG_EXYNOS3475_DECON_LCD_ILI9881C) || IS_ENABLED(CONFIG_EXYNOS3475_DECON_LCD_S6D7AA0X62)) {
 		clk_set_parent(decon->res.d_sclk_disp_decon0_eclk, decon->res.m_sclk_disp_decon0_eclk);
 
 		decon_clk_set_rate(dev, decon->res.d_decon0_vclk, 76 * MHZ);
 		decon_clk_set_rate(dev, decon->res.d_decon0_eclk, 92 * MHZ);
+	} else if (IS_ENABLED(CONFIG_EXYNOS3475_DECON_LCD_S6E8AA5X01)) {
+		clk_set_parent(decon->res.d_sclk_disp_decon0_eclk, decon->res.m_sclk_disp_decon0_eclk);
+
+		decon_clk_set_rate(dev, decon->res.d_decon0_vclk, 76 * MHZ);
+		decon_clk_set_rate(dev, decon->res.d_decon0_eclk, 92* MHZ);
 	} else {
 		clk_set_parent(decon->res.d_sclk_disp_decon0_eclk, decon->res.m_sclk_disp_decon0_eclk);
 

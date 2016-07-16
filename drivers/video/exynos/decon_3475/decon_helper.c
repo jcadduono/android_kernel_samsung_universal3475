@@ -16,7 +16,6 @@
 #include "decon.h"
 #include "dsim.h"
 #include "decon_helper.h"
-#include "./panels/lcd_ctrl.h"
 #include <video/mipi_display.h>
 
 inline int decon_is_no_bootloader_fb(struct decon_device *decon)

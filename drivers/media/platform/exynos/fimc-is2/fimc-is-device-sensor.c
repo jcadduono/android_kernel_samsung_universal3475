@@ -698,15 +698,12 @@ static int fimc_is_sensor_stop(struct fimc_is_device_sensor *device)
 		struct fimc_is_device_ischain *ischain;
 
 #ifndef ENABLE_IS_CORE
-		if (!device->subdev_module) {
-			merr("subdev is NULL", device);
-			ret = -EINVAL;
-			goto p_err;
-		}
-		ret = v4l2_subdev_call(device->subdev_module, video, s_stream, false);
-		if (ret) {
+		if (device->subdev_module) {
+		    ret = v4l2_subdev_call(device->subdev_module, video, s_stream, false);
+		    if (ret)
 			merr("v4l2_subdev_call(s_stream) is fail(%d)", device, ret);
-			goto p_err;
+		} else {
+			merr("subdev is NULL", device);
 		}
 #endif
 

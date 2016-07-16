@@ -89,6 +89,74 @@ static ssize_t earjack_mic_adc_store(struct device *dev,
 	return size;
 }
 
+#if defined (SEC_SYSFS_ADC_EARJACK)
+static ssize_t jack_adc_show(struct device *dev,
+    struct device_attribute *attr, char *buf)
+{
+	struct cod3025x_priv *cod3025x = dev_get_drvdata(dev);
+
+	int val[4] = {0,};
+
+	val[1] = cod3025x->mic_adc_range -1;
+	val[2] = cod3025x->mic_adc_range;
+	val[3] = 9999;
+
+	return sprintf(buf, "%d %d %d %d\n",val[0],val[1],val[2],val[3]);
+}
+
+static ssize_t hook_adc_show(struct device *dev,
+    struct device_attribute *attr, char *buf)
+{
+	struct cod3025x_priv *cod3025x = dev_get_drvdata(dev);
+
+	int val[2]  = {0,};
+
+	val[0] =  cod3025x->jack_buttons_zones[0].adc_low;
+	val[1] =  cod3025x->jack_buttons_zones[0].adc_high;
+
+	return sprintf(buf, "%d %d\n",val[0],val[1]);
+}
+
+static ssize_t voc_assist_adc_show(struct device *dev,
+    struct device_attribute *attr, char *buf)
+{
+	struct cod3025x_priv *cod3025x = dev_get_drvdata(dev);
+
+	int val[2]  = {0,};
+
+	val[0] =  cod3025x->jack_buttons_zones[1].adc_low;
+	val[1] =  cod3025x->jack_buttons_zones[1].adc_high;
+
+	return sprintf(buf, "%d %d\n",val[0],val[1]);
+}
+
+static ssize_t volup_adc_show(struct device *dev,
+    struct device_attribute *attr, char *buf)
+{
+	struct cod3025x_priv *cod3025x = dev_get_drvdata(dev);
+
+	int val[2]  = {0,};
+
+	val[0] =  cod3025x->jack_buttons_zones[2].adc_low;
+	val[1] =  cod3025x->jack_buttons_zones[2].adc_high;
+
+	return sprintf(buf, "%d %d\n",val[0],val[1]);
+}
+
+static ssize_t voldown_adc_show(struct device *dev,
+    struct device_attribute *attr, char *buf)
+{
+	struct cod3025x_priv *cod3025x = dev_get_drvdata(dev);
+
+	int val[2]  = {0,};
+
+	val[0] =  cod3025x->jack_buttons_zones[3].adc_low;
+	val[1] =  cod3025x->jack_buttons_zones[3].adc_high;
+
+	return sprintf(buf, "%d %d\n",val[0],val[1]);
+}
+#endif
+
 static DEVICE_ATTR(select_jack, S_IRUGO | S_IWUSR | S_IWGRP,
 		   earjack_select_jack_show, earjack_select_jack_store);
 
@@ -100,6 +168,19 @@ static DEVICE_ATTR(state, S_IRUGO | S_IWUSR | S_IWGRP,
 
 static DEVICE_ATTR(mic_adc, S_IRUGO | S_IWUSR | S_IWGRP,
 		   earjack_mic_adc_show, earjack_mic_adc_store);
+
+#if defined (SEC_SYSFS_ADC_EARJACK)
+static DEVICE_ATTR(jacks_adc, S_IRUGO, 
+			jack_adc_show, NULL);
+static DEVICE_ATTR(send_end_btn_adc,  S_IRUGO, 
+			hook_adc_show, NULL);
+static DEVICE_ATTR(voc_assist_btn_adc, S_IRUGO, 
+			voc_assist_adc_show, NULL);
+static DEVICE_ATTR(vol_up_btn_adc, S_IRUGO, 
+			volup_adc_show, NULL);
+static DEVICE_ATTR(vol_down_btn_adc, S_IRUGO, 
+			voldown_adc_show, NULL);
+#endif
 
 static void create_jack_devices(struct cod3025x_priv *info)
 {
@@ -126,4 +207,26 @@ static void create_jack_devices(struct cod3025x_priv *info)
 	if (device_create_file(jack_dev, &dev_attr_mic_adc) < 0)
 		pr_err("Failed to create device file (%s)!\n",
 			dev_attr_mic_adc.attr.name);
+
+#if defined (SEC_SYSFS_ADC_EARJACK)
+	if (device_create_file(jack_dev, &dev_attr_jacks_adc) < 0)
+		pr_err("Failed to create device file (%s)!\n",
+			dev_attr_jacks_adc.attr.name);
+
+	if (device_create_file(jack_dev, &dev_attr_send_end_btn_adc) < 0)
+		pr_err("Failed to create device file (%s)!\n",
+			dev_attr_send_end_btn_adc.attr.name);
+
+	if (device_create_file(jack_dev, &dev_attr_voc_assist_btn_adc) < 0)
+		pr_err("Failed to create device file (%s)!\n",
+			dev_attr_voc_assist_btn_adc.attr.name);
+
+	if (device_create_file(jack_dev, &dev_attr_vol_up_btn_adc) < 0)
+		pr_err("Failed to create device file (%s)!\n",
+			dev_attr_vol_up_btn_adc.attr.name);
+
+	if (device_create_file(jack_dev, &dev_attr_vol_down_btn_adc) < 0)
+		pr_err("Failed to create device file (%s)!\n",
+			dev_attr_vol_down_btn_adc.attr.name);
+#endif
 }

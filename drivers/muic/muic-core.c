@@ -34,6 +34,11 @@ static struct switch_dev switch_dock = {
 };
 #endif /* CONFIG_SWITCH */
 
+/* 1: 619K is used as a wake-up noti which sends a dock noti.
+ * 0: 619K is used 619K it self, JIG_UART_ON.
+*/
+int muic_wakeup_noti = 1;
+
 /* don't access this variable directly!! except get_switch_sel_value function.
  * you must get switch_sel value by using get_switch_sel function. */
 static int switch_sel;
@@ -41,18 +46,26 @@ static int switch_sel;
 /*
  * func : set_switch_sel
  * switch_sel value get from bootloader comand line
- * switch_sel data consist 4 bits
+ * switch_sel data consist 12 bits (xxxxyyyyzzzz)
+ * first 4bits(zzzz) mean path infomation.
+ * next 4bits(yyyy) mean if pmic version info
+ * next 4bits(xxxx) mean afc disable info
  */
 static int set_switch_sel(char *str)
 {
 	get_option(&str, &switch_sel);
-	switch_sel = switch_sel & 0x0f;
+	switch_sel = switch_sel & 0x0fff;
 	printk(KERN_DEBUG "[muic] %s : 0x%x\n",
 		__func__, switch_sel);
 
 	return switch_sel;
 }
 __setup("pmic_info=", set_switch_sel);
+
+int get_switch_sel(void)
+{
+	return switch_sel;
+}
 
 #if defined(CONFIG_MUIC_NOTIFIER)
 static struct notifier_block dock_notifier_block;
@@ -81,6 +94,18 @@ static int muic_dock_detach_notify(void)
 	return NOTIFY_OK;
 }
 
+/* Notice:
+  * Define your own wake-up Noti. function to use 619K 
+  * as a different purpose as it is for wake-up by default.
+  */
+static void __muic_set_wakeup_noti(int flag)
+{
+	pr_info("%s: %d but 1 by default\n", __func__, flag);
+	muic_wakeup_noti = 1;
+}
+void muic_set_wakeup_noti(int flag)
+	__attribute__((weak, alias("__muic_set_wakeup_noti")));
+
 static int muic_handle_dock_notification(struct notifier_block *nb,
 			unsigned long action, void *data)
 {
@@ -88,10 +113,26 @@ static int muic_handle_dock_notification(struct notifier_block *nb,
 	int type = MUIC_DOCK_DETACHED;
 	const char *name;
 
+	if (attached_dev == ATTACHED_DEV_JIG_UART_ON_MUIC) {
+		if (muic_wakeup_noti) {
+
+			muic_set_wakeup_noti(0);
+
+			if (action == MUIC_NOTIFY_CMD_ATTACH) {
+				type = MUIC_DOCK_DESKDOCK;
+				name = "Desk Dock Attach";
+				return muic_dock_attach_notify(type, name);
+			}
+			else if (action == MUIC_NOTIFY_CMD_DETACH)
+				return muic_dock_detach_notify();
+		}
+		printk(KERN_DEBUG "[muic] %s: ignore(%d)\n", __func__, attached_dev);
+		return NOTIFY_DONE;
+	}
+
 	switch (attached_dev) {
 	case ATTACHED_DEV_DESKDOCK_MUIC:
 	case ATTACHED_DEV_DESKDOCK_VB_MUIC:
-	case ATTACHED_DEV_JIG_UART_ON_MUIC:
 		if (action == MUIC_NOTIFY_CMD_ATTACH) {
 			type = MUIC_DOCK_DESKDOCK;
 			name = "Desk Dock Attach";

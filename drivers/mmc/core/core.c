@@ -61,7 +61,7 @@
 #define MMC_BKOPS_MAX_TIMEOUT	(4 * 60 * 1000) /* max time to wait in ms */
 
 static struct workqueue_struct *workqueue;
-static const unsigned freqs[] = { 400000 };
+static const unsigned freqs[] = { 400000, 300000 };
 
 /*
  * Enabling software CRCs on the data blocks can be a significant (30%)

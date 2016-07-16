@@ -20,8 +20,14 @@
 #include "../vendor/fimc-is-vendor-config_gtes.h"
 #elif defined(CONFIG_CAMERA_O5LTE)
 #include "../vendor/fimc-is-vendor-config_o5lte.h"
+#elif defined(CONFIG_CAMERA_ON5LTE)
+#include "../vendor/fimc-is-vendor-config_on5lte.h"
 #elif defined(CONFIG_CAMERA_J1XLTE)
 #include "../vendor/fimc-is-vendor-config_j1xlte.h"
+#elif defined(CONFIG_CAMERA_J3XLTE)
+#include "../vendor/fimc-is-vendor-config_j3xlte.h"
+#elif defined(CONFIG_CAMERA_XCOVER3VELTE)
+#include "../vendor/fimc-is-vendor-config_xcover3velte.h"
 #else
 #include "../vendor/fimc-is-vendor-config_novel.h"
 #endif

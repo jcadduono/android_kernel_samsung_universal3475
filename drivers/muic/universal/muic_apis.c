@@ -49,7 +49,7 @@ int attach_ta(muic_data_t *pmuic)
 {
 	struct vendor_ops *pvendor = pmuic->regmapdesc->vendorops;
 
-	if (pvendor) {
+	if (pvendor->attach_ta) {
 		pr_info("%s: ", __func__);
 		pvendor->attach_ta(pmuic->regmapdesc);
 	} else
@@ -62,7 +62,7 @@ int detach_ta(muic_data_t *pmuic)
 {
 	struct vendor_ops *pvendor = pmuic->regmapdesc->vendorops;
 
-	if (pvendor) {
+	if (pvendor->detach_ta) {
 		pr_info("%s: ", __func__);
 		pvendor->detach_ta(pmuic->regmapdesc);
 	} else
@@ -151,7 +151,7 @@ int get_switch_mode(muic_data_t *pmuic)
 	struct vendor_ops *pvendor = pmuic->regmapdesc->vendorops;
 	int val=0;
 
-	if (pvendor) {
+	if (pvendor->get_switch) {
 		pr_info("%s: ", __func__);
 		val = pvendor->get_switch(pmuic->regmapdesc);
 	} else{
@@ -165,7 +165,7 @@ void set_switch_mode(muic_data_t *pmuic, int mode)
 {
 	struct vendor_ops *pvendor = pmuic->regmapdesc->vendorops;
 
-	if (pvendor) {
+	if (pvendor->set_switch) {
 		pr_info("%s: ", __func__);
 		pvendor->set_switch(pmuic->regmapdesc,mode);
 	} else{
@@ -179,7 +179,7 @@ int get_adc_scan_mode(muic_data_t *pmuic)
 	struct vendor_ops *pvendor = pmuic->regmapdesc->vendorops;
 	int value = 0;
 
-	if (pvendor) {
+	if (pvendor->get_adc_scan_mode) {
 		pr_info("%s: ", __func__);
 		value = pvendor->get_adc_scan_mode(pmuic->regmapdesc);
 	} else{
@@ -193,7 +193,7 @@ void set_adc_scan_mode(muic_data_t *pmuic, const u8 val)
 {
 	struct vendor_ops *pvendor = pmuic->regmapdesc->vendorops;
 
-	if (pvendor) {
+	if (pvendor->set_adc_scan_mode) {
 		pr_info("%s: ", __func__);
 		pvendor->set_adc_scan_mode(pmuic->regmapdesc,val);
 	} else
@@ -256,7 +256,7 @@ static int set_rustproof_mode(struct regmap_desc *pdesc, int op)
 {
 	struct vendor_ops *pvendor = pdesc->vendorops;
 
-	if (pvendor) {
+	if (pvendor->set_rustproof) {
 		pr_info("%s: %s", __func__, op ? "On" : "Off");
 		pvendor->set_rustproof(pdesc, op);
 	} else

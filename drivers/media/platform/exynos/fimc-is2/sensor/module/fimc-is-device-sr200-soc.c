@@ -39,6 +39,7 @@
 #include "fimc-is-dt.h"
 #include "fimc-is-device-sr200-soc.h"
 #include "fimc-is-device-sr200-soc-reg.h"
+
 #define SENSOR_NAME "sr200_soc"
 #define SENSOR_VER "SR200PC20M"
 
@@ -618,11 +619,6 @@ static int sr200_set_frame_rate(struct v4l2_subdev *subdev, s32 fps)
 
 	cam_info("set frame rate %d\n", fps);
 
-	if (state->runmode == RUNMODE_INIT) {
-		cam_dbg("%s: skip fps setting \n", __func__);
-		return 0;
-	}
-
 	if ((fps < min) || (fps > max)) {
 		cam_warn("set_frame_rate: error, invalid frame rate %d\n", fps);
 		fps = (fps < min) ? min : max;
@@ -637,7 +633,6 @@ static int sr200_set_frame_rate(struct v4l2_subdev *subdev, s32 fps)
 	for (i = 0; i < ARRAY_SIZE(sr200_framerates); i++) {
 		if (fps == sr200_framerates[i].fps) {
 			fps_index = sr200_framerates[i].index;
-			state->fps = fps;
 			state->req_fps = -1;
 			break;
 		}
@@ -1966,12 +1961,12 @@ static int sensor_sr200_power_setpin(struct i2c_client *client,
 	SET_PIN(pdata, SENSOR_SCENARIO_EXTERNAL, GPIO_SCENARIO_ON, gpio_none, "VDDD_1.2V_CAM", PIN_REGULATOR, 1, 1100);
 #endif
 #if defined (VDDD_1P2_CAM_GPIO_CONTROL)
-	SET_PIN(pdata, SENSOR_SCENARIO_EXTERNAL, GPIO_SCENARIO_ON, gpio_core_en, NULL, PIN_OUTPUT, 0, 1);
+	SET_PIN(pdata, SENSOR_SCENARIO_EXTERNAL, GPIO_SCENARIO_ON, gpio_core_en, NULL, PIN_OUTPUT, 0, 4000);
 #else
 	SET_PIN(pdata, SENSOR_SCENARIO_EXTERNAL, GPIO_SCENARIO_ON, gpio_none, "VDDD_1.2V_CAM", PIN_REGULATOR, 0, 1);
 #endif
 	SET_PIN(pdata, SENSOR_SCENARIO_EXTERNAL, GPIO_SCENARIO_ON, gpio_standby, NULL, PIN_OUTPUT, 1, 1000);
-	SET_PIN(pdata, SENSOR_SCENARIO_EXTERNAL, GPIO_SCENARIO_ON, gpio_none, "pin", PIN_FUNCTION, 0, 30000);
+	SET_PIN(pdata, SENSOR_SCENARIO_EXTERNAL, GPIO_SCENARIO_ON, gpio_none, "pin", PIN_FUNCTION, 0, 33000);
 	SET_PIN(pdata, SENSOR_SCENARIO_EXTERNAL, GPIO_SCENARIO_ON, gpio_reset, NULL, PIN_OUTPUT, 1, 10);
 
 	/* FRONT CAMERA - POWER OFF */

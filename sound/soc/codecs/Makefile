@@ -262,3 +262,8 @@ obj-$(CONFIG_SND_SOC_MAX98504)	+= snd-soc-max98504.o
 obj-$(CONFIG_SND_SOC_MAX98504A)	+= snd-soc-max98504a.o
 obj-$(CONFIG_SND_SOC_MAXIM_DSM_A)	+= snd-soc-maxim-dsma.o
 obj-$(CONFIG_SND_SOC_TPA6130A2)	+= snd-soc-tpa6130a2.o
+
+# Audience
+obj-$(CONFIG_SND_SOC_ES705)	+= audience/
+obj-$(CONFIG_SND_SOC_ES704)	+= audience/
+obj-$(CONFIG_SND_SOC_ES804)	+= audience/

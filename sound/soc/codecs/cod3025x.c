@@ -58,6 +58,8 @@
 #define dev_dbg dev_err
 #endif
 
+struct cod3025x_priv *g_cod3025x;
+
 /* Forward Declarations */
 static void cod3025x_save_otp_registers(struct snd_soc_codec *codec);
 static void cod3025x_restore_otp_registers(struct snd_soc_codec *codec);
@@ -68,7 +70,10 @@ static void cod3025x_configure_mic_bias(struct snd_soc_codec *codec);
 static void cod3x25x_rf_rcv_state(struct cod3025x_priv *cod3025x, bool state)
 {
 	if(cod3025x->rcv_state_gpio > 0)
+	{
 		gpio_set_value(cod3025x->rcv_state_gpio, state);
+		dev_info(cod3025x->dev, "rcv_state_gpio : %d\n", state);
+	}
 }
 #endif
 
@@ -398,6 +403,31 @@ static const struct soc_enum cod3025x_chargepump_mode_enum =
 			ARRAY_SIZE(cod3025x_chargepump_mode_text),
 			cod3025x_chargepump_mode_text);
 
+static int dac_soft_mute_get(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	return 0;
+}
+
+static int dac_soft_mute_put(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	int value =ucontrol->value.integer.value[0];
+
+	if (!value)
+		/* enable soft mute */
+		snd_soc_update_bits(codec, COD3025X_50_DAC1,
+			DAC1_SOFT_MUTE_MASK, DAC1_SOFT_MUTE_MASK);
+	else
+		/* diable soft mute */
+		snd_soc_update_bits(codec, COD3025X_50_DAC1,
+			DAC1_SOFT_MUTE_MASK, 0x0);
+
+	dev_info(codec->dev, "%s: soft mute : %s\n", __func__,
+		(!value) ? "on":"off");
+	return 0;
+}
 
 /**
  * struct snd_kcontrol_new cod3025x_snd_control
@@ -496,6 +526,9 @@ static const struct snd_kcontrol_new cod3025x_snd_controls[] = {
 	SOC_ENUM("MonoMix Mode", cod3025x_mono_mix_mode_enum),
 
 	SOC_ENUM("Chargepump Mode", cod3025x_chargepump_mode_enum),
+
+ 	SOC_SINGLE_EXT("DAC Soft Mute",SND_SOC_NOPM, 0, 100, 0,
+ 			dac_soft_mute_get, dac_soft_mute_put),
 };
 
 static int dac_ev(struct snd_soc_dapm_widget *w, struct snd_kcontrol *kcontrol,
@@ -595,6 +628,48 @@ static void cod3025x_adc_digital_mute(struct snd_soc_codec *codec, bool on)
 				ADC1_MUTE_AD_EN_MASK, 0);
 }
 
+/**
+ * cod3025x_mute_mic2
+ * Mute mic2 if it is active
+ *
+ * Returns -1 if error, else 0
+ */
+static int cod3025x_mute_mic2(bool on)
+{
+	int mic_on;
+
+	if (g_cod3025x == NULL)
+		return -1;
+
+	mic_on = snd_soc_read(g_cod3025x->codec, COD3025X_75_CHOP_AD);
+
+	/* Check mic2 active, if mic2 is not active return */
+	if (!(mic_on & EN_MCB2_CHOP_MASK))
+		return 0;
+
+	dev_dbg(g_cod3025x->codec->dev, "%s called, %s\n", __func__,
+			on ? "Mute" : "Unmute");
+
+	if (on) {
+		cod3025x_adc_digital_mute(g_cod3025x->codec, true);
+		snd_soc_update_bits(g_cod3025x->codec, COD3025X_12_PD_AD2,
+							PDB_MIC2_MASK, 0);
+	} else {
+		snd_soc_update_bits(g_cod3025x->codec, COD3025X_12_PD_AD2,
+					PDB_MIC2_MASK, PDB_MIC2_MASK);
+		cod3025x_adc_digital_mute(g_cod3025x->codec, false);
+	}
+
+	return 0;
+}
+
+/* process the button events based on the need */
+void cod3025x_process_button_ev(int code, int on)
+{
+	bool key_press = on ? true : false;
+
+	cod3025x_mute_mic2(key_press);
+}
 static int cod3025_power_on_mic1(struct snd_soc_codec *codec)
 {
 	unsigned int mix_val;
@@ -904,6 +979,14 @@ static int cod3025x_hp_playback_init(struct snd_soc_codec *codec)
 
 	/* Set DNC Start gain value*/
 	snd_soc_write(codec, COD3025X_5A_DNC7, 0x18);
+	
+	snd_soc_update_bits(codec, COD3025X_54_DNC1,
+				EN_DNC_MASK, EN_DNC_MASK);
+
+	cod3025x_usleep(100);
+
+	snd_soc_update_bits(codec, COD3025X_54_DNC1,
+					EN_DNC_MASK, 0);
 
 	/* set HP volume Level */
 	snd_soc_write(codec, COD3025X_30_VOL_HPL, 0x26);
@@ -1232,14 +1315,16 @@ static int epdrv_ev(struct snd_soc_dapm_widget *w,
 					PDB_IGEN_MASK, PDB_IGEN_MASK);
 
 		snd_soc_update_bits(w->codec, COD3025X_13_PD_DA1,
-					PDB_DCTL_MASK, PDB_DCTL_MASK);
+					PDB_DCTL_MASK | PDB_DCTR_MASK,
+					PDB_DCTL_MASK | PDB_DCTR_MASK);
 
 		snd_soc_update_bits(w->codec, COD3025X_13_PD_DA1,
 					EN_DCTL_PREQ_MASK |
 					EN_DCTR_PREQ_MASK, 0);
 
 		snd_soc_update_bits(w->codec, COD3025X_13_PD_DA1,
-					RESETB_DCTL_MASK, RESETB_DCTL_MASK);
+					RESETB_DCTL_MASK | RESETB_DCTR_MASK,
+					RESETB_DCTL_MASK | RESETB_DCTR_MASK);
  
 		snd_soc_update_bits(w->codec, COD3025X_DC_CTRL_EPS,
 					CTMI_EP_A_MASK, CTMI_EP_A_MASK);
@@ -1322,8 +1407,8 @@ static int epdrv_ev(struct snd_soc_dapm_widget *w,
 					PDB_EP_DRV_MASK, 0);
 
 		snd_soc_update_bits(w->codec, COD3025X_13_PD_DA1,
-						PDB_DCTL_MASK |
-						RESETB_DCTL_MASK, 0);
+						PDB_DCTL_MASK | PDB_DCTR_MASK |
+						RESETB_DCTL_MASK | RESETB_DCTR_MASK, 0);
 
 		if (cod3025x->mic_bias2_highquality == false) {
 			snd_soc_update_bits(w->codec, COD3025X_10_PD_REF,
@@ -1851,6 +1936,16 @@ static void cod3025x_jack_det_work(struct work_struct *work)
 		jackdet->mic_det = false;
 	}
 
+	if(jackdet->button_det == true){
+		if(!jackdet->jack_det && !jackdet->mic_det){
+			jackdet->button_det = false;
+			input_report_key(cod3025x->input, jackdet->button_code, 0);
+			input_sync(cod3025x->input);
+			cod3025x_process_button_ev(jackdet->button_code, 0);
+			dev_err(cod3025x->dev, ":key %d released\n", jackdet->button_code);
+		}
+	}
+
 	if (jackdet->jack_det && jackdet->mic_det)
 		switch_set_state(&cod3025x->sdev, 1);
 	else if (jackdet->jack_det)
@@ -1902,6 +1997,7 @@ static void cod3025x_jack_det_work(struct work_struct *work)
 }
 
 #define ADC_TRACE_NUM		5
+#define ADC_TRACE_NUM2		4
 #define ADC_READ_DELAY_US	500
 #define ADC_READ_DELAY_MS	1
 #define ADC_DEVI_THRESHOLD	18000
@@ -1955,7 +2051,7 @@ static void cod3025x_buttons_work(struct work_struct *work)
 		return;
 	}
 
-	for ( j=0; j<cod3025x->adc_trace_num2; j++) {
+	for ( j=0; j<ADC_TRACE_NUM2; j++) {
 		/* read GPADC for button */
 		for ( i=0; i<ADC_TRACE_NUM; i++) {
 			adc = cod3025x_adc_get_value(cod3025x);
@@ -2011,6 +2107,7 @@ static void cod3025x_buttons_work(struct work_struct *work)
 				input_report_key(cod3025x->input, jd->button_code, 1);
 				input_sync(cod3025x->input);
 				jd->button_det = true;
+				cod3025x_process_button_ev(jd->button_code, 1);
 				dev_err(cod3025x->dev, ":key %d is pressed, adc %d\n",
 						 btn_zones[i].code, adc);
 				return;
@@ -2021,6 +2118,7 @@ static void cod3025x_buttons_work(struct work_struct *work)
 		jd->button_det = false;
 		input_report_key(cod3025x->input, jd->button_code, 0);
 		input_sync(cod3025x->input);
+		cod3025x_process_button_ev(jd->button_code, 0);
 		dev_err(cod3025x->dev, ":key %d released\n", jd->button_code);
 	}
 
@@ -2199,6 +2297,13 @@ int cod3025x_jack_mic_register(struct snd_soc_codec *codec)
 			(CTMF_BTN_ON_14_CLK << CTMF_BTN_ON_SHIFT) |
 			(detb_period << CTMF_DETB_PERIOD_SHIFT)));
 
+	if(cod3025x->use_ldet_threshold)
+	{
+		snd_soc_update_bits(codec, COD3025X_83_JACK_DET1,
+			CTRV_JD_VTH_MASK, 0x02);
+		snd_soc_update_bits(codec, COD3025X_83_JACK_DET1,
+			CTRV_JD_POP_MASK, CTRV_JD_POP_MASK);
+	}
 	/** When reboot , the PDB_JD is remained. *
 	* So jack detection interrupt does not occur.*
 	* reset PDB_JD when boot up time.**/
@@ -2468,6 +2573,8 @@ static void cod3025x_post_fw_update_failure(void *context)
 	/* Update for 3-pole jack detection */
 	snd_soc_write(codec, COD3025X_85_MIC_DET, 0x03);
 
+	snd_soc_write(codec, COD3025X_70_CLK1_AD, 0x07);
+
 	/* Reset input/output selector bits */
 	cod3025x_reset_io_selector_bits(codec);
 
@@ -2554,6 +2661,8 @@ static void cod3025x_post_fw_update_success(void *context)
 	/* Configure mic bias voltage */
 	cod3025x_configure_mic_bias(codec);
 
+	snd_soc_write(codec, COD3025X_70_CLK1_AD, 0x07);
+
 	/*
 	 * Need to restore back the device specific OTP values as the firmware
 	 * binary might have corrupted the OTP values
@@ -2639,7 +2748,6 @@ static void cod3025x_i2c_parse_dt(struct cod3025x_priv *cod3025x)
 	struct device_node *np = dev->of_node;
 	unsigned int bias_v_conf;
 	int mic_range, mic_delay, btn_rel_val;
-	int adc_trace2;
 	struct of_phandle_args args;
 	int i = 0;
 	int num_buttons_zones = ARRAY_SIZE(cod3025x->jack_buttons_zones);
@@ -2673,12 +2781,6 @@ static void cod3025x_i2c_parse_dt(struct cod3025x_priv *cod3025x)
 	else
 		dev_dbg(dev, "Property 'mic-bias2-voltage' %s",
 				ret ? "not found" : "invalid value (use:1-3)");
-
-	ret = of_property_read_u32(dev->of_node, "adc-trace-num2", &adc_trace2);
-	if (!ret)
-		cod3025x->adc_trace_num2 = adc_trace2;
-	else
-		cod3025x->adc_trace_num2 = 10;
 
 	ret = of_property_read_u32(dev->of_node, "mic-adc-range", &mic_range);
 	if (!ret)
@@ -2720,6 +2822,11 @@ static void cod3025x_i2c_parse_dt(struct cod3025x_priv *cod3025x)
 
 	if (of_find_property(dev->of_node, "use-btn-adc-mode", NULL) != NULL)
 		cod3025x->use_btn_adc_mode = true;
+
+	if (of_find_property(dev->of_node, "use-ldet-threshold", NULL) != NULL)
+		cod3025x->use_ldet_threshold = true;
+	else
+		cod3025x->use_ldet_threshold = false;
 
 	dev_err(dev, "Using %s for button detection\n",
 			cod3025x->use_btn_adc_mode ? "GPADC" : "internal h/w");
@@ -2931,6 +3038,7 @@ static int cod3025x_i2c_probe(struct i2c_client *i2c,
 	cod3025x->use_external_jd = false;
 	cod3025x->is_probe_done = false;
 	cod3025x->use_btn_adc_mode = false;
+	g_cod3025x = cod3025x;
 
 	cod3025x->regmap = devm_regmap_init_i2c(i2c, &cod3025x_regmap);
 	if (IS_ERR(cod3025x->regmap)) {

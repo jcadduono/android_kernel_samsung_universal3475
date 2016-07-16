@@ -45,6 +45,7 @@
 #endif
 
 #ifdef CONFIG_SDP
+#include <sdp/fs_request.h>
 #include "ecryptfs_dek.h"
 #endif
 
@@ -575,7 +576,9 @@ int ecryptfs_encrypt_page(struct page *page)
 	struct page *enc_extent_page = NULL;
 	loff_t extent_offset;
 	int rc = 0;
-
+#ifdef CONFIG_SDP
+	sdp_fs_command_t *cmd = NULL;
+#endif
 #if defined(CONFIG_MMC_DW_FMP_ECRYPT_FS) || defined(CONFIG_UFS_FMP_ECRYPT_FS)
 	struct ecryptfs_mount_crypt_stat *mount_crypt_stat = NULL;
 #endif
@@ -661,12 +664,18 @@ int ecryptfs_encrypt_page(struct page *page)
 		loff_t offset;
 
 #if defined(CONFIG_MMC_DW_FMP_ECRYPT_FS) || defined(CONFIG_UFS_FMP_ECRYPT_FS)
-               if (!(mount_crypt_stat->flags & ECRYPTFS_USE_FMP)) {
+		if (!(mount_crypt_stat->flags & ECRYPTFS_USE_FMP)) {
 			rc = ecryptfs_encrypt_extent(enc_extent_page, crypt_stat, page,
 						     extent_offset);
 			if (rc) {
 				printk(KERN_ERR "%s: Error encrypting extent; "
 					"rc = [%d]\n", __func__, rc);
+#ifdef CONFIG_SDP
+				cmd = sdp_fs_command_alloc(FSOP_AUDIT_FAIL_ENCRYPT,
+						current->tgid, crypt_stat->mount_crypt_stat->userid,
+						crypt_stat->mount_crypt_stat->partition_id,
+						ecryptfs_inode->i_ino, GFP_KERNEL);
+#endif
 				goto out;
 			}
 
@@ -677,6 +686,12 @@ int ecryptfs_encrypt_page(struct page *page)
 		if (rc) {
 			printk(KERN_ERR "%s: Error encrypting extent; "
 			       "rc = [%d]\n", __func__, rc);
+#ifdef CONFIG_SDP
+			cmd = sdp_fs_command_alloc(FSOP_AUDIT_FAIL_ENCRYPT,
+					current->tgid, crypt_stat->mount_crypt_stat->userid,
+					crypt_stat->mount_crypt_stat->partition_id,
+					ecryptfs_inode->i_ino, GFP_KERNEL);
+#endif
 			goto out;
 		}
 #endif
@@ -713,6 +728,12 @@ out:
 		if (enc_extent_virt)
 			kunmap(enc_extent_page);
 		__free_page(enc_extent_page);
+	}
+#endif
+#ifdef CONFIG_SDP
+	if(cmd) {
+		sdp_fs_request(cmd, NULL);
+		sdp_fs_command_free(cmd);
 	}
 #endif
 	return rc;
@@ -778,6 +799,9 @@ int ecryptfs_decrypt_page(struct page *page)
 	struct page *enc_extent_page = NULL;
 	unsigned long extent_offset;
 	int rc = 0;
+#ifdef CONFIG_SDP
+	sdp_fs_command_t *cmd = NULL;
+#endif
 #if defined(CONFIG_MMC_DW_FMP_ECRYPT_FS) || defined(CONFIG_UFS_FMP_ECRYPT_FS)
 	struct ecryptfs_mount_crypt_stat *mount_crypt_stat = NULL;
 #endif
@@ -889,8 +913,14 @@ int ecryptfs_decrypt_page(struct page *page)
 					     enc_extent_page,
 					     extent_offset);
 		if (rc) {
-			printk(KERN_ERR "%s: Error encrypting extent; "
+			printk(KERN_ERR "%s: Error decrypting extent; "
 			       "rc = [%d]\n", __func__, rc);
+#ifdef CONFIG_SDP
+			cmd = sdp_fs_command_alloc(FSOP_AUDIT_FAIL_DECRYPT,
+					current->tgid, crypt_stat->mount_crypt_stat->userid,
+					crypt_stat->mount_crypt_stat->partition_id,
+					ecryptfs_inode->i_ino, GFP_KERNEL);
+#endif
 			goto out;
 		}
 	}
@@ -911,6 +941,12 @@ out:
 		if (enc_extent_virt)
 			kunmap(enc_extent_page);
 		__free_page(enc_extent_page);
+	}
+#endif
+#ifdef CONFIG_SDP
+	if(cmd) {
+		sdp_fs_request(cmd, NULL);
+		sdp_fs_command_free(cmd);
 	}
 #endif
 	return rc;
@@ -1275,6 +1311,9 @@ static void ecryptfs_set_default_crypt_stat_vals(
 #ifdef CONFIG_SDP
 	crypt_stat->engine_id = -1;
 #endif
+#ifdef CONFIG_DLP
+	memset(&crypt_stat->expiry, 0, sizeof(struct knox_dlp_data));
+#endif
 }
 
 /**
@@ -1373,7 +1412,10 @@ static struct ecryptfs_flag_map_elem ecryptfs_flag_map[] = {
     {0x00200000, ECRYPTFS_DEK_IS_SENSITIVE},
     {0x00400000, ECRYPTFS_DEK_MULTI_ENGINE},
 #else
-	{0x00000008, ECRYPTFS_ENCRYPT_FILENAMES}
+	{0x00000008, ECRYPTFS_ENCRYPT_FILENAMES},
+#endif
+#ifdef CONFIG_DLP
+	{0x00080000, ECRYPTFS_DLP_ENABLED},
 #endif
 };
 

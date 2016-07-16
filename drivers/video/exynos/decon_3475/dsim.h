@@ -98,10 +98,14 @@ struct panel_private {
 	unsigned char DB[33];
 	unsigned char elvss_hbm;
 	unsigned char elvss_hbm_default;
+#elif defined(CONFIG_EXYNOS3475_DECON_LCD_S6E8AA5X01)
+	unsigned char hbm_gamma[35];
+	unsigned char elvss22th;
+	unsigned char chip_id[5];
 #endif
 	int	temperature;
 	unsigned int coordinate[2];
-	unsigned char date[4];
+	unsigned char date[7];
 	unsigned int lcdConnected;
 	unsigned int state;
 	unsigned int auto_brightness;
@@ -110,9 +114,11 @@ struct panel_private {
 	unsigned int acl_enable_force;
 	unsigned int current_acl;
 	unsigned int current_hbm;
+	unsigned int current_acl_opr;
 	unsigned int current_vint;
 	unsigned int siop_enable;
 	unsigned char dump_info[2];
+	unsigned int weakness_hbm_comp;
 
 	void *dim_data;
 	void *dim_info;

@@ -116,20 +116,22 @@ static int sx9500_i2c_write(struct sx9500_p *data, u8 reg_addr, u8 buf)
 	int ret;
 	struct i2c_msg msg;
 	unsigned char w_buf[2];
+	int retry = 3;
 
-	w_buf[0] = reg_addr;
-	w_buf[1] = buf;
+	while(retry--) {
+		w_buf[0] = reg_addr;
+		w_buf[1] = buf;
 
-	msg.addr = data->client->addr;
-	msg.flags = I2C_M_WR;
-	msg.len = 2;
-	msg.buf = (char *)w_buf;
+		msg.addr = data->client->addr;
+		msg.flags = I2C_M_WR;
+		msg.len = 2;
+		msg.buf = (char *)w_buf;
 
-	ret = i2c_transfer(data->client->adapter, &msg, 1);
-	if (ret < 0)
-		pr_err("[SX9500_WIFI]: %s - i2c write error %d\n",
-			__func__, ret);
-
+		ret = i2c_transfer(data->client->adapter, &msg, 1);
+		if (ret >= 0)
+			return ret;	
+	}
+	pr_err("[SX9500_WIFI]: %s - i2c write error %d\n", __func__, ret);
 	return ret;
 }
 

@@ -769,6 +769,7 @@ static int exynos_fimc_is_module_soc_pin_control(struct i2c_client *client,
 				pr_err("pinctrl_select_state(%s) is fail(%d)\n", name, ret);
 				return ret;
 			}
+			usleep_range(delay, delay);
 		}
 		break;
 	case PIN_REGULATOR:

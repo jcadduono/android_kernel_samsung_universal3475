@@ -42,7 +42,6 @@
 #include "decon.h"
 #include "dsim.h"
 #include "decon_helper.h"
-#include "./panels/lcd_ctrl.h"
 #include "../../../staging/android/sw_sync.h"
 
 #ifdef CONFIG_OF
@@ -2241,6 +2240,12 @@ err:
 	return ret;
 }
 
+static ssize_t decon_fb_read(struct fb_info *info, char __user *buf,
+		size_t count, loff_t *ppos)
+{
+	return 0;
+}
+
 static int decon_ioctl(struct fb_info *info, unsigned int cmd,
 			unsigned long arg)
 {
@@ -2383,6 +2388,7 @@ static struct fb_ops decon_fb_ops = {
 #ifdef CONFIG_ARM64
 	.fb_compat_ioctl = decon_compat_ioctl,
 #endif
+	.fb_read	= decon_fb_read,
 	.fb_pan_display	= decon_pan_display,
 	.fb_mmap	= decon_mmap,
 	.fb_release	= decon_release,

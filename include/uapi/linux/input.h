@@ -412,6 +412,7 @@ struct input_keymap_entry {
 #define KEY_F22			192
 #define KEY_F23			193
 #define KEY_F24			194
+#define KEY_MULTIKEY		195
 #define KEY_LPSD_WAKEUP		198
 #define KEY_VOICE_WAKEUP	199
 

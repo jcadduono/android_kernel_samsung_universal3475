@@ -54,10 +54,9 @@ static struct mfd_cell s2mu005_devs[] = {
 #if defined(CONFIG_REGULATOR_S2MU005)
 	{ .name = "s2mu005-safeout", },
 #endif /* CONFIG_REGULATOR_S2MU005 */
-#if defined(CONFIG_FUELGAUGE_S2MU005)
-	{ .name = "s2mu005-fuelgauge", },
-#endif
+#if defined(CONFIG_CHARGER_S2MU005)
 	{ .name = "s2mu005-charger", },
+#endif
 #if defined(CONFIG_MOTOR_DRV_S2MU005)
 	{ .name = "s2mu005-haptic", },
 #endif /* CONFIG_S2MU005_HAPTIC */
@@ -82,8 +81,7 @@ int s2mu005_read_reg(struct i2c_client *i2c, u8 reg, u8 *dest)
 		return ret;
 	}
 
-	ret &= 0xff;
-	*dest = ret;
+	*dest = ret & 0xff;
 	return 0;
 }
 EXPORT_SYMBOL_GPL(s2mu005_read_reg);
@@ -209,6 +207,7 @@ static int s2mu005_i2c_probe(struct i2c_client *i2c,
 	struct s2mu005_platform_data *pdata = i2c->dev.platform_data;
 
 	int ret = 0;
+	u8 temp = 0;
 
 	pr_err("==================================================\n");
 	pr_err("%s:%s\n", MFD_DEV_NAME, __func__);
@@ -262,6 +261,13 @@ static int s2mu005_i2c_probe(struct i2c_client *i2c,
 	mutex_init(&s2mu005->i2c_lock);
 
 	i2c_set_clientdata(i2c, s2mu005);
+
+	s2mu005_read_reg(s2mu005->i2c, S2MU005_REG_REV_ID, &temp);
+	if(temp < 0)
+		pr_err( "[s2mu005 mfd] %s : i2c read error\n", __func__);
+
+	s2mu005->pmic_ver = temp & 0x0F;
+	pr_err( "[s2mu005 mfd] %s : ver=0x%x\n", __func__, s2mu005->pmic_ver);
 
 	ret = s2mu005_irq_init(s2mu005);
 

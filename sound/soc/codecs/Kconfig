@@ -571,4 +571,6 @@ config SND_SOC_TPA6130A2
 
 config SND_RF_REF_RCV_STATE
 	bool "RCV state gpio for RF calibration reference"
-	default n	
+	default n
+
+source "sound/soc/codecs/audience/Kconfig"

@@ -28,7 +28,12 @@
 #endif
 
 #include "ea8061s_param_j1.h"
+#define LEVEL_IS_ACL_OFF(brightness)	(brightness == UI_MAX_BRIGHTNESS)
 
+#if defined(CONFIG_EXYNOS_DECON_MDNIE_LITE)
+#include "mdnie.h"
+#include "mdnie_lite_table_j1x.h"
+#endif
 
 #ifdef CONFIG_PANEL_AID_DIMMING
 static unsigned int get_actual_br_value(struct dsim_device *dsim, int index)
@@ -150,15 +155,6 @@ static void dsim_panel_set_elvss_ea8061s(struct dsim_device *dsim)
 
 	B6_GW[1] = dsim->priv.elvss_hbm_default;
 
-	if (real_br <= 29) {
-		if (dsim->priv.temperature <= -20)
-			B6_GW[1] = elvss[5];
-		else if (dsim->priv.temperature > -20 && dsim->priv.temperature <= 0)
-			B6_GW[1] = elvss[4];
-		else
-			B6_GW[1] = elvss[3];
-	}
-
 	elvss_val[0] = elvss[0];
 	elvss_val[1] = elvss[1];
 	elvss_val[2] = elvss[2];
@@ -177,16 +173,19 @@ static int dsim_panel_set_acl_ea8061s(struct dsim_device *dsim, int force)
 {
 	int ret = 0, level = ACL_STATUS_15P;
 	struct panel_private *panel = &dsim->priv;
+	int brightness = 0;
 
 	if (panel == NULL) {
 		dsim_err("%s : panel is NULL\n", __func__);
 		goto exit;
 	}
 
+	brightness = panel->bd->props.brightness;
+
 	if (dsim->priv.siop_enable || LEVEL_IS_HBM(dsim->priv.auto_brightness))  /* auto acl or hbm is acl on */
 		goto acl_update;
 
-	if (!dsim->priv.acl_enable)
+	if (!dsim->priv.acl_enable && LEVEL_IS_ACL_OFF(brightness) && dsim->priv.weakness_hbm_comp == 2)
 		level = ACL_STATUS_0P;
 
 acl_update:
@@ -818,6 +817,45 @@ static ssize_t dump_register_store(struct device *dev,
 	return size;
 }
 
+static ssize_t weakness_hbm_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	struct panel_private *priv = dev_get_drvdata(dev);
+
+	sprintf(buf, "%d\n", priv->weakness_hbm_comp);
+
+	return strlen(buf);
+}
+
+static ssize_t weakness_hbm_store(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t size)
+{
+	int rc, value;
+	struct dsim_device *dsim;
+	struct panel_private *priv = dev_get_drvdata(dev);
+
+	dsim = container_of(priv, struct dsim_device, priv);
+
+	rc = kstrtouint(buf, (unsigned int)0, &value);
+
+	if (rc < 0)
+		return rc;
+	else {
+		if (priv->weakness_hbm_comp != value){
+			if((priv->weakness_hbm_comp == 1) && (value == 2)) {
+				pr_info("%s don't support color blind -> gallery\n", __func__);
+				return size;
+			}
+			if((priv->weakness_hbm_comp == 2) || (value == 2)){
+				priv->weakness_hbm_comp = value;
+				dsim_panel_set_brightness(dsim, 1);
+				dev_info(dev, "%s: %d, %d\n", __func__, priv->weakness_hbm_comp, value);
+			}
+		}
+	}
+	return size;
+}
+
 static DEVICE_ATTR(lcd_type, 0444, lcd_type_show, NULL);
 static DEVICE_ATTR(window_type, 0444, window_type_show, NULL);
 static DEVICE_ATTR(manufacture_code, 0444, manufacture_code_show, NULL);
@@ -833,10 +871,12 @@ static DEVICE_ATTR(read_mtp, 0664, read_mtp_show, read_mtp_store);
 static DEVICE_ATTR(aid_log, 0444, aid_log_show, NULL);
 #endif
 static DEVICE_ATTR(dump_register, 0664, dump_register_show, dump_register_store);
+static DEVICE_ATTR(weakness_hbm_comp, 0664, weakness_hbm_show, weakness_hbm_store);
 
 static void lcd_init_sysfs(struct dsim_device *dsim)
 {
 	int ret = -1;
+	struct panel_private *panel = &dsim->priv;
 
 	ret = device_create_file(&dsim->lcd->dev, &dev_attr_lcd_type);
 	if (ret < 0)
@@ -890,6 +930,10 @@ static void lcd_init_sysfs(struct dsim_device *dsim)
 	ret = device_create_file(&dsim->lcd->dev, &dev_attr_dump_register);
 	if (ret < 0)
 		dev_err(&dsim->lcd->dev, "failed to add sysfs entries, %d\n", __LINE__);
+
+	ret = device_create_file(&panel->bd->dev ,&dev_attr_weakness_hbm_comp);
+	if (ret < 0)
+		dev_err(&dsim->lcd->dev, "failed to add sysfs entries, %d\n", __LINE__);
 }
 
 
@@ -930,67 +974,67 @@ static const short center_gamma[NUM_VREF][CI_MAX] = {
 };
 
 static struct SmtDimInfo daisy_dimming_info_ea8061s[MAX_BR_INFO + 1] = {				/* add hbm array */
-	{.br = 5, .refBr = 114, .cGma = gma2p15, .rTbl = rtbl5nit_ea, .cTbl = ctbl5nit_ea, .aid = aid5_ea, .elvAcl = elv_ea_8B, .elv = elv_ea_8B},
-	{.br = 6, .refBr = 114, .cGma = gma2p15, .rTbl = rtbl6nit_ea, .cTbl = ctbl6nit_ea, .aid = aid6_ea, .elvAcl = elv_ea_8B, .elv = elv_ea_8B},
-	{.br = 7, .refBr = 114, .cGma = gma2p15, .rTbl = rtbl7nit_ea, .cTbl = ctbl7nit_ea, .aid = aid7_ea, .elvAcl = elv_ea_8B, .elv = elv_ea_8B},
-	{.br = 8, .refBr = 114, .cGma = gma2p15, .rTbl = rtbl8nit_ea, .cTbl = ctbl8nit_ea, .aid = aid8_ea, .elvAcl = elv_ea_8B, .elv = elv_ea_8B},
-	{.br = 9, .refBr = 114, .cGma = gma2p15, .rTbl = rtbl9nit_ea, .cTbl = ctbl9nit_ea, .aid = aid9_ea, .elvAcl = elv_ea_8B, .elv = elv_ea_8B},
-	{.br = 10, .refBr = 114, .cGma = gma2p15, .rTbl = rtbl10nit_ea, .cTbl = ctbl10nit_ea, .aid = aid10_ea, .elvAcl = elv_ea_8B, .elv = elv_ea_8B},
-	{.br = 11, .refBr = 114, .cGma = gma2p15, .rTbl = rtbl11nit_ea, .cTbl = ctbl11nit_ea, .aid = aid11_ea, .elvAcl = elv_ea_8B, .elv = elv_ea_8B},
-	{.br = 12, .refBr = 114, .cGma = gma2p15, .rTbl = rtbl12nit_ea, .cTbl = ctbl12nit_ea, .aid = aid12_ea, .elvAcl = elv_ea_8B, .elv = elv_ea_8B},
-	{.br = 13, .refBr = 114, .cGma = gma2p15, .rTbl = rtbl13nit_ea, .cTbl = ctbl13nit_ea, .aid = aid13_ea, .elvAcl = elv_ea_8B, .elv = elv_ea_8B},
-	{.br = 14, .refBr = 114, .cGma = gma2p15, .rTbl = rtbl14nit_ea, .cTbl = ctbl14nit_ea, .aid = aid14_ea, .elvAcl = elv_ea_8B, .elv = elv_ea_8B},
-	{.br = 15, .refBr = 114, .cGma = gma2p15, .rTbl = rtbl15nit_ea, .cTbl = ctbl15nit_ea, .aid = aid15_ea, .elvAcl = elv_ea_8B, .elv = elv_ea_8B},
-	{.br = 16, .refBr = 114, .cGma = gma2p15, .rTbl = rtbl16nit_ea, .cTbl = ctbl16nit_ea, .aid = aid16_ea, .elvAcl = elv_ea_8B, .elv = elv_ea_8B},
-	{.br = 17, .refBr = 114, .cGma = gma2p15, .rTbl = rtbl17nit_ea, .cTbl = ctbl17nit_ea, .aid = aid17_ea, .elvAcl = elv_ea_8B, .elv = elv_ea_8B},
-	{.br = 19, .refBr = 114, .cGma = gma2p15, .rTbl = rtbl19nit_ea, .cTbl = ctbl19nit_ea, .aid = aid19_ea, .elvAcl = elv_ea_8B, .elv = elv_ea_8B},
-	{.br = 20, .refBr = 114, .cGma = gma2p15, .rTbl = rtbl20nit_ea, .cTbl = ctbl20nit_ea, .aid = aid20_ea, .elvAcl = elv_ea_8B, .elv = elv_ea_8B},
-	{.br = 21, .refBr = 114, .cGma = gma2p15, .rTbl = rtbl21nit_ea, .cTbl = ctbl21nit_ea, .aid = aid21_ea, .elvAcl = elv_ea_8D, .elv = elv_ea_8D},
-	{.br = 22, .refBr = 114, .cGma = gma2p15, .rTbl = rtbl22nit_ea, .cTbl = ctbl22nit_ea, .aid = aid22_ea, .elvAcl = elv_ea_8F, .elv = elv_ea_8F},
-	{.br = 24, .refBr = 114, .cGma = gma2p15, .rTbl = rtbl24nit_ea, .cTbl = ctbl24nit_ea, .aid = aid24_ea, .elvAcl = elv_ea_91, .elv = elv_ea_91},
-	{.br = 25, .refBr = 114, .cGma = gma2p15, .rTbl = rtbl25nit_ea, .cTbl = ctbl25nit_ea, .aid = aid25_ea, .elvAcl = elv_ea_93, .elv = elv_ea_93},
-	{.br = 27, .refBr = 114, .cGma = gma2p15, .rTbl = rtbl27nit_ea, .cTbl = ctbl27nit_ea, .aid = aid27_ea, .elvAcl = elv_ea_95, .elv = elv_ea_95},
-	{.br = 29, .refBr = 114, .cGma = gma2p15, .rTbl = rtbl29nit_ea, .cTbl = ctbl29nit_ea, .aid = aid29_ea, .elvAcl = elv_ea_97, .elv = elv_ea_97},
-	{.br = 30, .refBr = 114, .cGma = gma2p15, .rTbl = rtbl30nit_ea, .cTbl = ctbl30nit_ea, .aid = aid30_ea, .elvAcl = elv_ea_98, .elv = elv_ea_98},
-	{.br = 32, .refBr = 114, .cGma = gma2p15, .rTbl = rtbl32nit_ea, .cTbl = ctbl32nit_ea, .aid = aid32_ea, .elvAcl = elv_ea_98, .elv = elv_ea_98},
-	{.br = 34, .refBr = 114, .cGma = gma2p15, .rTbl = rtbl34nit_ea, .cTbl = ctbl34nit_ea, .aid = aid34_ea, .elvAcl = elv_ea_98, .elv = elv_ea_98},
-	{.br = 37, .refBr = 114, .cGma = gma2p15, .rTbl = rtbl37nit_ea, .cTbl = ctbl37nit_ea, .aid = aid37_ea, .elvAcl = elv_ea_98, .elv = elv_ea_98},
-	{.br = 39, .refBr = 114, .cGma = gma2p15, .rTbl = rtbl39nit_ea, .cTbl = ctbl39nit_ea, .aid = aid39_ea, .elvAcl = elv_ea_98, .elv = elv_ea_98},
-	{.br = 41, .refBr = 114, .cGma = gma2p15, .rTbl = rtbl41nit_ea, .cTbl = ctbl41nit_ea, .aid = aid41_ea, .elvAcl = elv_ea_98, .elv = elv_ea_98},
-	{.br = 44, .refBr = 114, .cGma = gma2p15, .rTbl = rtbl44nit_ea, .cTbl = ctbl44nit_ea, .aid = aid44_ea, .elvAcl = elv_ea_98, .elv = elv_ea_98},
-	{.br = 47, .refBr = 114, .cGma = gma2p15, .rTbl = rtbl47nit_ea, .cTbl = ctbl47nit_ea, .aid = aid47_ea, .elvAcl = elv_ea_98, .elv = elv_ea_98},
-	{.br = 50, .refBr = 114, .cGma = gma2p15, .rTbl = rtbl50nit_ea, .cTbl = ctbl50nit_ea, .aid = aid50_ea, .elvAcl = elv_ea_98, .elv = elv_ea_98},
-	{.br = 53, .refBr = 114, .cGma = gma2p15, .rTbl = rtbl53nit_ea, .cTbl = ctbl53nit_ea, .aid = aid53_ea, .elvAcl = elv_ea_98, .elv = elv_ea_98},
-	{.br = 56, .refBr = 114, .cGma = gma2p15, .rTbl = rtbl56nit_ea, .cTbl = ctbl56nit_ea, .aid = aid56_ea, .elvAcl = elv_ea_98, .elv = elv_ea_98},
-	{.br = 60, .refBr = 114, .cGma = gma2p15, .rTbl = rtbl60nit_ea, .cTbl = ctbl60nit_ea, .aid = aid60_ea, .elvAcl = elv_ea_98, .elv = elv_ea_98},
-	{.br = 64, .refBr = 114, .cGma = gma2p15, .rTbl = rtbl64nit_ea, .cTbl = ctbl64nit_ea, .aid = aid64_ea, .elvAcl = elv_ea_98, .elv = elv_ea_98},
-	{.br = 68, .refBr = 114, .cGma = gma2p15, .rTbl = rtbl68nit_ea, .cTbl = ctbl68nit_ea, .aid = aid68_ea, .elvAcl = elv_ea_98, .elv = elv_ea_98},
-	{.br = 72, .refBr = 122, .cGma = gma2p15, .rTbl = rtbl72nit_ea, .cTbl = ctbl72nit_ea, .aid = aid72_ea, .elvAcl = elv_ea_98, .elv = elv_ea_98},
-	{.br = 77, .refBr = 130, .cGma = gma2p15, .rTbl = rtbl77nit_ea, .cTbl = ctbl77nit_ea, .aid = aid77_ea, .elvAcl = elv_ea_98, .elv = elv_ea_98},
-	{.br = 82, .refBr = 138, .cGma = gma2p15, .rTbl = rtbl82nit_ea, .cTbl = ctbl82nit_ea, .aid = aid82_ea, .elvAcl = elv_ea_98, .elv = elv_ea_98},
-	{.br = 87, .refBr = 148, .cGma = gma2p15, .rTbl = rtbl87nit_ea, .cTbl = ctbl87nit_ea, .aid = aid87_ea, .elvAcl = elv_ea_98, .elv = elv_ea_98},
-	{.br = 93, .refBr = 159, .cGma = gma2p15, .rTbl = rtbl93nit_ea, .cTbl = ctbl93nit_ea, .aid = aid93_ea, .elvAcl = elv_ea_98, .elv = elv_ea_98},
-	{.br = 98, .refBr = 167, .cGma = gma2p15, .rTbl = rtbl98nit_ea, .cTbl = ctbl98nit_ea, .aid = aid98_ea, .elvAcl = elv_ea_98, .elv = elv_ea_98},
-	{.br = 105, .refBr = 180, .cGma = gma2p15, .rTbl = rtbl105nit_ea, .cTbl = ctbl105nit_ea, .aid = aid105_ea, .elvAcl = elv_ea_98, .elv = elv_ea_98},
-	{.br = 111, .refBr = 188, .cGma = gma2p15, .rTbl = rtbl111nit_ea, .cTbl = ctbl111nit_ea, .aid = aid111_ea, .elvAcl = elv_ea_98, .elv = elv_ea_98},
-	{.br = 119, .refBr = 202, .cGma = gma2p15, .rTbl = rtbl119nit_ea, .cTbl = ctbl119nit_ea, .aid = aid119_ea, .elvAcl = elv_ea_98, .elv = elv_ea_98},
-	{.br = 126, .refBr = 214, .cGma = gma2p15, .rTbl = rtbl126nit_ea, .cTbl = ctbl126nit_ea, .aid = aid126_ea, .elvAcl = elv_ea_98, .elv = elv_ea_98},
-	{.br = 134, .refBr = 227, .cGma = gma2p15, .rTbl = rtbl134nit_ea, .cTbl = ctbl134nit_ea, .aid = aid134_ea, .elvAcl = elv_ea_97, .elv = elv_ea_97},
-	{.br = 143, .refBr = 239, .cGma = gma2p15, .rTbl = rtbl143nit_ea, .cTbl = ctbl143nit_ea, .aid = aid143_ea, .elvAcl = elv_ea_97, .elv = elv_ea_97},
-	{.br = 152, .refBr = 252, .cGma = gma2p15, .rTbl = rtbl152nit_ea, .cTbl = ctbl152nit_ea, .aid = aid152_ea, .elvAcl = elv_ea_96, .elv = elv_ea_96},
-	{.br = 162, .refBr = 265, .cGma = gma2p15, .rTbl = rtbl162nit_ea, .cTbl = ctbl162nit_ea, .aid = aid162_ea, .elvAcl = elv_ea_96, .elv = elv_ea_96},
-	{.br = 172, .refBr = 265, .cGma = gma2p15, .rTbl = rtbl172nit_ea, .cTbl = ctbl172nit_ea, .aid = aid172_ea, .elvAcl = elv_ea_95, .elv = elv_ea_95},
-	{.br = 183, .refBr = 265, .cGma = gma2p15, .rTbl = rtbl183nit_ea, .cTbl = ctbl183nit_ea, .aid = aid183_ea, .elvAcl = elv_ea_95, .elv = elv_ea_95},
-	{.br = 195, .refBr = 265, .cGma = gma2p15, .rTbl = rtbl195nit_ea, .cTbl = ctbl195nit_ea, .aid = aid195_ea, .elvAcl = elv_ea_94, .elv = elv_ea_94},
-	{.br = 207, .refBr = 265, .cGma = gma2p15, .rTbl = rtbl207nit_ea, .cTbl = ctbl207nit_ea, .aid = aid207_ea, .elvAcl = elv_ea_93, .elv = elv_ea_93},
-	{.br = 220, .refBr = 265, .cGma = gma2p15, .rTbl = rtbl220nit_ea, .cTbl = ctbl220nit_ea, .aid = aid220_ea, .elvAcl = elv_ea_92, .elv = elv_ea_92},
-	{.br = 234, .refBr = 265, .cGma = gma2p15, .rTbl = rtbl234nit_ea, .cTbl = ctbl234nit_ea, .aid = aid234_ea, .elvAcl = elv_ea_92, .elv = elv_ea_92},
-	{.br = 249, .refBr = 265, .cGma = gma2p15, .rTbl = rtbl249nit_ea, .cTbl = ctbl249nit_ea, .aid = aid249_ea, .elvAcl = elv_ea_91, .elv = elv_ea_91},
-	{.br = 265, .refBr = 282, .cGma = gma2p15, .rTbl = rtbl265nit_ea, .cTbl = ctbl265nit_ea, .aid = aid265_ea, .elvAcl = elv_ea_90, .elv = elv_ea_90},
-	{.br = 282, .refBr = 297, .cGma = gma2p15, .rTbl = rtbl282nit_ea, .cTbl = ctbl282nit_ea, .aid = aid282_ea, .elvAcl = elv_ea_8F, .elv = elv_ea_8F},
-	{.br = 300, .refBr = 315, .cGma = gma2p15, .rTbl = rtbl300nit_ea, .cTbl = ctbl300nit_ea, .aid = aid300_ea, .elvAcl = elv_ea_8E, .elv = elv_ea_8E},
-	{.br = 316, .refBr = 328, .cGma = gma2p15, .rTbl = rtbl316nit_ea, .cTbl = ctbl316nit_ea, .aid = aid316_ea, .elvAcl = elv_ea_8D, .elv = elv_ea_8D},
-	{.br = 333, .refBr = 346, .cGma = gma2p15, .rTbl = rtbl333nit_ea, .cTbl = ctbl333nit_ea, .aid = aid333_ea, .elvAcl = elv_ea_8C, .elv = elv_ea_8C},
+	{.br = 5, .refBr = 115, .cGma = gma2p15, .rTbl = rtbl5nit_ea, .cTbl = ctbl5nit_ea, .aid = aid5_ea, .elvAcl = elv_ea_8B, .elv = elv_ea_8B},
+	{.br = 6, .refBr = 115, .cGma = gma2p15, .rTbl = rtbl6nit_ea, .cTbl = ctbl6nit_ea, .aid = aid6_ea, .elvAcl = elv_ea_8B, .elv = elv_ea_8B},
+	{.br = 7, .refBr = 115, .cGma = gma2p15, .rTbl = rtbl7nit_ea, .cTbl = ctbl7nit_ea, .aid = aid7_ea, .elvAcl = elv_ea_8B, .elv = elv_ea_8B},
+	{.br = 8, .refBr = 115, .cGma = gma2p15, .rTbl = rtbl8nit_ea, .cTbl = ctbl8nit_ea, .aid = aid8_ea, .elvAcl = elv_ea_8B, .elv = elv_ea_8B},
+	{.br = 9, .refBr = 115, .cGma = gma2p15, .rTbl = rtbl9nit_ea, .cTbl = ctbl9nit_ea, .aid = aid9_ea, .elvAcl = elv_ea_8B, .elv = elv_ea_8B},
+	{.br = 10, .refBr = 115, .cGma = gma2p15, .rTbl = rtbl10nit_ea, .cTbl = ctbl10nit_ea, .aid = aid10_ea, .elvAcl = elv_ea_8B, .elv = elv_ea_8B},
+	{.br = 11, .refBr = 115, .cGma = gma2p15, .rTbl = rtbl11nit_ea, .cTbl = ctbl11nit_ea, .aid = aid11_ea, .elvAcl = elv_ea_8B, .elv = elv_ea_8B},
+	{.br = 12, .refBr = 115, .cGma = gma2p15, .rTbl = rtbl12nit_ea, .cTbl = ctbl12nit_ea, .aid = aid12_ea, .elvAcl = elv_ea_8B, .elv = elv_ea_8B},
+	{.br = 13, .refBr = 115, .cGma = gma2p15, .rTbl = rtbl13nit_ea, .cTbl = ctbl13nit_ea, .aid = aid13_ea, .elvAcl = elv_ea_8B, .elv = elv_ea_8B},
+	{.br = 14, .refBr = 115, .cGma = gma2p15, .rTbl = rtbl14nit_ea, .cTbl = ctbl14nit_ea, .aid = aid14_ea, .elvAcl = elv_ea_8B, .elv = elv_ea_8B},
+	{.br = 15, .refBr = 115, .cGma = gma2p15, .rTbl = rtbl15nit_ea, .cTbl = ctbl15nit_ea, .aid = aid15_ea, .elvAcl = elv_ea_8B, .elv = elv_ea_8B},
+	{.br = 16, .refBr = 115, .cGma = gma2p15, .rTbl = rtbl16nit_ea, .cTbl = ctbl16nit_ea, .aid = aid16_ea, .elvAcl = elv_ea_8B, .elv = elv_ea_8B},
+	{.br = 17, .refBr = 115, .cGma = gma2p15, .rTbl = rtbl17nit_ea, .cTbl = ctbl17nit_ea, .aid = aid17_ea, .elvAcl = elv_ea_8B, .elv = elv_ea_8B},
+	{.br = 19, .refBr = 115, .cGma = gma2p15, .rTbl = rtbl19nit_ea, .cTbl = ctbl19nit_ea, .aid = aid19_ea, .elvAcl = elv_ea_8B, .elv = elv_ea_8B},
+	{.br = 20, .refBr = 115, .cGma = gma2p15, .rTbl = rtbl20nit_ea, .cTbl = ctbl20nit_ea, .aid = aid20_ea, .elvAcl = elv_ea_8D, .elv = elv_ea_8D},
+	{.br = 21, .refBr = 115, .cGma = gma2p15, .rTbl = rtbl21nit_ea, .cTbl = ctbl21nit_ea, .aid = aid21_ea, .elvAcl = elv_ea_8F, .elv = elv_ea_8F},
+	{.br = 22, .refBr = 115, .cGma = gma2p15, .rTbl = rtbl22nit_ea, .cTbl = ctbl22nit_ea, .aid = aid22_ea, .elvAcl = elv_ea_91, .elv = elv_ea_91},
+	{.br = 24, .refBr = 115, .cGma = gma2p15, .rTbl = rtbl24nit_ea, .cTbl = ctbl24nit_ea, .aid = aid24_ea, .elvAcl = elv_ea_93, .elv = elv_ea_93},
+	{.br = 25, .refBr = 115, .cGma = gma2p15, .rTbl = rtbl25nit_ea, .cTbl = ctbl25nit_ea, .aid = aid25_ea, .elvAcl = elv_ea_95, .elv = elv_ea_95},
+	{.br = 27, .refBr = 115, .cGma = gma2p15, .rTbl = rtbl27nit_ea, .cTbl = ctbl27nit_ea, .aid = aid27_ea, .elvAcl = elv_ea_97, .elv = elv_ea_97},
+	{.br = 29, .refBr = 115, .cGma = gma2p15, .rTbl = rtbl29nit_ea, .cTbl = ctbl29nit_ea, .aid = aid29_ea, .elvAcl = elv_ea_99, .elv = elv_ea_99},
+	{.br = 30, .refBr = 115, .cGma = gma2p15, .rTbl = rtbl30nit_ea, .cTbl = ctbl30nit_ea, .aid = aid30_ea, .elvAcl = elv_ea_9A, .elv = elv_ea_9A},
+	{.br = 32, .refBr = 115, .cGma = gma2p15, .rTbl = rtbl32nit_ea, .cTbl = ctbl32nit_ea, .aid = aid32_ea, .elvAcl = elv_ea_9A, .elv = elv_ea_9A},
+	{.br = 34, .refBr = 115, .cGma = gma2p15, .rTbl = rtbl34nit_ea, .cTbl = ctbl34nit_ea, .aid = aid34_ea, .elvAcl = elv_ea_9A, .elv = elv_ea_9A},
+	{.br = 37, .refBr = 115, .cGma = gma2p15, .rTbl = rtbl37nit_ea, .cTbl = ctbl37nit_ea, .aid = aid37_ea, .elvAcl = elv_ea_9A, .elv = elv_ea_9A},
+	{.br = 39, .refBr = 115, .cGma = gma2p15, .rTbl = rtbl39nit_ea, .cTbl = ctbl39nit_ea, .aid = aid39_ea, .elvAcl = elv_ea_9A, .elv = elv_ea_9A},
+	{.br = 41, .refBr = 115, .cGma = gma2p15, .rTbl = rtbl41nit_ea, .cTbl = ctbl41nit_ea, .aid = aid41_ea, .elvAcl = elv_ea_9A, .elv = elv_ea_9A},
+	{.br = 44, .refBr = 115, .cGma = gma2p15, .rTbl = rtbl44nit_ea, .cTbl = ctbl44nit_ea, .aid = aid44_ea, .elvAcl = elv_ea_9A, .elv = elv_ea_9A},
+	{.br = 47, .refBr = 115, .cGma = gma2p15, .rTbl = rtbl47nit_ea, .cTbl = ctbl47nit_ea, .aid = aid47_ea, .elvAcl = elv_ea_9A, .elv = elv_ea_9A},
+	{.br = 50, .refBr = 115, .cGma = gma2p15, .rTbl = rtbl50nit_ea, .cTbl = ctbl50nit_ea, .aid = aid50_ea, .elvAcl = elv_ea_9A, .elv = elv_ea_9A},
+	{.br = 53, .refBr = 115, .cGma = gma2p15, .rTbl = rtbl53nit_ea, .cTbl = ctbl53nit_ea, .aid = aid53_ea, .elvAcl = elv_ea_9A, .elv = elv_ea_9A},
+	{.br = 56, .refBr = 115, .cGma = gma2p15, .rTbl = rtbl56nit_ea, .cTbl = ctbl56nit_ea, .aid = aid56_ea, .elvAcl = elv_ea_9A, .elv = elv_ea_9A},
+	{.br = 60, .refBr = 115, .cGma = gma2p15, .rTbl = rtbl60nit_ea, .cTbl = ctbl60nit_ea, .aid = aid60_ea, .elvAcl = elv_ea_9A, .elv = elv_ea_9A},
+	{.br = 64, .refBr = 115, .cGma = gma2p15, .rTbl = rtbl64nit_ea, .cTbl = ctbl64nit_ea, .aid = aid64_ea, .elvAcl = elv_ea_9A, .elv = elv_ea_9A},
+	{.br = 68, .refBr = 115, .cGma = gma2p15, .rTbl = rtbl68nit_ea, .cTbl = ctbl68nit_ea, .aid = aid68_ea, .elvAcl = elv_ea_9A, .elv = elv_ea_9A},
+	{.br = 72, .refBr = 122, .cGma = gma2p15, .rTbl = rtbl72nit_ea, .cTbl = ctbl72nit_ea, .aid = aid72_ea, .elvAcl = elv_ea_9A, .elv = elv_ea_9A},
+	{.br = 77, .refBr = 131, .cGma = gma2p15, .rTbl = rtbl77nit_ea, .cTbl = ctbl77nit_ea, .aid = aid77_ea, .elvAcl = elv_ea_9A, .elv = elv_ea_9A},
+	{.br = 82, .refBr = 138, .cGma = gma2p15, .rTbl = rtbl82nit_ea, .cTbl = ctbl82nit_ea, .aid = aid82_ea, .elvAcl = elv_ea_9A, .elv = elv_ea_9A},
+	{.br = 87, .refBr = 147, .cGma = gma2p15, .rTbl = rtbl87nit_ea, .cTbl = ctbl87nit_ea, .aid = aid87_ea, .elvAcl = elv_ea_9A, .elv = elv_ea_9A},
+	{.br = 93, .refBr = 157, .cGma = gma2p15, .rTbl = rtbl93nit_ea, .cTbl = ctbl93nit_ea, .aid = aid93_ea, .elvAcl = elv_ea_9A, .elv = elv_ea_9A},
+	{.br = 98, .refBr = 163, .cGma = gma2p15, .rTbl = rtbl98nit_ea, .cTbl = ctbl98nit_ea, .aid = aid98_ea, .elvAcl = elv_ea_99, .elv = elv_ea_99},
+	{.br = 105, .refBr = 175, .cGma = gma2p15, .rTbl = rtbl105nit_ea, .cTbl = ctbl105nit_ea, .aid = aid105_ea, .elvAcl = elv_ea_98, .elv = elv_ea_98},
+	{.br = 111, .refBr = 186, .cGma = gma2p15, .rTbl = rtbl111nit_ea, .cTbl = ctbl111nit_ea, .aid = aid111_ea, .elvAcl = elv_ea_96, .elv = elv_ea_96},
+	{.br = 119, .refBr = 186, .cGma = gma2p15, .rTbl = rtbl119nit_ea, .cTbl = ctbl119nit_ea, .aid = aid119_ea, .elvAcl = elv_ea_96, .elv = elv_ea_96},
+	{.br = 126, .refBr = 186, .cGma = gma2p15, .rTbl = rtbl126nit_ea, .cTbl = ctbl126nit_ea, .aid = aid126_ea, .elvAcl = elv_ea_96, .elv = elv_ea_96},
+	{.br = 134, .refBr = 186, .cGma = gma2p15, .rTbl = rtbl134nit_ea, .cTbl = ctbl134nit_ea, .aid = aid134_ea, .elvAcl = elv_ea_96, .elv = elv_ea_96},
+	{.br = 143, .refBr = 186, .cGma = gma2p15, .rTbl = rtbl143nit_ea, .cTbl = ctbl143nit_ea, .aid = aid143_ea, .elvAcl = elv_ea_96, .elv = elv_ea_96},
+	{.br = 152, .refBr = 186, .cGma = gma2p15, .rTbl = rtbl152nit_ea, .cTbl = ctbl152nit_ea, .aid = aid152_ea, .elvAcl = elv_ea_96, .elv = elv_ea_96},
+	{.br = 162, .refBr = 186, .cGma = gma2p15, .rTbl = rtbl162nit_ea, .cTbl = ctbl162nit_ea, .aid = aid162_ea, .elvAcl = elv_ea_95, .elv = elv_ea_95},
+	{.br = 172, .refBr = 186, .cGma = gma2p15, .rTbl = rtbl172nit_ea, .cTbl = ctbl172nit_ea, .aid = aid172_ea, .elvAcl = elv_ea_95, .elv = elv_ea_95},
+	{.br = 183, .refBr = 191, .cGma = gma2p15, .rTbl = rtbl183nit_ea, .cTbl = ctbl183nit_ea, .aid = aid183_ea, .elvAcl = elv_ea_95, .elv = elv_ea_95},
+	{.br = 195, .refBr = 202, .cGma = gma2p15, .rTbl = rtbl195nit_ea, .cTbl = ctbl195nit_ea, .aid = aid195_ea, .elvAcl = elv_ea_94, .elv = elv_ea_94},
+	{.br = 207, .refBr = 215, .cGma = gma2p15, .rTbl = rtbl207nit_ea, .cTbl = ctbl207nit_ea, .aid = aid207_ea, .elvAcl = elv_ea_93, .elv = elv_ea_93},
+	{.br = 220, .refBr = 229, .cGma = gma2p15, .rTbl = rtbl220nit_ea, .cTbl = ctbl220nit_ea, .aid = aid220_ea, .elvAcl = elv_ea_92, .elv = elv_ea_92},
+	{.br = 234, .refBr = 242, .cGma = gma2p15, .rTbl = rtbl234nit_ea, .cTbl = ctbl234nit_ea, .aid = aid234_ea, .elvAcl = elv_ea_92, .elv = elv_ea_92},
+	{.br = 249, .refBr = 255, .cGma = gma2p15, .rTbl = rtbl249nit_ea, .cTbl = ctbl249nit_ea, .aid = aid249_ea, .elvAcl = elv_ea_91, .elv = elv_ea_91},
+	{.br = 265, .refBr = 272, .cGma = gma2p15, .rTbl = rtbl265nit_ea, .cTbl = ctbl265nit_ea, .aid = aid265_ea, .elvAcl = elv_ea_90, .elv = elv_ea_90},
+	{.br = 282, .refBr = 286, .cGma = gma2p15, .rTbl = rtbl282nit_ea, .cTbl = ctbl282nit_ea, .aid = aid282_ea, .elvAcl = elv_ea_8F, .elv = elv_ea_8F},
+	{.br = 300, .refBr = 304, .cGma = gma2p15, .rTbl = rtbl300nit_ea, .cTbl = ctbl300nit_ea, .aid = aid300_ea, .elvAcl = elv_ea_8E, .elv = elv_ea_8E},
+	{.br = 316, .refBr = 319, .cGma = gma2p15, .rTbl = rtbl316nit_ea, .cTbl = ctbl316nit_ea, .aid = aid316_ea, .elvAcl = elv_ea_8D, .elv = elv_ea_8D},
+	{.br = 333, .refBr = 336, .cGma = gma2p15, .rTbl = rtbl333nit_ea, .cTbl = ctbl333nit_ea, .aid = aid333_ea, .elvAcl = elv_ea_8C, .elv = elv_ea_8C},
 	{.br = 350, .refBr = 350, .cGma = gma2p15, .rTbl = rtbl350nit_ea, .cTbl = ctbl350nit_ea, .aid = aid350_ea, .elvAcl = elv_ea_8B, .elv = elv_ea_8B},
 	{.br = 350, .refBr = 350, .cGma = gma2p15, .rTbl = rtbl350nit_ea, .cTbl = ctbl350nit_ea, .aid = aid350_ea, .elvAcl = elv_ea_8B, .elv = elv_ea_8B},
 };
@@ -1379,6 +1423,60 @@ struct dsim_panel_ops ea8061s_panel_ops = {
 	.init		= ea8061s_init,
 };
 
+#if defined(CONFIG_EXYNOS_DECON_MDNIE_LITE)
+static int mdnie_lite_write_set(struct dsim_device *dsim, struct lcd_seq_info *seq, u32 num)
+{
+	int ret = 0, i;
+
+	for (i = 0; i < num; i++) {
+		if (seq[i].cmd) {
+			ret = dsim_write_hl_data(dsim, seq[i].cmd, seq[i].len);
+			if (ret != 0) {
+				dsim_err("%s failed.\n", __func__);
+				return ret;
+			}
+		}
+		if (seq[i].sleep)
+			usleep_range(seq[i].sleep * 1000 , seq[i].sleep * 1000);
+	}
+	return ret;
+}
+
+static int mdnie_lite_send_seq(struct dsim_device *dsim, struct lcd_seq_info *seq, u32 num)
+{
+	int ret = 0;
+	struct panel_private *panel = &dsim->priv;
+
+	if (panel->state != PANEL_STATE_RESUMED) {
+		dsim_info("%s : panel is not active\n", __func__);
+		return -EIO;
+	}
+
+	mutex_lock(&panel->lock);
+	ret = mdnie_lite_write_set(dsim, seq, num);
+
+	mutex_unlock(&panel->lock);
+
+	return ret;
+}
+
+static int mdnie_lite_read(struct dsim_device *dsim, u8 addr, u8 *buf, u32 size)
+{
+	int ret = 0;
+	struct panel_private *panel = &dsim->priv;
+
+	if (panel->state != PANEL_STATE_RESUMED) {
+		dsim_info("%s : panel is not active\n", __func__);
+		return -EIO;
+	}
+	mutex_lock(&panel->lock);
+	ret = dsim_read_hl_data(dsim, addr, size, buf);
+
+	mutex_unlock(&panel->lock);
+
+	return ret;
+}
+#endif
 
 static int dsim_panel_early_probe(struct dsim_device *dsim)
 {
@@ -1397,6 +1495,9 @@ static int dsim_panel_probe(struct dsim_device *dsim)
 {
 	int ret = 0;
 	struct panel_private *panel = &dsim->priv;
+#if defined(CONFIG_EXYNOS_DECON_MDNIE_LITE)
+	u16 coordinate[2] = {0, };
+#endif
 
 	dsim->lcd = lcd_device_register("panel", dsim->dev, &dsim->priv, NULL);
 	if (IS_ERR(dsim->lcd)) {
@@ -1419,6 +1520,7 @@ static int dsim_panel_probe(struct dsim_device *dsim)
 	panel->siop_enable = 0;
 	panel->current_hbm = 0;
 	panel->current_vint = 0;
+	panel->weakness_hbm_comp = 0;
 	mutex_init(&panel->lock);
 
 	if (panel->ops->probe) {
@@ -1431,6 +1533,11 @@ static int dsim_panel_probe(struct dsim_device *dsim)
 
 #if defined(CONFIG_EXYNOS_DECON_LCD_SYSFS)
 	lcd_init_sysfs(dsim);
+#endif
+#if defined(CONFIG_EXYNOS_DECON_MDNIE_LITE)
+	coordinate[0] = (u16)panel->coordinate[0];
+	coordinate[1] = (u16)panel->coordinate[1];
+	mdnie_register(&dsim->lcd->dev, dsim, (mdnie_w)mdnie_lite_send_seq, (mdnie_r)mdnie_lite_read, coordinate, &tune_info);
 #endif
 
 probe_err:

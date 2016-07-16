@@ -49,7 +49,7 @@ static void of_get_usb_redriver_dt(struct device_node *np,
 	pr_info("%s, gpios_redriver_en %d\n", __func__, gpio);
 
 	pdata->can_diable_usb =
-		of_property_read_bool(np, "samsung,can-disable-usb");
+		!(of_property_read_bool(np, "samsung,unsupport-disable-usb"));
 	pr_info("%s, can_diable_usb %d\n", __func__, pdata->can_diable_usb);
 	return;
 }
@@ -183,7 +183,6 @@ static int usb_handle_notification(struct notifier_block *nb,
 			pr_err("%s - ACTION Error!\n", __func__);
 		break;
 	case ATTACHED_DEV_OTG_MUIC:
-	case ATTACHED_DEV_USB_LANHUB_MUIC:
 		if (action == MUIC_NOTIFY_CMD_DETACH)
 			send_otg_notify(o_notify, NOTIFY_EVENT_HOST, 0);
 		else if (action == MUIC_NOTIFY_CMD_ATTACH)
@@ -384,7 +383,11 @@ static struct otg_notify dwc_lsi_notify = {
 	.is_wakelock = 1,
 	.booting_delay_sec = 10,
 	.auto_drive_vbus = 1,
+	.disable_control = 1,
 	.set_battcall = set_online,
+#ifndef CONFIG_USB_HOST_NOTIFY
+	.unsupport_host = 1,
+#endif
 };
 
 static int usb_notifier_probe(struct platform_device *pdev)

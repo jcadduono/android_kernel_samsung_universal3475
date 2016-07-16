@@ -203,7 +203,9 @@ struct reg_ioctl {
 
 /* chip code */
 #define BT43X_CHIP_CODE		0xE200
+#define BT53X_CHIP_CODE		0xF400
 #define ZT7548_CHIP_CODE	0xE548
+#define ZT7538_CHIP_CODE	0xE538
 #define ZT7554_CHIP_CODE	0xE700
 
 /* Register Map*/
@@ -1185,8 +1187,12 @@ retry_power_sequence:
 		info->cap_info.ic_fw_size = 64*1024;
 	else if(chip_code == ZT7548_CHIP_CODE)
 		info->cap_info.ic_fw_size = 48*1024;
+	else if(chip_code == ZT7538_CHIP_CODE)
+		info->cap_info.ic_fw_size = 44*1024;
 	else if(chip_code == BT43X_CHIP_CODE)
 		info->cap_info.ic_fw_size = 24*1024;
+	else if(chip_code == BT53X_CHIP_CODE)
+		info->cap_info.ic_fw_size = 32*1024;
 
 	if (write_cmd(client, 0xc004) != I2C_SUCCESS) {
 		tsp_debug_err(true, &client->dev, "Failed to send power sequence(intn clear)\n");
@@ -1383,6 +1389,7 @@ static u8 ts_upgrade_firmware(struct bt532_ts_info *info,
 	int i;
 	int page_sz = 128;
 	u16 chip_code;
+	int fuzing_udelay = 8000;
 
 	verify_data = kzalloc(size, GFP_KERNEL);
 	if (verify_data == NULL) {
@@ -1409,7 +1416,7 @@ retry_upgrade:
 
 	zinitix_printk("chip code = 0x%x\n", chip_code);
 
-	if((chip_code == ZT7548_CHIP_CODE)||(chip_code == BT43X_CHIP_CODE))
+	if((chip_code == ZT7538_CHIP_CODE)||(chip_code == ZT7548_CHIP_CODE)||(chip_code == BT43X_CHIP_CODE))
 		page_sz = 64;
 	usleep_range(10, 10);
 
@@ -1439,6 +1446,36 @@ retry_upgrade:
 		goto fail_upgrade;
 	}
 
+	if((chip_code == ZT7538_CHIP_CODE)||(chip_code == ZT7548_CHIP_CODE)||(chip_code == ZT7554_CHIP_CODE)) {
+		if (write_cmd(client, BT532_INIT_FLASH) != I2C_SUCCESS) {
+			zinitix_printk("failed to init flash\n");
+			goto fail_upgrade;
+		}
+
+		// Mass Erase
+		//====================================================
+		if (write_cmd(client, 0x01DF) != I2C_SUCCESS) {
+			zinitix_printk("failed to mass erase\n");
+			goto fail_upgrade;
+		}
+
+		msleep(100);
+
+		// Mass Erase End
+		//====================================================
+
+		if (write_reg(client, 0x01DE, 0x0001) != I2C_SUCCESS) {
+			zinitix_printk("failed to enter upgrade mode\n");
+			goto fail_upgrade;
+		}
+
+		usleep_range(1000, 1000);
+
+		if (write_reg(client, 0x01D3, 0x0008) != I2C_SUCCESS) {
+			zinitix_printk("failed to init upgrade mode\n");
+			goto fail_upgrade;
+		}
+	} else if(chip_code == BT43X_CHIP_CODE){
 	// Mass Erase
 	//====================================================
 	if (write_reg(client, 0xc108, 0x0007) != I2C_SUCCESS) {
@@ -1473,6 +1510,13 @@ retry_upgrade:
 		goto fail_upgrade;
 	}
 
+	}else {
+		fuzing_udelay = 30000;
+		if (write_cmd(client, BT532_INIT_FLASH) != I2C_SUCCESS) {
+			zinitix_printk(KERN_INFO "failed to init flash\n");
+			goto fail_upgrade;
+		}
+	}
 
 	for (flash_addr = 0; flash_addr < size; ) {
 		for (i = 0; i < page_sz/TC_SECTOR_SZ; i++) {
@@ -1487,7 +1531,7 @@ retry_upgrade:
 			usleep_range(100, 100);
 		}
 
-		usleep_range(8*1000, 8*1000);	/*for fuzing delay*/
+		usleep_range(fuzing_udelay, fuzing_udelay);	/*for fuzing delay*/
 	}
 
 	if (write_reg(client, 0xc003, 0x0000) != I2C_SUCCESS) {
@@ -1660,7 +1704,7 @@ static int ic_version_check(struct bt532_ts_info *info)
 
 	ret = read_data(client, BT532_CHIP_REVISION, data, 8);
 	if (ret < 0) {
-		tsp_debug_err(true, &info->client->dev,"%s: fail fw_major_version\n", __func__);
+		tsp_debug_err(true, &info->client->dev,"%s: fail chip_revision\n", __func__);
 		goto error;
 	}
 
@@ -2014,11 +2058,7 @@ static irqreturn_t bt532_touch_work(int irq, void *data)
 		for (i = 0; i < info->cap_info.multi_fingers; i++) {
 			prev_sub_status = info->reported_touch_info.coord[i].sub_status;
 			if (zinitix_bit_test(prev_sub_status, SUB_BIT_EXIST)) {
-#if !defined(CONFIG_SAMSUNG_PRODUCT_SHIP)
 				tsp_debug_info(true, &client->dev, "Finger [%02d] up (%d)\n", i,__LINE__);
-#else
-				tsp_debug_info(true, &client->dev, "Finger up\n");
-#endif
 				info->finger_cnt1--;
 				if (info->finger_cnt1 == 0)
 					input_report_key(info->input_dev, BTN_TOUCH, 0);
@@ -2078,9 +2118,10 @@ static irqreturn_t bt532_touch_work(int irq, void *data)
 			if (zinitix_bit_test(sub_status, SUB_BIT_DOWN)){
 #if !defined(CONFIG_SAMSUNG_PRODUCT_SHIP)
 				tsp_debug_info(true, &client->dev, "Finger [%02d] x = %d, y = %d,"
-							" w = %d fw=0x%02x%02x \n", i, x, y, w, info->cap_info.hw_id, info->cap_info.reg_data_version);
+							" w = %d p = %d fw=0x%02x%02x \n", i, x, y, w, palm, info->cap_info.hw_id, info->cap_info.reg_data_version);
 #else
-				tsp_debug_info(true, &client->dev, "Finger down\n");
+				tsp_debug_info(true, &client->dev, "Finger [%02d] w = %d p = %d fw=0x%02x%02x \n"
+							, i, w, palm, info->cap_info.hw_id, info->cap_info.reg_data_version);
 #endif
 
 #ifdef CONFIG_INPUT_BOOSTER
@@ -2131,11 +2172,7 @@ static irqreturn_t bt532_touch_work(int irq, void *data)
 			input_report_key(info->input_dev, BTN_TOUCH, 1);
 		} else if (zinitix_bit_test(sub_status, SUB_BIT_UP)||
 			zinitix_bit_test(prev_sub_status, SUB_BIT_EXIST)) {
-#if !defined(CONFIG_SAMSUNG_PRODUCT_SHIP)
 			tsp_debug_info(true, &client->dev, "Finger [%02d] up (%d)\n", i,__LINE__);
-#else
-			tsp_debug_info(true, &client->dev, "Finger up\n");
-#endif
 			info->finger_cnt1--;
 			if (info->finger_cnt1 == 0)
 				input_report_key(info->input_dev, BTN_TOUCH, 0);
@@ -2453,6 +2490,7 @@ static bool ts_set_touchmode(u16 value){
 	int i;
 
 	disable_irq(misc_info->irq);
+	clear_report_data(misc_info);
 
 	down(&misc_info->work_lock);
 	if (misc_info->work_state != NOTHING) {
@@ -2562,6 +2600,7 @@ static bool ts_set_touchmode2(u16 value)
 	int i;
 
 	disable_irq(misc_info->irq);
+	clear_report_data(misc_info);
 
 	down(&misc_info->work_lock);
 	if (misc_info->work_state != NOTHING) {
@@ -2671,6 +2710,7 @@ static bool ts_set_touchmode3(u16 value)
 	int i;
 
 	disable_irq(misc_info->irq);
+	clear_report_data(misc_info);
 
 	down(&misc_info->work_lock);
 	if (misc_info->work_state != NOTHING) {

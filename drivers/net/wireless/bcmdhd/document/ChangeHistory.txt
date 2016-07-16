@@ -1,4 +1,58 @@
-BCM43xx DHD 1.141.64.54 for Android
+BCM43xx DHD 1.141.64.61 for Android
+
+2016.1.8 (1.141.64.59 --> 1.141.64.61)
+Others
+   - CSP:1001991 Fixed P2P disconnection due to bug in dhd_is_associated
+   - CSP:1009440 Fixed potential buffer overflow issue
+   - CSP:997319 Fixed unsynchronized wakelock counter
+   - CSP:998207 Fixed suspend failure issue on VOLT platform
+   - CSP:999113 Change DEFAULT_KEEP_ALIVE_VALUE value from 55s to 30s
+   - Split the wake lock source of event handler from OS wake lock source
+
+
+2015.12.18 (1.141.64.57 --> 1.141.64.59)
+Kernel Panic
+   - Added Null check for _dhd_set_multicast_list() function
+
+New Feature
+   - CSP:974983 Added dhd log dump in Sysdump
+
+Others
+   - CSP:982491 Add TDLS_RESET private command
+   - CSP:989744 Supported BCM43436 Volt platform
+   - CSP:994447 Added Hang reason code for HANG event
+   - CSP:997379 Removed SSID info in Samsung Bigdata logging 
+   - CSP:997473 Fix error in handling roam_off
+   - CSP:998601 Added checking current BSSID during link down
+   - CSP:999007 Added to change nvram path for BCM43454 FD model
+   - Enabled roam_time_thresh in Makefile
+   - Fixed debug message for AKM suite
+   - CSP:946668 Update firmware information for IPv6 RA Offload improvement(Support Samsung requirement v0.8)
+     (BCM43455/43454 is also supported since 7.45.57.14)
+
+
+2015.11.19 (1.141.64.54 --> 1.141.64.57)
+New Feature
+   - CSP:900148 Added Debug ability for Wake Lock
+   - CSP:967846, 969506 Added Bigdata logging feature to collect WiFi status information and assoc reject status
+
+Others
+   - CSP: 976957 Added limitation for action frame dwell time over case
+   - CSP:841739 Japan ccode revision will be fixed by nvram's value
+   - CSP:923693 Increased DTIM value in suspend mode
+     (Activated only if ENABLE_MAX_DTIM_IN_SUSPEND is defined in DHD)
+   - CSP:946668 Added private command - IPv6 RA Offload improvement(Support Samsung requirement v0.8)
+     (Firmware should be supported. Enabled BCM4354 since 7.26.20 / But not enabled other chipset yet)
+   - CSP:959693 Fixed MFG firmware loading issue on A8 platform
+   - CSP:970199 Added PM info dump event handler for dongle PM stuck issue
+   - CSP:963874 Changed mDNS packet filter configuration 
+   - CSP:969097 Fixed unexpected full roaming scan issue when band is updated after roam scan channels has been set
+   - CSP:982002 Fixed compile error issue with Kernel ver. 3.16 or higher version
+   - CSP:983575 Enabled WL11U on BCM4343 Chip for Passpoint  1.0 certification 
+   - Added country code CUBA (US re-mapping) temporally
+   - Disabled Lossless Roaming for specific AKM suite for minimizing roaming transition time
+   - Enabled DHD_SUPPORT_FCC_US_988 as default
+
 
 2015.9.23 (1.141.64.52 --> 1.141.64.54)
 Kernel Panic

@@ -488,6 +488,8 @@ struct sec_battery_platform_data {
 	int swelling_low_temp_block;
 	int swelling_low_temp_recov;
 	int swelling_chg_current;
+	int swelling_chg_high_current;
+	unsigned int swelling_full_check_current_2nd;
 	unsigned int swelling_normal_float_voltage;
 	unsigned int swelling_drop_float_voltage;
 	unsigned int swelling_high_rechg_voltage;
@@ -550,6 +552,7 @@ struct sec_battery_platform_data {
 	unsigned int chg_temp_check;
 	unsigned int wpc_temp_check;
 	unsigned int inbat_voltage;
+
 	unsigned int charging_current_table_size;
 
 	/*
@@ -662,6 +665,7 @@ struct sec_battery_platform_data {
 	bool fake_capacity;
 	bool wchg_ctl_en;
 	bool always_enable;
+	bool chg_eoc_dualpath;
 
 #if defined(CONFIG_SW_SELF_DISCHARGING)
 	int self_discharging_temp_block;

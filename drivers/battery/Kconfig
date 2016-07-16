@@ -232,6 +232,14 @@ config FUELGAUGE_SM5703
 	  Say Y to include support SM5703 FUELGAUGE.
 	  Using coulomb counting.
 
+config CHARGER_SM5703_SOFT_START_CHARGING
+	bool "SM5703 soft step charging"
+	default n
+	depends on CHARGER_SM5703
+	help
+	  Say Y here to enable support for SM5703 soft step charging
+	  You have to define CHARGER_SM5703
+
 config STMP_SUPPORT_FG_ALERT
 	 tristate "SM5703 fuel gauge driver"
 	 default n

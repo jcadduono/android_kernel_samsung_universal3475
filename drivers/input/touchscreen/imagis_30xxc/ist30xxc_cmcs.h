@@ -18,9 +18,31 @@
 
 #define INTERNAL_CMCS_BIN			(1)
 
-#define CMCS_MSG_MASK				(0xFFFFFFF0)
-#define CM_MSG_VALID				(0x0E7DC770)
-#define CS_MSG_VALID				(0x0E7DC500)
+#define CMCS_PARSING_DEBUG			(0)
+#define CMCS_RAMCODE_READ			(0)
+
+#define CMCS_FLAG_CM			(1)
+#define CMCS_FLAG_CM_SPEC		(1 << 1)
+#define CMCS_FLAG_CM_SLOPE0		(1 << 2)
+#define CMCS_FLAG_CM_SLOPE1		(1 << 3)
+#define CMCS_FLAG_CS			(1 << 4)
+
+#define CMCS_READY				(0)
+#define CMCS_NOT_READY			(-1)
+
+#define IST30XX_CMCS_MSG_VALID	(0x8FAB0FAB)
+#define IST30XX_CMCS_TIMEOUT		(10000) // unit : msec
+
+#define IST30XX_CMCS_CM			("CM")
+#define IST30XX_CMCS_CS			("CS")
+
+// CMCS addr
+#define IST30XX_CMCS_CHECKSUM		IST30XX_DA_ADDR(0x300B0100)
+#define IST30XX_CMCS_CS_CHECKSUM		IST30XX_DA_ADDR(0x300B0108)
+#define IST30XX_CMCS_PATTERN			IST30XX_DA_ADDR(0x300B0104)
+
+#define ENABLE_CM_MODE(n)		(n & 1)
+#define ENABLE_CS_MODE(n)		((n >> 1) & 1)
 
 #define IST30XX_CMCS_NAME           "ist30xxc.cms"
 #define IST30XX_CMCS_MAGIC          "CMCS2TAG"
@@ -89,23 +111,23 @@ struct CMCS_REG_INFO {
 };
 
 typedef struct _CMCS_PARAM {
-    u32 cmcs_size_addr;
-    u32 cmcs_size;
-	u32 enable_addr;
-	u32 checksum_addr;
-	u32 end_notify_addr;
-	u32 sensor1_addr;
-	u32 sensor2_addr;
-	u32 sensor3_addr;
-    u32 cm_sensor1_size;
-    u32 cm_sensor2_size;
-    u32 cm_sensor3_size;
-    u32 cs_sensor1_size;
-    u32 cs_sensor2_size;
-    u32 cs_sensor3_size;
-    u32 cmcs_chksum;
-    u32 cm_sensor_chksum;
-    u32 cs_sensor_chksum;
+	u32 cmcs_size_addr;
+	u32 cmcs_size;
+	u32 cm_sensor1_addr;
+	u32 cm_sensor1_size;
+	u32 cm_sensor2_addr;
+	u32 cm_sensor2_size;
+	u32 cm_sensor3_addr;
+	u32 cm_sensor3_size;
+	u32 cs_sensor1_addr;
+	u32 cs_sensor1_size;
+	u32 cs_sensor2_addr;
+	u32 cs_sensor2_size;
+	u32 cs_sensor3_addr;
+	u32 cs_sensor3_size;
+	u32 cmcs_chksum;
+	u32 cm_sensor_chksum;
+	u32 cs_sensor_chksum;
 } CMCS_PARAM;
 
 typedef struct _CMCS_BIN_INFO {
@@ -117,14 +139,12 @@ typedef struct _CMCS_BIN_INFO {
     CMCS_PARAM              param;
     union CMCS_SPEC_ITEM    *spec_item;
     u8                      *buf_cmcs;
-	u32 *			buf_cm_sensor;
-	u32 *			buf_cs_sensor;
+	u32 *			buf_sensor;
 	char		            magic2[8];
 } CMCS_BIN_INFO;
 
 typedef struct _CMCS_BUF {
 	s16	cm[IST30XX_NODE_TOTAL_NUM];
-	s16	cm_jit[IST30XX_NODE_TOTAL_NUM];
 	s16	spec_min[IST30XX_NODE_TOTAL_NUM];
     s16 spec_max[IST30XX_NODE_TOTAL_NUM];
 	s16	slope0[IST30XX_NODE_TOTAL_NUM];

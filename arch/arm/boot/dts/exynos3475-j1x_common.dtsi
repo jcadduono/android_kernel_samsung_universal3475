@@ -59,16 +59,6 @@
 		enable-active-high;
 		regulator-boot-on;
 	};
-	sensor_ldo_en {
-		compatible = "regulator-fixed";
-		regulator-name = "sensor_3.0v";
-		regulator-min-microvolt = <3000000>;
-		regulator-max-microvolt = <3000000>;
-		gpio = <&gpq0 2 0>;
-		enable-active-high;
-		regulator-boot-on;
-	};
-
 
 	pinctrl@139C0000 {
 		attn_irq: attn-irq {
@@ -162,7 +152,7 @@
 			coreriver,irq-gpio = <&gpe0 2 0>;
 			coreriver,boot-on-ldo = "true";
 			coreriver,regulator_ic = "vtouch_2.2v";
-			coreriver,fw_name = "coreriver/tc350k_j1.fw";
+			coreriver,fw_name = "coreriver/tc350k_j1x.fw";
 			coreriver,sensing_ch_num = <0x4>;
 			coreriver,tsk_ic_num = <0x1>; /* tc300k : 0x00, tc350k : 0x01 */
 			coreriver,use_bitmap = <1>;
@@ -229,14 +219,14 @@
 			wtsr_timer_val = <3>;   /* 1000ms */
 			smpl_timer_val = <4>;   /* 500ms */
 			check_jigon = <0>; /* do not check jigon */
-			/* RTC: If it's first boot, reset rtc to 1/1/2015 12:00:00(Wed) */
+			/* RTC: If it's first boot, reset rtc to 1/1/2016 12:00:00(Fri) */
 			init_time,sec = <0>;
 			init_time,min = <0>;
 			init_time,hour = <12>;
 			init_time,mday = <1>;
 			init_time,mon = <0>;
-			init_time,year = <115>;
-			init_time,wday = <4>;
+			init_time,year = <116>;
+			init_time,wday = <5>;
 
 			regulators {
 				buck1_reg: BUCK1 {
@@ -335,7 +325,7 @@
 				};
 
 				ldo22_reg: LDO22 {
-					regulator-name = "VDD_CAM_SENSOR_A2P8";
+					regulator-name = "VDDAF_2.8V_CAM";
 					regulator-min-microvolt = <2800000>;
 					regulator-max-microvolt = <2800000>;
 				};
@@ -378,23 +368,26 @@
 			mic-bias2-voltage = <1>;
 			mic-bias-ldo-voltage = <3>;
 			use-btn-adc-mode;
+			use-ldet-threshold-onem-mode;
 			io-channels = <&exynos_adc 2>;
 			io-channel-names = "adc-jack";
 			#io-channel-cells = <1>;
 			io-channel-ranges;
-			but-zones-list = <&but_zones 226 0 380>, /* send/end */
-					<&but_zones 582 381 430>, /* google */
-					<&but_zones 115 431 575>, /* vol up */
-					<&but_zones 114 576 1050>; /* vol down */
-			mic-adc-range = <1000>;
+			but-zones-list = <&but_zones 226 0 200>, /* send/end */
+					<&but_zones 582 201 282>, /* google */
+					<&but_zones 115 283 484>, /* vol up */
+					<&but_zones 114 485 1072>; /* vol down */
+			mic-adc-range = <1362>;
 			mic-det-delay = <50>;
+			adc-trace-num2 = <4>;
 		};
 	};
 
 	s2803x: s2803x@148C0000 {
-		pinctrl-names = "default", "idle";
+		pinctrl-names = "default", "idle", "bt-idle";
 		pinctrl-0 = <&i2s_pmic_bus &i2s_bt_bus>;
 		pinctrl-1 = <&i2s_pmic_bus_idle &i2s_bt_bus_idle>;
+		pinctrl-2 = <&i2s_pmic_bus &i2s_bt_bus_idle>;
 		bck-mcko-mode;
 		status = "okay";
 	};
@@ -469,7 +462,7 @@
 		"-Universal Multimedia dock:121K",
 		"+Jig USB Off:255K",
 		"+Jig USB On:301K",
-		"-Deskdock:365K",
+		"+Deskdock:365K",
 		"+TYPE2 Charger:442K",
 		"+Jig UART Off:523K",
 		"+Jig UART On:619K",
@@ -760,13 +753,13 @@
 		panel_name = "ea8061s";
 		/*Need correct this later*/
 		resolution = <480 800>;
-		size = <58 104>;
+		size = <59 98>;
 		timing,refresh = <60>;
-		/* HBP:36, HFP:55, HSW:4 */
-		timing,h-porch = <36 55 4>;
+		/* HBP:9, HFP:125, HSW:2 */
+		timing,h-porch = <9 125 2>;
 		/* VBP:9, VFP:14, VSW:1 */
 		timing,v-porch = <9 14 1>;
-		timing,dsi-hs-clk = <490>;
+		timing,dsi-hs-clk = <365>;
 		timing,dsi-escape-clk = <15>;
 	};
 
@@ -788,13 +781,6 @@
 	pinctrl@139C0000 {
 		hs_i2c7_bus: hs-i2c7-bus {
 			samsung,pins = "gpf0-1", "gpf0-0";
-			samsung,pin-function = <2>;
-			samsung,pin-pud = <0>;
-			samsung,pin-drv = <0>;
-		};
-
-		hs_i2c8_bus: hs-i2c8-bus {
-			samsung,pins = "gpf0-3", "gpf0-2";
 			samsung,pin-function = <2>;
 			samsung,pin-pud = <0>;
 			samsung,pin-drv = <0>;
@@ -828,20 +814,10 @@
 			gpio_reset = <&gpd0 2 0x1>; /* sensor reset */
 			gpio_core_en = <&gpd1 0 0x1>; /* CAM_CORE_EN */
 			gpio_mclk = <&gpe0 0 0x1>; /* MAIN_CAM_MCLK */
-			gpio_standby = <&gpf1 1 0x1>; /* MAIN_CAM_STBY */
+			gpio_standby = <&gpc2 0 0x1>; /* MAIN_CAM_STBY */
+			gpio_cam_avdd_en = <&gpa0 4 0x1>; /* VDD_CAM_SENSOR_A2P8_GPIO_CONTROL */
 			status = "okay";
 		};
-	};
-
-	hsi2c_8: hsi2c@138B0000 {
-		gpios = <&gpf0 2 0 &gpf0 3 0>;
-		status = "okay";
-		samsung,i2c-sda-delay = <100>;
-		samsung,i2c-max-bus-freq = <400000>;
-		samsung,reset-before-trans;
-
-		pinctrl-names = "default";
-		pinctrl-0 = <&hs_i2c8_bus>;
 
 		sr200_soc@20 {
 			compatible = "samsung,exynos5-fimc-is-sensor-sr200-soc";
@@ -858,28 +834,10 @@
 			sensor_i2c_addr = <0x20>; /* need the i2c_addr modify */
 
 			gpio_reset = <&gpd0 4 0x1>;
-			gpio_standby = <&gpf1 0 0x1>; /* VT_CAM_STBY */
+			gpio_core_en = <&gpd1 0 0x1>; /* CAM_CORE_EN */
+			gpio_standby = <&gpc2 1 0x1>; /* VT_CAM_STBY */
 			gpio_mclk = <&gpe0 1 0x1>; /* VT_CAM_MCLK */
-			status = "okay";
-		};
-
-		db8221a_soc@45 {
-			compatible = "samsung,exynos5-fimc-is-sensor-db8221a-soc";
-			reg = <0x45>;
-			setfile = "default";
-			pinctrl-names = "pin0", "pin1";
-			pinctrl-0 = <&fimc_is_mclk1_fn>; /* front on */
-			pinctrl-1 = <&fimc_is_mclk1_in>; /* front off */
-
-			position = <1>; /* Rear:0. Front:1 */
-			id = <1>; /* bns_id */
-			mclk_ch = <1>;
-			sensor_i2c_ch = <1>;
-			sensor_i2c_addr = <0x45>; /* need the i2c_addr modify */
-
-			gpio_reset = <&gpd0 4 0x1>;
-			gpio_standby = <&gpf1 0 0x1>; /* VT_CAM_STBY */
-			gpio_mclk = <&gpe0 1 0x1>; /* VT_CAM_MCLK */
+			gpio_cam_avdd_en = <&gpa0 4 0x1>; /* VDD_CAM_SENSOR_A2P8_GPIO_CONTROL */
 			status = "okay";
 		};
 	};
@@ -925,7 +883,7 @@
 
 	fimc_is@14400000 {
 		rear_sensor_id = <57>;
-		front_sensor_id = <303>;
+		front_sensor_id = <302>;
 		use_module_check;
 		skip_cal_loading;
 
@@ -1205,7 +1163,12 @@
 					   50 897000 0 559000 100000 0 1
 					  100 1196000 0 666000 100000 0 1>;
 		};
-
+		boot_device@2 {
+			net_boost,label="USB";
+			net_boost,node="rndis0";
+			net_boost,table_size = <1>;
+			net_boost,table= < 1 0 0 0 0 0 1 >;
+		};
 		/* Example
 		   boot_device@2 {
 		   net_boost,label="EMMC";
@@ -1245,17 +1208,17 @@
 		compatible = "samsung,sec-ap-thermistor";
 		status = "okay";
 
-		adc_array = <258 268 279 289 300 310 320 331 341 352
-				362 374 387 399 412 424 438 453 467 482
-				496 516 536 555 575 595 616 636 657 677
-				698 722 747 771 796 820 847 875 902 930
-				957 992 1027 1061 1096 1131 1167 1202 1238 1273
-				1309 1347 1385 1423 1461 1499 1541 1583 1624 1666
-				1708 1753 1798 1844 1889 1934 1981 2029 2076 2124
-				2171 2218 2265 2313 2360 2407 2454 2501 2549 2596
-				2643 2687 2731 2776 2820 2864 2911 2958 3004 3051
-				3098 3134 3171 3207 3244 3280 3312 3344 3376 3408
-				3440 3467 3494 3521 3548 3575 3596 3617 3637 3658 3679>;
+		adc_array = < 281 291 302 312 323 333 343 354 364 375
+				385 400 416 431 447 462 478 494 510 526
+				542 560 577 595 612 630 652 675 697 720
+				742 769 796 822 849 876 902 928 955 981
+				1007 1041 1075 1110 1144 1178 1218 1259 1299 1340
+				1380 1415 1450 1486 1521 1556 1601 1646 1691 1736
+				1781 1827 1873 1920 1966 2012 2059 2105 2152 2198
+				2245 2294 2343 2391 2440 2489 2533 2577 2621 2665
+				2709 2752 2795 2837 2880 2923 2966 3008 3051 3093
+				3136 3170 3204 3237 3271 3305 3339 3372 3406 3439
+				3473 3498 3524 3549 3575 3600 3621 3642 3663 3684 3705>;
 		temp_array = <900 890 880 870 860 850 840 830 820 810
 				800 790 780 770 760 750 740 730 720 710
 				700 690 680 670 660 650 640 630 620 610

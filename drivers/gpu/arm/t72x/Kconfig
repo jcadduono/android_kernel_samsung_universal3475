@@ -17,7 +17,7 @@ menuconfig MALI_T72X
 	tristate "Mali-T72X support"
 	default n
 	help
-	  Enable this option to build support for the ARM Mali-T7xx GPU.
+	  Enable this option to build support for the ARM Mali-T72x GPU.
 
 	  To compile this driver as a module, choose M here:
 	  this will generate a single module, called mali_kbase.
@@ -33,10 +33,15 @@ config MALI_R5P0_REL
 	depends on MALI_T72X
 	bool "r5p0 driver"
 
+config MALI_R7P0_T72X
+	depends on MALI_T72X
+	bool "r7p0 driver"
+endchoice
+
 if MALI_R5P0_REL
 source "drivers/gpu/arm/t72x/r5p0/Kconfig"
 endif
 
-endchoice
-
-
+if MALI_R7P0_T72X
+source "drivers/gpu/arm/t72x/r7p0/Kconfig"
+endif

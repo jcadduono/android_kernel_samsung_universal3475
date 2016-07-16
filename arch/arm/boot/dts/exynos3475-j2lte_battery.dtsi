@@ -39,6 +39,7 @@
 
 	i2c@13860000 {
 		status = "okay";
+		samsung,i2c-max-bus-freq = <400000>;
 		sm5703-fuelgauge@71 {
 			compatible = "samsung,sm5703-fuelgauge";
 			reg = <0x71>;

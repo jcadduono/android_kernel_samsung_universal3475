@@ -12,6 +12,8 @@
 #ifndef FIMC_IS_DEVICE_4E5_H
 #define FIMC_IS_DEVICE_4E5_H
 
+/* #define CONFIG_LOAD_FILE */
+
 #if defined(CONFIG_LOAD_FILE)
 #include <linux/vmalloc.h>
 #include <linux/fs.h>
@@ -131,6 +133,8 @@ struct fimc_is_module_4ec {
 	struct mutex		i2c_lock;
 	struct completion		af_complete;
 
+	u16			sensor_version;
+	u32			setfile_index;
 	u16			vis_duration;
 	u16			frame_length_line;
 	u32			line_length_pck;

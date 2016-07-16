@@ -46,7 +46,14 @@
 #if defined(CONFIG_CAMERA_GTES)
 #include "fimc-is-device-4ec-soc-reg-gtes.h" /* 4ECGX */
 #elif defined(CONFIG_CAMERA_J1XLTE)
-#include "fimc-is-device-4ec-soc-reg-j1xlte.h"
+#include "fimc-is-device-4ec-soc-reg.h" /* 4ECGX */
+#include "fimc-is-device-4ec-soc-reg_ga.h" /* 4ECGA */
+#elif defined(CONFIG_CAMERA_J3XLTE)
+#include "fimc-is-device-4ec-soc-reg-j3xlte_ga.h" /* 4ECGA */
+#elif defined(CONFIG_CAMERA_ON5LTE)
+#include "fimc-is-device-4ec-soc-reg-j3xlte_ga.h" /* 4ECGA : same setfile with j3xlte */
+#elif defined(CONFIG_CAMERA_XCOVER3VELTE)
+#include "fimc-is-device-4ec-soc-reg_ga.h" /* 4ECGA */
 #else /* J2LTE */
 #include "fimc-is-device-4ec-soc-reg.h" /* 4ECGX */
 #endif
@@ -61,6 +68,11 @@ extern int s2mu005_led_mode_ctrl(int state);
 #endif
 
 #define SENSOR_NAME "S5K4EC"
+#define SENSOR_NAME_4ECGX04	"S5K4ECGX"
+#define SENSOR_NAME_4ECGA04	"S5K4ECGA"
+#define SENSOR_VERSION_4ECGX04	0x0404
+#define SENSOR_VERSION_4ECGA04	0x1414
+
 #define DEFAULT_SENSOR_WIDTH	640
 #define DEFAULT_SENSOR_HEIGHT	480
 #define SENSOR_MEMSIZE DEFAULT_SENSOR_WIDTH * DEFAULT_SENSOR_HEIGHT
@@ -85,6 +97,19 @@ extern int s2mu005_led_mode_ctrl(int state);
 #define GET_CID_INDEX(CID, CID_MIN_VALUE) ((CID) - (CID_MIN_VALUE))
 
 #define IS_LOWLIGHT(x)	((x <= LOW_LIGHT_LEVEL) ? 1 : 0)
+
+#ifdef SUPPORT_MULTIPLE_SENSOR_VERSION
+enum s5k4ec_sensor_setfile_index {
+	SETFILE_INDEX_4ECGX04 = 0,
+	SETFILE_INDEX_4ECGA04 = 1,
+	SETFILE_INDEX_MAX,
+};
+#else
+enum s5k4ec_sensor_setfile_index {
+	SETFILE_INDEX_4EC_DEFAULT = 0,
+	SETFILE_INDEX_MAX,
+};
+#endif
 
 enum s5k4ecgx_preview_frame_size {
 	S5K4ECGX_PREVIEW_144_176 = 0,	/* 144x176 */
@@ -159,9 +184,9 @@ enum s5k4ecgx_flicker_mode {
 };
 
 struct s5k4ecgx_regset_table {
-	const u32	*reg;
-	const char	*setting_name;
-	int		array_size;
+	const u32	*reg[SETFILE_INDEX_MAX];
+	const char	*setting_name[SETFILE_INDEX_MAX];
+	int		array_size[SETFILE_INDEX_MAX];
 };
 
 static const struct s5k4ecgx_framesize preview_size_list[] = {
@@ -212,19 +237,36 @@ static const struct s5k4ecgx_framesize capture_size_list[] = {
 	{ S5K4ECGX_CAPTURE_2576_1932,	2576, 1932 },
 };
 
-#define S5K4ECGX_REGSET(x, y, z)				\
-	[(x)] = {					\
-		.reg		= (y),			\
-		.setting_name	= (z),			\
-		.array_size	= ARRAY_SIZE((y)),	\
-	}
-
-#define S5K4ECGX_REGSET_TABLE(y, z)			\
+#ifdef SUPPORT_MULTIPLE_SENSOR_VERSION
+#define S5K4ECGX_REGSET_TABLE(y)			\
 	{						\
-		.reg		= (y),			\
-		.setting_name	= (z),			\
-		.array_size	= ARRAY_SIZE((y)),	\
+		.reg		= { s5k4ecgx_##y,		\
+				s5k4ecga_##y },			\
+		.setting_name	= { "s5k4ecgx_"#y,	\
+					"s5k4ecga_"#y },		\
+		.array_size	= { ARRAY_SIZE(s5k4ecgx_##y),	\
+					ARRAY_SIZE(s5k4ecga_##y) },	\
 	}
+#else
+#ifdef HAVE_SETFILE_VERSION_4ECGA04
+#define S5K4ECGX_REGSET_TABLE(y)			\
+	{						\
+		.reg		= { s5k4ecga_##y, },	\
+		.setting_name	= { "s5k4ecga_"#y, }, 	\
+		.array_size	= { ARRAY_SIZE(s5k4ecga_##y), },	\
+	}
+#else
+#define S5K4ECGX_REGSET_TABLE(y)			\
+	{						\
+		.reg		= { s5k4ecgx_##y, },	\
+		.setting_name	= { "s5k4ecgx_"#y, }, 	\
+		.array_size	= { ARRAY_SIZE(s5k4ecgx_##y), },	\
+	}
+#endif
+#endif
+
+#define S5K4ECGX_REGSET(x, y)				\
+	[(x)] = S5K4ECGX_REGSET_TABLE(y)
 
 struct s5k4ecgx_regs {
 	struct s5k4ecgx_regset_table ev[GET_CID_INDEX(EV_MAX, EV_MIN_VALUE)];
@@ -302,254 +344,243 @@ struct s5k4ecgx_regs {
 	struct s5k4ecgx_regset_table get_vendor_id_read;
 };
 
+static const struct s5k4ecgx_regs regs_set =
+{
+	.init_reg_1 = S5K4ECGX_REGSET_TABLE(init_reg1),
+	.init_reg_2 = S5K4ECGX_REGSET_TABLE(init_reg2),
+	.init_reg_3 = S5K4ECGX_REGSET_TABLE(init_reg3),
+	.init_reg_4 = S5K4ECGX_REGSET_TABLE(init_reg4), //many add
 
-static const struct s5k4ecgx_regs regs_set = {
-	.init_reg_1 = S5K4ECGX_REGSET_TABLE(s5k4ecgx_init_reg1, "s5k4ecgx_init_reg1"),
-	.init_reg_2 = S5K4ECGX_REGSET_TABLE(s5k4ecgx_init_reg2, "s5k4ecgx_init_reg2"),
-	.init_reg_3 = S5K4ECGX_REGSET_TABLE(s5k4ecgx_init_reg3, "s5k4ecgx_init_reg3"),
-	.init_reg_4 = S5K4ECGX_REGSET_TABLE(s5k4ecgx_init_reg4, "s5k4ecgx_init_reg4"), //many add
+	.dtp_start = S5K4ECGX_REGSET_TABLE(DTP_init),
+	.dtp_stop = S5K4ECGX_REGSET_TABLE(DTP_stop),
 
-	.dtp_start = S5K4ECGX_REGSET_TABLE(s5k4ecgx_DTP_init, "s5k4ecgx_DTP_init"),
-	.dtp_stop = S5K4ECGX_REGSET_TABLE(s5k4ecgx_DTP_stop, "s5k4ecgx_DTP_stop"),
-
-	.capture_start = S5K4ECGX_REGSET_TABLE(s5k4ecgx_Capture_Start, "s5k4ecgx_Capture_Start"),
-	.normal_snapshot = S5K4ECGX_REGSET_TABLE(s5k4ecgx_normal_snapshot, "s5k4ecgx_normal_snapshot"),
-	.camcorder = S5K4ECGX_REGSET_TABLE(s5k4ecgx_camcorder, "s5k4ecgx_camcorder"),
-	.camcorder_disable = S5K4ECGX_REGSET_TABLE(s5k4ecgx_camcorder_disable, "s5k4ecgx_camcorder_disable"),
-	.get_light_level = S5K4ECGX_REGSET_TABLE(s5k4ecgx_Get_Light_Level, "s5k4ecgx_Get_Light_Level"),
+	.capture_start = S5K4ECGX_REGSET_TABLE(Capture_Start),
+	.normal_snapshot = S5K4ECGX_REGSET_TABLE(normal_snapshot),
+	.camcorder = S5K4ECGX_REGSET_TABLE(camcorder),
+	.camcorder_disable = S5K4ECGX_REGSET_TABLE(camcorder_disable),
 
 	.preview_size = {
-			S5K4ECGX_REGSET(S5K4ECGX_PREVIEW_144_176, s5k4ecgx_144_176_Preview, "s5k4ecgx_144_176_Preview"),
-			S5K4ECGX_REGSET(S5K4ECGX_PREVIEW_QCIF, s5k4ecgx_176_Preview, "s5k4ecgx_176_Preview"),
-			S5K4ECGX_REGSET(S5K4ECGX_PREVIEW_QVGA, s5k4ecgx_QVGA_Preview, "s5k4ecgx_QVGA_Preview"),
-			S5K4ECGX_REGSET(S5K4ECGX_PREVIEW_CIF, s5k4ecgx_352_Preview, "s5k4ecgx_352_Preview"),
-			S5K4ECGX_REGSET(S5K4ECGX_PREVIEW_VGA, s5k4ecgx_640_Preview, "s5k4ecgx_640_Preview"),
-			S5K4ECGX_REGSET(S5K4ECGX_PREVIEW_704_576, s5k4ecgx_704_576_Preview, "s5k4ecgx_704_576_Preview"),
-			S5K4ECGX_REGSET(S5K4ECGX_PREVIEW_D1, s5k4ecgx_720_Preview, "s5k4ecgx_720_Preview"),
-			S5K4ECGX_REGSET(S5K4ECGX_PREVIEW_720_540, s5k4ecgx_720_540_Preview, "s5k4ecgx_720_540_Preview"),
-			S5K4ECGX_REGSET(S5K4ECGX_PREVIEW_720_720, s5k4ecgx_720_720_Preview, "s5k4ecgx_720_720_Preview"),
-			S5K4ECGX_REGSET(S5K4ECGX_PREVIEW_WVGA, s5k4ecgx_WVGA_Preview, "s5k4ecgx_WVGA_Preview"),
-			S5K4ECGX_REGSET(S5K4ECGX_PREVIEW_960_540, s5k4ecgx_960_540_Preview, "s5k4ecgx_960_540_Preview"),
-			S5K4ECGX_REGSET(S5K4ECGX_PREVIEW_960_720, s5k4ecgx_960_720_Preview, "s5k4ecgx_960_720_Preview"),
-			S5K4ECGX_REGSET(S5K4ECGX_PREVIEW_960, s5k4ecgx_960_Preview, "s5k4ecgx_960_Preview"),
-			S5K4ECGX_REGSET(S5K4ECGX_PREVIEW_964_964, s5k4ecgx_964_964_Preview, "s5k4ecgx_964_964_Preview"),
-			S5K4ECGX_REGSET(S5K4ECGX_PREVIEW_1024, s5k4ecgx_1024_Preview, "s5k4ecgx_1024_Preview"),
-			S5K4ECGX_REGSET(S5K4ECGX_PREVIEW_W1280, s5k4ecgx_W1280_Preview, "s5k4ecgx_W1280_Preview"),
-			S5K4ECGX_REGSET(S5K4ECGX_PREVIEW_WXGA, s5k4ecgx_1280_WXGA_Preview, "s5k4ecgx_1280_WXGA_Preview"),
-			S5K4ECGX_REGSET(S5K4ECGX_PREVIEW_1288_772, s5k4ecgx_1288_772_Preview, "s5k4ecgx_1288_772_Preview"),
-			S5K4ECGX_REGSET(S5K4ECGX_PREVIEW_1288_966, s5k4ecgx_1288_966_Preview, "s5k4ecgx_1288_966_Preview"),
-			S5K4ECGX_REGSET(S5K4ECGX_PREVIEW_1280, s5k4ecgx_1280_Preview, "s5k4ecgx_1280_Preview"),
-			S5K4ECGX_REGSET(S5K4ECGX_PREVIEW_1600, s5k4ecgx_1600_Preview, "s5k4ecgx_1600_Preview"),
-			S5K4ECGX_REGSET(S5K4ECGX_PREVIEW_1920, s5k4ecgx_1920_Preview, "s5k4ecgx_1920_Preview"),
-			S5K4ECGX_REGSET(S5K4ECGX_PREVIEW_2048, s5k4ecgx_2048_Preview, "s5k4ecgx_2048_Preview"),
-			S5K4ECGX_REGSET(S5K4ECGX_PREVIEW_2560, s5k4ecgx_max_Preview, "s5k4ecgx_max_Preview"),
+			S5K4ECGX_REGSET(S5K4ECGX_PREVIEW_144_176, 144_176_Preview),
+			S5K4ECGX_REGSET(S5K4ECGX_PREVIEW_QCIF, 176_Preview),
+			S5K4ECGX_REGSET(S5K4ECGX_PREVIEW_QVGA, QVGA_Preview),
+			S5K4ECGX_REGSET(S5K4ECGX_PREVIEW_CIF, 352_Preview),
+			S5K4ECGX_REGSET(S5K4ECGX_PREVIEW_VGA, 640_Preview),
+			S5K4ECGX_REGSET(S5K4ECGX_PREVIEW_704_576, 704_576_Preview),
+			S5K4ECGX_REGSET(S5K4ECGX_PREVIEW_D1, 720_Preview),
+			S5K4ECGX_REGSET(S5K4ECGX_PREVIEW_720_540, 720_540_Preview),
+			S5K4ECGX_REGSET(S5K4ECGX_PREVIEW_720_720, 720_720_Preview),
+			S5K4ECGX_REGSET(S5K4ECGX_PREVIEW_WVGA, WVGA_Preview),
+			S5K4ECGX_REGSET(S5K4ECGX_PREVIEW_960_540, 960_540_Preview),
+			S5K4ECGX_REGSET(S5K4ECGX_PREVIEW_960_720, 960_720_Preview),
+			S5K4ECGX_REGSET(S5K4ECGX_PREVIEW_960, 960_Preview),
+			S5K4ECGX_REGSET(S5K4ECGX_PREVIEW_964_964, 964_964_Preview),
+			S5K4ECGX_REGSET(S5K4ECGX_PREVIEW_1024, 1024_Preview),
+			S5K4ECGX_REGSET(S5K4ECGX_PREVIEW_W1280, W1280_Preview),
+			S5K4ECGX_REGSET(S5K4ECGX_PREVIEW_WXGA, 1280_WXGA_Preview),
+			S5K4ECGX_REGSET(S5K4ECGX_PREVIEW_1288_772, 1288_772_Preview),
+			S5K4ECGX_REGSET(S5K4ECGX_PREVIEW_1288_966, 1288_966_Preview),
+			S5K4ECGX_REGSET(S5K4ECGX_PREVIEW_1280, 1280_Preview),
+			S5K4ECGX_REGSET(S5K4ECGX_PREVIEW_1600, 1600_Preview),
+			S5K4ECGX_REGSET(S5K4ECGX_PREVIEW_1920, 1920_Preview),
+			S5K4ECGX_REGSET(S5K4ECGX_PREVIEW_2048, 2048_Preview),
+			S5K4ECGX_REGSET(S5K4ECGX_PREVIEW_2560, max_Preview),
 	},
 
 	.capture_size = {
-			/*S5K4ECGX_REGSET(S5K4ECGX_CAPTURE_QVGA, s5k4ecgx_QVGA_Capture),*/
-			S5K4ECGX_REGSET(S5K4ECGX_CAPTURE_VGA, s5k4ecgx_VGA_Capture, "s5k4ecgx_VGA_Capture"),
-			S5K4ECGX_REGSET(S5K4ECGX_CAPTURE_XGA, s5k4ecgx_XGA_Capture, "s5k4ecgx_XGA_Capture"),
-			S5K4ECGX_REGSET(S5K4ECGX_CAPTURE_WVGA, s5k4ecgx_WVGA_Capture, "s5k4ecgx_WVGA_Capture"),
-			S5K4ECGX_REGSET(S5K4ECGX_CAPTURE_1MP, s5k4ecgx_1M_Capture, "s5k4ecgx_1M_Capture"),
-			S5K4ECGX_REGSET(S5K4ECGX_CAPTURE_W1MP, s5k4ecgx_W1MP_Capture, "s5k4ecgx_W1MP_Capture"),
-			S5K4ECGX_REGSET(S5K4ECGX_CAPTURE_2MP, s5k4ecgx_2M_Capture, "s5k4ecgx_2M_Capture"),
-			S5K4ECGX_REGSET(S5K4ECGX_CAPTURE_1632_1218, s5k4ecgx_1632_1218_Capture, "s5k4ecgx_1632_1218_Capture"),
-			S5K4ECGX_REGSET(S5K4ECGX_CAPTURE_3MP, s5k4ecgx_3M_Capture, "s5k4ecgx_3M_Capture"),
-			S5K4ECGX_REGSET(S5K4ECGX_CAPTURE_1920_1920, s5k4ecgx_1920_1920_Capture, "s5k4ecgx_1920_1920_Capture"),
-			S5K4ECGX_REGSET(S5K4ECGX_CAPTURE_1928_1928, s5k4ecgx_1928_1928_Capture, "s5k4ecgx_1928_1928_Capture"),
-			S5K4ECGX_REGSET(S5K4ECGX_CAPTURE_2036_1526, s5k4ecgx_2036_1526_Capture, "s5k4ecgx_2036_1526_Capture"),
-			S5K4ECGX_REGSET(S5K4ECGX_CAPTURE_2048_1152, s5k4ecgx_2048_1152_Capture, "s5k4ecgx_2048_1152_Capture"),
-			S5K4ECGX_REGSET(S5K4ECGX_CAPTURE_2048_1232, s5k4ecgx_2048_1232_Capture, "s5k4ecgx_2048_1232_Capture"),
-			S5K4ECGX_REGSET(S5K4ECGX_CAPTURE_W4MP, s5k4ecgx_W4MP_Capture, "s5k4ecgx_W4MP_Capture"),
-			S5K4ECGX_REGSET(S5K4ECGX_CAPTURE_2560_1440, s5k4ecgx_2560_1440_Capture, "s5k4ecgx_2560_1440_Capture"),
-			S5K4ECGX_REGSET(S5K4ECGX_CAPTURE_5MP, s5k4ecgx_5M_Capture, "s5k4ecgx_5M_Capture"),
-			S5K4ECGX_REGSET(S5K4ECGX_CAPTURE_2576_1544, s5k4ecgx_2576_1544_Capture, "s5k4ecgx_2576_1544_Capture"),
-			S5K4ECGX_REGSET(S5K4ECGX_CAPTURE_2576_1932, s5k4ecgx_2576_1932_Capture, "s5k4ecgx_2576_1932_Capture"),
+			S5K4ECGX_REGSET(S5K4ECGX_CAPTURE_VGA, VGA_Capture),
+			S5K4ECGX_REGSET(S5K4ECGX_CAPTURE_XGA, XGA_Capture),
+			S5K4ECGX_REGSET(S5K4ECGX_CAPTURE_WVGA, WVGA_Capture),
+			S5K4ECGX_REGSET(S5K4ECGX_CAPTURE_1MP, 1M_Capture),
+			S5K4ECGX_REGSET(S5K4ECGX_CAPTURE_W1MP, W1MP_Capture),
+			S5K4ECGX_REGSET(S5K4ECGX_CAPTURE_2MP, 2M_Capture),
+			S5K4ECGX_REGSET(S5K4ECGX_CAPTURE_1632_1218, 1632_1218_Capture),
+			S5K4ECGX_REGSET(S5K4ECGX_CAPTURE_3MP, 3M_Capture),
+			S5K4ECGX_REGSET(S5K4ECGX_CAPTURE_1920_1920, 1920_1920_Capture),
+			S5K4ECGX_REGSET(S5K4ECGX_CAPTURE_1928_1928, 1928_1928_Capture),
+			S5K4ECGX_REGSET(S5K4ECGX_CAPTURE_2036_1526, 2036_1526_Capture),
+			S5K4ECGX_REGSET(S5K4ECGX_CAPTURE_2048_1152, 2048_1152_Capture),
+			S5K4ECGX_REGSET(S5K4ECGX_CAPTURE_2048_1232, 2048_1232_Capture),
+			S5K4ECGX_REGSET(S5K4ECGX_CAPTURE_W4MP, W4MP_Capture),
+			S5K4ECGX_REGSET(S5K4ECGX_CAPTURE_2560_1440, 2560_1440_Capture),
+			S5K4ECGX_REGSET(S5K4ECGX_CAPTURE_5MP, 5M_Capture),
+			S5K4ECGX_REGSET(S5K4ECGX_CAPTURE_2576_1544, 2576_1544_Capture),
+			S5K4ECGX_REGSET(S5K4ECGX_CAPTURE_2576_1932, 2576_1932_Capture),
 	},
 
-	.reset_crop = S5K4ECGX_REGSET_TABLE(s5k4ecgx_Reset_Crop, "s5k4ecgx_Reset_Crop"),
+	.reset_crop = S5K4ECGX_REGSET_TABLE(Reset_Crop),
 	.get_capture_status =
-		S5K4ECGX_REGSET_TABLE(s5k4ecgx_get_capture_status, "s5k4ecgx_get_capture_status"),
+		S5K4ECGX_REGSET_TABLE(get_capture_status),
 	.ev = {
-		S5K4ECGX_REGSET(GET_CID_INDEX(EV_MINUS_4, EV_MIN_VALUE), s5k4ecgx_EV_Minus_4, "s5k4ecgx_EV_Minus_4"),
-		S5K4ECGX_REGSET(GET_CID_INDEX(EV_MINUS_3, EV_MIN_VALUE), s5k4ecgx_EV_Minus_3, "s5k4ecgx_EV_Minus_3"),
-		S5K4ECGX_REGSET(GET_CID_INDEX(EV_MINUS_2, EV_MIN_VALUE), s5k4ecgx_EV_Minus_2, "s5k4ecgx_EV_Minus_2"),
-		S5K4ECGX_REGSET(GET_CID_INDEX(EV_MINUS_1, EV_MIN_VALUE), s5k4ecgx_EV_Minus_1, "s5k4ecgx_EV_Minus_1"),
-		S5K4ECGX_REGSET(GET_CID_INDEX(EV_DEFAULT, EV_MIN_VALUE), s5k4ecgx_EV_Default, "s5k4ecgx_EV_Default"),
-		S5K4ECGX_REGSET(GET_CID_INDEX(EV_PLUS_1, EV_MIN_VALUE), s5k4ecgx_EV_Plus_1, "s5k4ecgx_EV_Plus_1"),
-		S5K4ECGX_REGSET(GET_CID_INDEX(EV_PLUS_2, EV_MIN_VALUE), s5k4ecgx_EV_Plus_2, "s5k4ecgx_EV_Plus_2"),
-		S5K4ECGX_REGSET(GET_CID_INDEX(EV_PLUS_3, EV_MIN_VALUE), s5k4ecgx_EV_Plus_3, "s5k4ecgx_EV_Plus_3"),
-		S5K4ECGX_REGSET(GET_CID_INDEX(EV_PLUS_4, EV_MIN_VALUE), s5k4ecgx_EV_Plus_4, "s5k4ecgx_EV_Plus_4"),
+		S5K4ECGX_REGSET(GET_CID_INDEX(EV_MINUS_4, EV_MIN_VALUE), EV_Minus_4),
+		S5K4ECGX_REGSET(GET_CID_INDEX(EV_MINUS_3, EV_MIN_VALUE), EV_Minus_3),
+		S5K4ECGX_REGSET(GET_CID_INDEX(EV_MINUS_2, EV_MIN_VALUE), EV_Minus_2),
+		S5K4ECGX_REGSET(GET_CID_INDEX(EV_MINUS_1, EV_MIN_VALUE), EV_Minus_1),
+		S5K4ECGX_REGSET(GET_CID_INDEX(EV_DEFAULT, EV_MIN_VALUE), EV_Default),
+		S5K4ECGX_REGSET(GET_CID_INDEX(EV_PLUS_1, EV_MIN_VALUE), EV_Plus_1),
+		S5K4ECGX_REGSET(GET_CID_INDEX(EV_PLUS_2, EV_MIN_VALUE), EV_Plus_2),
+		S5K4ECGX_REGSET(GET_CID_INDEX(EV_PLUS_3, EV_MIN_VALUE), EV_Plus_3),
+		S5K4ECGX_REGSET(GET_CID_INDEX(EV_PLUS_4, EV_MIN_VALUE), EV_Plus_4),
 	},
 	.metering = {
-		S5K4ECGX_REGSET(METERING_MATRIX, s5k4ecgx_Metering_Matrix, "s5k4ecgx_Metering_Matrix"),
-		S5K4ECGX_REGSET(METERING_CENTER, s5k4ecgx_Metering_Center, "s5k4ecgx_Metering_Center"),
-		S5K4ECGX_REGSET(METERING_SPOT, s5k4ecgx_Metering_Spot, "s5k4ecgx_Metering_Spot"),
+		S5K4ECGX_REGSET(METERING_MATRIX, Metering_Matrix),
+		S5K4ECGX_REGSET(METERING_CENTER, Metering_Center),
+		S5K4ECGX_REGSET(METERING_SPOT, Metering_Spot),
 	},
 	.iso = {
-		S5K4ECGX_REGSET(ISO_AUTO, s5k4ecgx_ISO_Auto, "s5k4ecgx_ISO_Auto"),
-		S5K4ECGX_REGSET(ISO_50, s5k4ecgx_ISO_100, "s5k4ecgx_ISO_100"),     /* map to 100 */
-		S5K4ECGX_REGSET(ISO_100, s5k4ecgx_ISO_100, "s5k4ecgx_ISO_100"),
-		S5K4ECGX_REGSET(ISO_200, s5k4ecgx_ISO_200, "s5k4ecgx_ISO_200"),
-		S5K4ECGX_REGSET(ISO_400, s5k4ecgx_ISO_400, "s5k4ecgx_ISO_400"),
-		S5K4ECGX_REGSET(ISO_800, s5k4ecgx_ISO_400, "s5k4ecgx_ISO_400"),    /* map to 400 */
-		S5K4ECGX_REGSET(ISO_1600, s5k4ecgx_ISO_400, "s5k4ecgx_ISO_400"),   /* map to 400 */
-		S5K4ECGX_REGSET(ISO_SPORTS, s5k4ecgx_ISO_Auto, "s5k4ecgx_ISO_Auto"),/* map to auto */
-		S5K4ECGX_REGSET(ISO_NIGHT, s5k4ecgx_ISO_Auto, "s5k4ecgx_ISO_Auto"), /* map to auto */
-		S5K4ECGX_REGSET(ISO_MOVIE, s5k4ecgx_ISO_Auto, "s5k4ecgx_ISO_Auto"), /* map to auto */
+		S5K4ECGX_REGSET(ISO_AUTO, ISO_Auto),
+		S5K4ECGX_REGSET(ISO_50, ISO_100),     /* map to 100 */
+		S5K4ECGX_REGSET(ISO_100, ISO_100),
+		S5K4ECGX_REGSET(ISO_200, ISO_200),
+		S5K4ECGX_REGSET(ISO_400, ISO_400),
+		S5K4ECGX_REGSET(ISO_800, ISO_400),    /* map to 400 */
+		S5K4ECGX_REGSET(ISO_1600, ISO_400),   /* map to 400 */
+		S5K4ECGX_REGSET(ISO_SPORTS, ISO_Auto),/* map to auto */
+		S5K4ECGX_REGSET(ISO_NIGHT, ISO_Auto), /* map to auto */
+		S5K4ECGX_REGSET(ISO_MOVIE, ISO_Auto), /* map to auto */
 	},
 	.effect = {
-		S5K4ECGX_REGSET(IMAGE_EFFECT_NONE, s5k4ecgx_Effect_Normal, "s5k4ecgx_Effect_Normal"),
-		S5K4ECGX_REGSET(IMAGE_EFFECT_BNW, s5k4ecgx_Effect_Black_White, "s5k4ecgx_Effect_Black_White"),
-		S5K4ECGX_REGSET(IMAGE_EFFECT_SEPIA, s5k4ecgx_Effect_Sepia, "s5k4ecgx_Effect_Sepia"),
-		S5K4ECGX_REGSET(IMAGE_EFFECT_NEGATIVE, s5k4ecgx_Effect_Negative, "s5k4ecgx_Effect_Negative"),
-		S5K4ECGX_REGSET(IMAGE_EFFECT_SOLARIZE, s5k4ecgx_Effect_Solarization, "s5k4ecgx_Effect_Solarization"),
-		S5K4ECGX_REGSET(IMAGE_EFFECT_SOLARIZE, s5k4ecgx_Effect_Aqua, "s5k4ecgx_Effect_Aqua"),
-		S5K4ECGX_REGSET(IMAGE_EFFECT_SOLARIZE, s5k4ecgx_Effect_Sketch, "s5k4ecgx_Effect_Sketch"),
+		S5K4ECGX_REGSET(IMAGE_EFFECT_NONE, Effect_Normal),
+		S5K4ECGX_REGSET(IMAGE_EFFECT_BNW, Effect_Black_White),
+		S5K4ECGX_REGSET(IMAGE_EFFECT_SEPIA, Effect_Sepia),
+		S5K4ECGX_REGSET(IMAGE_EFFECT_NEGATIVE, Effect_Negative),
+		S5K4ECGX_REGSET(IMAGE_EFFECT_SOLARIZE, Effect_Solarization),
+		S5K4ECGX_REGSET(IMAGE_EFFECT_SOLARIZE, Effect_Aqua),
+		S5K4ECGX_REGSET(IMAGE_EFFECT_SOLARIZE, Effect_Sketch),
 	},
 	.white_balance = {
-		S5K4ECGX_REGSET(WHITE_BALANCE_AUTO, s5k4ecgx_WB_Auto, "s5k4ecgx_WB_Auto"),
-		S5K4ECGX_REGSET(WHITE_BALANCE_SUNNY, s5k4ecgx_WB_Sunny, "s5k4ecgx_WB_Sunny"),
-		S5K4ECGX_REGSET(WHITE_BALANCE_CLOUDY, s5k4ecgx_WB_Cloudy, "s5k4ecgx_WB_Cloudy"),
-		S5K4ECGX_REGSET(WHITE_BALANCE_TUNGSTEN, s5k4ecgx_WB_Tungsten, "s5k4ecgx_WB_Tungsten"),
-		S5K4ECGX_REGSET(WHITE_BALANCE_FLUORESCENT, s5k4ecgx_WB_Fluorescent, "s5k4ecgx_WB_Fluorescent"),
+		S5K4ECGX_REGSET(WHITE_BALANCE_AUTO, WB_Auto),
+		S5K4ECGX_REGSET(WHITE_BALANCE_SUNNY, WB_Sunny),
+		S5K4ECGX_REGSET(WHITE_BALANCE_CLOUDY, WB_Cloudy),
+		S5K4ECGX_REGSET(WHITE_BALANCE_TUNGSTEN, WB_Tungsten),
+		S5K4ECGX_REGSET(WHITE_BALANCE_FLUORESCENT, WB_Fluorescent),
 	},
 	.scene_mode = {
-		S5K4ECGX_REGSET(SCENE_MODE_NONE, s5k4ecgx_Scene_Default, "s5k4ecgx_Scene_Default"),
-		S5K4ECGX_REGSET(SCENE_MODE_PORTRAIT, s5k4ecgx_Scene_Portrait, "s5k4ecgx_Scene_Portrait"),
-		S5K4ECGX_REGSET(SCENE_MODE_NIGHTSHOT, s5k4ecgx_Scene_Nightshot, "s5k4ecgx_Scene_Nightshot"),
-		S5K4ECGX_REGSET(SCENE_MODE_BACK_LIGHT, s5k4ecgx_Scene_Backlight, "s5k4ecgx_Scene_Backlight"),
-		S5K4ECGX_REGSET(SCENE_MODE_LANDSCAPE, s5k4ecgx_Scene_Landscape, "s5k4ecgx_Scene_Landscape"),
-		S5K4ECGX_REGSET(SCENE_MODE_SPORTS, s5k4ecgx_Scene_Sports, "s5k4ecgx_Scene_Sports"),
-		S5K4ECGX_REGSET(SCENE_MODE_PARTY_INDOOR, s5k4ecgx_Scene_Party_Indoor, "s5k4ecgx_Scene_Party_Indoor"),
-		S5K4ECGX_REGSET(SCENE_MODE_BEACH_SNOW, s5k4ecgx_Scene_Beach_Snow, "s5k4ecgx_Scene_Beach_Snow"),
-		S5K4ECGX_REGSET(SCENE_MODE_SUNSET, s5k4ecgx_Scene_Sunset, "s5k4ecgx_Scene_Sunset"),
-		S5K4ECGX_REGSET(SCENE_MODE_DUSK_DAWN, s5k4ecgx_Scene_Duskdawn, "s5k4ecgx_Scene_Duskdawn"),
-		S5K4ECGX_REGSET(SCENE_MODE_FALL_COLOR, s5k4ecgx_Scene_Fall_Color, "s5k4ecgx_Scene_Fall_Color"),
-		S5K4ECGX_REGSET(SCENE_MODE_FIREWORKS, s5k4ecgx_Scene_Fireworks, "s5k4ecgx_Scene_Fireworks"),
-		S5K4ECGX_REGSET(SCENE_MODE_TEXT, s5k4ecgx_Scene_Text, "s5k4ecgx_Scene_Text"),
-		S5K4ECGX_REGSET(SCENE_MODE_CANDLE_LIGHT, s5k4ecgx_Scene_Candle_Light, "s5k4ecgx_Scene_Candle_Light"),
+		S5K4ECGX_REGSET(SCENE_MODE_NONE, Scene_Default),
+		S5K4ECGX_REGSET(SCENE_MODE_PORTRAIT, Scene_Portrait),
+		S5K4ECGX_REGSET(SCENE_MODE_NIGHTSHOT, Scene_Nightshot),
+		S5K4ECGX_REGSET(SCENE_MODE_BACK_LIGHT, Scene_Backlight),
+		S5K4ECGX_REGSET(SCENE_MODE_LANDSCAPE, Scene_Landscape),
+		S5K4ECGX_REGSET(SCENE_MODE_SPORTS, Scene_Sports),
+		S5K4ECGX_REGSET(SCENE_MODE_PARTY_INDOOR, Scene_Party_Indoor),
+		S5K4ECGX_REGSET(SCENE_MODE_BEACH_SNOW, Scene_Beach_Snow),
+		S5K4ECGX_REGSET(SCENE_MODE_SUNSET, Scene_Sunset),
+		S5K4ECGX_REGSET(SCENE_MODE_DUSK_DAWN, Scene_Duskdawn),
+		S5K4ECGX_REGSET(SCENE_MODE_FALL_COLOR, Scene_Fall_Color),
+		S5K4ECGX_REGSET(SCENE_MODE_FIREWORKS, Scene_Fireworks),
+		S5K4ECGX_REGSET(SCENE_MODE_TEXT, Scene_Text),
+		S5K4ECGX_REGSET(SCENE_MODE_CANDLE_LIGHT, Scene_Candle_Light),
 	},
 	.saturation = {
-		S5K4ECGX_REGSET(SATURATION_MINUS_2,
-				s5k4ecgx_Saturation_Minus_2, "s5k4ecgx_Saturation_Minus_2"),
-		S5K4ECGX_REGSET(SATURATION_MINUS_1,
-				s5k4ecgx_Saturation_Minus_1, "s5k4ecgx_Saturation_Minus_1"),
-		S5K4ECGX_REGSET(SATURATION_DEFAULT,
-				s5k4ecgx_Saturation_Default, "s5k4ecgx_Saturation_Default"),
-		S5K4ECGX_REGSET(SATURATION_PLUS_1, s5k4ecgx_Saturation_Plus_1, "s5k4ecgx_Saturation_Plus_1"),
-		S5K4ECGX_REGSET(SATURATION_PLUS_2, s5k4ecgx_Saturation_Plus_2, "s5k4ecgx_Saturation_Plus_2"),
+		S5K4ECGX_REGSET(SATURATION_MINUS_2, Saturation_Minus_2),
+		S5K4ECGX_REGSET(SATURATION_MINUS_1, Saturation_Minus_1),
+		S5K4ECGX_REGSET(SATURATION_DEFAULT, Saturation_Default),
+		S5K4ECGX_REGSET(SATURATION_PLUS_1, Saturation_Plus_1),
+		S5K4ECGX_REGSET(SATURATION_PLUS_2, Saturation_Plus_2),
 	},
 	.contrast = {
-		S5K4ECGX_REGSET(CONTRAST_MINUS_2, s5k4ecgx_Contrast_Minus_2, "s5k4ecgx_Contrast_Minus_2"),
-		S5K4ECGX_REGSET(CONTRAST_MINUS_1, s5k4ecgx_Contrast_Minus_1, "s5k4ecgx_Contrast_Minus_1"),
-		S5K4ECGX_REGSET(CONTRAST_DEFAULT, s5k4ecgx_Contrast_Default, "s5k4ecgx_Contrast_Default"),
-		S5K4ECGX_REGSET(CONTRAST_PLUS_1, s5k4ecgx_Contrast_Plus_1, "s5k4ecgx_Contrast_Plus_1"),
-		S5K4ECGX_REGSET(CONTRAST_PLUS_2, s5k4ecgx_Contrast_Plus_2, "s5k4ecgx_Contrast_Plus_2"),
+		S5K4ECGX_REGSET(CONTRAST_MINUS_2, Contrast_Minus_2),
+		S5K4ECGX_REGSET(CONTRAST_MINUS_1, Contrast_Minus_1),
+		S5K4ECGX_REGSET(CONTRAST_DEFAULT, Contrast_Default),
+		S5K4ECGX_REGSET(CONTRAST_PLUS_1, Contrast_Plus_1),
+		S5K4ECGX_REGSET(CONTRAST_PLUS_2, Contrast_Plus_2),
 	},
 	.sharpness = {
-		S5K4ECGX_REGSET(SHARPNESS_MINUS_2, s5k4ecgx_Sharpness_Minus_2, "s5k4ecgx_Sharpness_Minus_2"),
-		S5K4ECGX_REGSET(SHARPNESS_MINUS_1, s5k4ecgx_Sharpness_Minus_1, "s5k4ecgx_Sharpness_Minus_1"),
-		S5K4ECGX_REGSET(SHARPNESS_DEFAULT, s5k4ecgx_Sharpness_Default, "s5k4ecgx_Sharpness_Default"),
-		S5K4ECGX_REGSET(SHARPNESS_PLUS_1, s5k4ecgx_Sharpness_Plus_1, "s5k4ecgx_Sharpness_Plus_1"),
-		S5K4ECGX_REGSET(SHARPNESS_PLUS_2, s5k4ecgx_Sharpness_Plus_2, "s5k4ecgx_Sharpness_Plus_2"),
+		S5K4ECGX_REGSET(SHARPNESS_MINUS_2, Sharpness_Minus_2),
+		S5K4ECGX_REGSET(SHARPNESS_MINUS_1, Sharpness_Minus_1),
+		S5K4ECGX_REGSET(SHARPNESS_DEFAULT, Sharpness_Default),
+		S5K4ECGX_REGSET(SHARPNESS_PLUS_1, Sharpness_Plus_1),
+		S5K4ECGX_REGSET(SHARPNESS_PLUS_2, Sharpness_Plus_2),
 	},
 	.anti_banding = {
-		S5K4ECGX_REGSET(S5K4ECGX_FLICKER_50HZ_AUTO, s5k4ecgx_50hz_auto, "s5k4ecgx_50hz_auto"),
-		S5K4ECGX_REGSET(S5K4ECGX_FLICKER_50HZ_FIXED, s5k4ecgx_50hz_fixed, "s5k4ecgx_50hz_fixed"),
-		S5K4ECGX_REGSET(S5K4ECGX_FLICKER_60HZ_AUTO, s5k4ecgx_60hz_auto, "s5k4ecgx_60hz_auto"),
-		S5K4ECGX_REGSET(S5K4ECGX_FLICKER_60HZ_FIXED, s5k4ecgx_60hz_fixed, "s5k4ecgx_60hz_fixed"),
+		S5K4ECGX_REGSET(S5K4ECGX_FLICKER_50HZ_AUTO, 50hz_auto),
+		S5K4ECGX_REGSET(S5K4ECGX_FLICKER_50HZ_FIXED, 50hz_fixed),
+		S5K4ECGX_REGSET(S5K4ECGX_FLICKER_60HZ_AUTO, 60hz_auto),
+		S5K4ECGX_REGSET(S5K4ECGX_FLICKER_60HZ_FIXED, 60hz_fixed),
 	},
 	.fps = {
-		S5K4ECGX_REGSET(FRAME_RATE_AUTO, s5k4ecgx_FPS_Auto, "s5k4ecgx_FPS_Auto"),
-		S5K4ECGX_REGSET(FRAME_RATE_7, s5k4ecgx_FPS_7, "s5k4ecgx_FPS_7"),
-		S5K4ECGX_REGSET(FRAME_RATE_15, s5k4ecgx_FPS_15, "s5k4ecgx_FPS_15"),
-		S5K4ECGX_REGSET(FRAME_RATE_30, s5k4ecgx_FPS_30, "s5k4ecgx_FPS_30"),
+		S5K4ECGX_REGSET(FRAME_RATE_AUTO, FPS_Auto),
+		S5K4ECGX_REGSET(FRAME_RATE_7, FPS_7),
+		S5K4ECGX_REGSET(FRAME_RATE_15, FPS_15),
+		S5K4ECGX_REGSET(FRAME_RATE_30, FPS_30),
 	},
-	.preview_return = S5K4ECGX_REGSET_TABLE(s5k4ecgx_Preview_Return, "s5k4ecgx_Preview_Return"),
-	.jpeg_quality_high = S5K4ECGX_REGSET_TABLE(s5k4ecgx_Jpeg_Quality_High, "s5k4ecgx_Jpeg_Quality_High"),
-	.jpeg_quality_normal =
-		S5K4ECGX_REGSET_TABLE(s5k4ecgx_Jpeg_Quality_Normal, "s5k4ecgx_Jpeg_Quality_Normal"),
-	.jpeg_quality_low = S5K4ECGX_REGSET_TABLE(s5k4ecgx_Jpeg_Quality_Low, "s5k4ecgx_Jpeg_Quality_Low"),
-	.flash_start = S5K4ECGX_REGSET_TABLE(s5k4ecgx_Flash_Start, "s5k4ecgx_Flash_Start"),
-	.flash_end = S5K4ECGX_REGSET_TABLE(s5k4ecgx_Flash_End, "s5k4ecgx_Flash_End"),
-	.af_assist_flash_start =
-		S5K4ECGX_REGSET_TABLE(s5k4ecgx_Pre_Flash_Start, "s5k4ecgx_Pre_Flash_Start"),
-	.af_assist_flash_end =
-		S5K4ECGX_REGSET_TABLE(s5k4ecgx_Pre_Flash_End, "s5k4ecgx_Pre_Flash_End"),
-	.af_low_light_mode_on =
-		S5K4ECGX_REGSET_TABLE(s5k4ecgx_AF_Low_Light_Mode_On, "s5k4ecgx_AF_Low_Light_Mode_On"),
-	.af_low_light_mode_off =
-		S5K4ECGX_REGSET_TABLE(s5k4ecgx_AF_Low_Light_Mode_Off, "s5k4ecgx_AF_Low_Light_Mode_Off"),
+	.preview_return = S5K4ECGX_REGSET_TABLE(Preview_Return),
+	.jpeg_quality_high = S5K4ECGX_REGSET_TABLE(Jpeg_Quality_High),
+	.jpeg_quality_normal = S5K4ECGX_REGSET_TABLE(Jpeg_Quality_Normal),
+	.jpeg_quality_low = S5K4ECGX_REGSET_TABLE(Jpeg_Quality_Low),
+	.flash_start = S5K4ECGX_REGSET_TABLE(Flash_Start),
+	.flash_end = S5K4ECGX_REGSET_TABLE(Flash_End),
+	.af_assist_flash_start = S5K4ECGX_REGSET_TABLE(Pre_Flash_Start),
+	.af_assist_flash_end = S5K4ECGX_REGSET_TABLE(Pre_Flash_End),
+	.af_low_light_mode_on = S5K4ECGX_REGSET_TABLE(AF_Low_Light_Mode_On),
+	.af_low_light_mode_off = S5K4ECGX_REGSET_TABLE(AF_Low_Light_Mode_Off),
 	.aeawb_lockunlock = {
-		S5K4ECGX_REGSET(AE_UNLOCK_AWB_UNLOCK, s5k4ecgx_AE_AWB_Lock_Off, "s5k4ecgx_AE_AWB_Lock_Off"),
-		S5K4ECGX_REGSET(AE_LOCK_AWB_UNLOCK, s5k4ecgx_AE_Lock_On_AWB_Lock_Off, "s5k4ecgx_AE_Lock_On_AWB_Lock_Off"),
-		S5K4ECGX_REGSET(AE_UNLOCK_AWB_LOCK, s5k4ecgx_AE_Lock_Off_AWB_Lock_On, "s5k4ecgx_AE_Lock_Off_AWB_Lock_On"),
-		S5K4ECGX_REGSET(AE_LOCK_AWB_LOCK, s5k4ecgx_AE_AWB_Lock_On, "s5k4ecgx_AE_AWB_Lock_On"),
+		S5K4ECGX_REGSET(AE_UNLOCK_AWB_UNLOCK, AE_AWB_Lock_Off),
+		S5K4ECGX_REGSET(AE_LOCK_AWB_UNLOCK, AE_Lock_On_AWB_Lock_Off),
+		S5K4ECGX_REGSET(AE_UNLOCK_AWB_LOCK, AE_Lock_Off_AWB_Lock_On),
+		S5K4ECGX_REGSET(AE_LOCK_AWB_LOCK, AE_AWB_Lock_On),
 	},
 	.ae_lockunlock = {
-		S5K4ECGX_REGSET(AE_UNLOCK, s5k4ecgx_AE_Lock_Off, "s5k4ecgx_AE_Lock_Off"),
-		S5K4ECGX_REGSET(AE_LOCK, s5k4ecgx_AE_Lock_On, "s5k4ecgx_AE_Lock_On"),
+		S5K4ECGX_REGSET(AE_UNLOCK, AE_Lock_Off),
+		S5K4ECGX_REGSET(AE_LOCK, AE_Lock_On),
 	},
 	.awb_lockunlock = {
-		S5K4ECGX_REGSET(AWB_UNLOCK, s5k4ecgx_AWB_Lock_Off, "s5k4ecgx_AWB_Lock_Off"),
-		S5K4ECGX_REGSET(AWB_LOCK, s5k4ecgx_AWB_Lock_On, "s5k4ecgx_AWB_Lock_On"),
+		S5K4ECGX_REGSET(AWB_UNLOCK, AWB_Lock_Off),
+		S5K4ECGX_REGSET(AWB_LOCK, AWB_Lock_On),
 	},
-	.wdr_on = S5K4ECGX_REGSET_TABLE(s5k4ecgx_WDR_on, "s5k4ecgx_WDR_on"),
-	.wdr_off = S5K4ECGX_REGSET_TABLE(s5k4ecgx_WDR_off, "s5k4ecgx_WDR_off"),
-	.face_detection_on = S5K4ECGX_REGSET_TABLE(s5k4ecgx_Face_Detection_On, "s5k4ecgx_Face_Detection_On"),
-	.face_detection_off =
-		S5K4ECGX_REGSET_TABLE(s5k4ecgx_Face_Detection_Off, "s5k4ecgx_Face_Detection_Off"),
-	.af_macro_mode_1 = S5K4ECGX_REGSET_TABLE(s5k4ecgx_AF_Macro_mode_1, "s5k4ecgx_AF_Macro_mode_1"),
-	.af_macro_mode_2 = S5K4ECGX_REGSET_TABLE(s5k4ecgx_AF_Macro_mode_2, "s5k4ecgx_AF_Macro_mode_2"),
-	.af_macro_mode_3 = S5K4ECGX_REGSET_TABLE(s5k4ecgx_AF_Macro_mode_3, "s5k4ecgx_AF_Macro_mode_3"),
-	.af_normal_mode_1 = S5K4ECGX_REGSET_TABLE(s5k4ecgx_AF_Normal_mode_1, "s5k4ecgx_AF_Normal_mode_1"),
-	.af_normal_mode_2 = S5K4ECGX_REGSET_TABLE(s5k4ecgx_AF_Normal_mode_2, "s5k4ecgx_AF_Normal_mode_2"),
-	.af_normal_mode_3 = S5K4ECGX_REGSET_TABLE(s5k4ecgx_AF_Normal_mode_3, "s5k4ecgx_AF_Normal_mode_3"),
+	.wdr_on = S5K4ECGX_REGSET_TABLE(WDR_on),
+	.wdr_off = S5K4ECGX_REGSET_TABLE(WDR_off),
+	.face_detection_on = S5K4ECGX_REGSET_TABLE(Face_Detection_On),
+	.face_detection_off = S5K4ECGX_REGSET_TABLE(Face_Detection_Off),
+	.af_macro_mode_1 = S5K4ECGX_REGSET_TABLE(AF_Macro_mode_1),
+	.af_macro_mode_2 = S5K4ECGX_REGSET_TABLE(AF_Macro_mode_2),
+	.af_macro_mode_3 = S5K4ECGX_REGSET_TABLE(AF_Macro_mode_3),
+	.af_normal_mode_1 = S5K4ECGX_REGSET_TABLE(AF_Normal_mode_1),
+	.af_normal_mode_2 = S5K4ECGX_REGSET_TABLE(AF_Normal_mode_2),
+	.af_normal_mode_3 = S5K4ECGX_REGSET_TABLE(AF_Normal_mode_3),
 	.af_return_macro_position =
-		S5K4ECGX_REGSET_TABLE(s5k4ecgx_AF_Return_Macro_pos, "s5k4ecgx_AF_Return_Macro_pos"),
-	.single_af_start = S5K4ECGX_REGSET_TABLE(s5k4ecgx_Single_AF_Start, "s5k4ecgx_Single_AF_Start"),
-	.single_af_off_1 = S5K4ECGX_REGSET_TABLE(s5k4ecgx_Single_AF_Off_1, "s5k4ecgx_Single_AF_Off_1"),
-	.single_af_off_2 = S5K4ECGX_REGSET_TABLE(s5k4ecgx_Single_AF_Off_2, "s5k4ecgx_Single_AF_Off_2"),
-	.continuous_af_on = S5K4ECGX_REGSET_TABLE(s5k4ecgx_Continuous_AF_On, "s5k4ecgx_Continuous_AF_On"),
-	.continuous_af_off = S5K4ECGX_REGSET_TABLE(s5k4ecgx_Continuous_AF_Off, "s5k4ecgx_Continuous_AF_Off"),
-	.dtp_start = S5K4ECGX_REGSET_TABLE(s5k4ecgx_DTP_init, "s5k4ecgx_DTP_init"),
-	.dtp_stop = S5K4ECGX_REGSET_TABLE(s5k4ecgx_DTP_stop, "s5k4ecgx_DTP_stop"),
+		S5K4ECGX_REGSET_TABLE(AF_Return_Macro_pos),
+	.single_af_start = S5K4ECGX_REGSET_TABLE(Single_AF_Start),
+	.single_af_off_1 = S5K4ECGX_REGSET_TABLE(Single_AF_Off_1),
+	.single_af_off_2 = S5K4ECGX_REGSET_TABLE(Single_AF_Off_2),
+	.continuous_af_on = S5K4ECGX_REGSET_TABLE(Continuous_AF_On),
+	.continuous_af_off = S5K4ECGX_REGSET_TABLE(Continuous_AF_Off),
+	.dtp_start = S5K4ECGX_REGSET_TABLE(DTP_init),
+	.dtp_stop = S5K4ECGX_REGSET_TABLE(DTP_stop),
 
-	.flash_init = S5K4ECGX_REGSET_TABLE(s5k4ecgx_Flash_init, "s5k4ecgx_Flash_init"),
-	.reset_crop = S5K4ECGX_REGSET_TABLE(s5k4ecgx_Reset_Crop, "s5k4ecgx_Reset_Crop"),
-	.fast_ae_on =  S5K4ECGX_REGSET_TABLE(s5k4ecgx_Fast_Ae_On, "s5k4ecgx_Fast_Ae_On"),
-	.fast_ae_off =  S5K4ECGX_REGSET_TABLE(s5k4ecgx_Fast_Ae_Off, "s5k4ecgx_Fast_Ae_Off"),
+	.flash_init = S5K4ECGX_REGSET_TABLE(Flash_init),
+	.reset_crop = S5K4ECGX_REGSET_TABLE(Reset_Crop),
+	.fast_ae_on =  S5K4ECGX_REGSET_TABLE(Fast_Ae_On),
+	.fast_ae_off =  S5K4ECGX_REGSET_TABLE(Fast_Ae_Off),
 	.get_ae_stable_status =
-		S5K4ECGX_REGSET_TABLE(s5k4ecgx_Get_AE_Stable_Status, "s5k4ecgx_Get_AE_Stable_Status"),
-	.get_light_level = S5K4ECGX_REGSET_TABLE(s5k4ecgx_Get_Light_Level, "s5k4ecgx_Get_Light_Level"),
-	.get_frame_duration = S5K4ECGX_REGSET_TABLE(s5k4ecgx_get_frame_duration_reg, "s5k4ecgx_get_frame_duration_reg"),
+		S5K4ECGX_REGSET_TABLE(Get_AE_Stable_Status),
+	.get_light_level = S5K4ECGX_REGSET_TABLE(Get_Light_Level),
+	.get_frame_duration = S5K4ECGX_REGSET_TABLE(get_frame_duration_reg),
 	.get_1st_af_search_status =
-		S5K4ECGX_REGSET_TABLE(s5k4ecgx_get_1st_af_search_status, "s5k4ecgx_get_1st_af_search_status"),
+		S5K4ECGX_REGSET_TABLE(get_1st_af_search_status),
 	.get_2nd_af_search_status =
-		S5K4ECGX_REGSET_TABLE(s5k4ecgx_get_2nd_af_search_status, "s5k4ecgx_get_2nd_af_search_status"),
+		S5K4ECGX_REGSET_TABLE(get_2nd_af_search_status),
 	.get_capture_status =
-		S5K4ECGX_REGSET_TABLE(s5k4ecgx_get_capture_status, "s5k4ecgx_get_capture_status"),
-	.get_esd_status = S5K4ECGX_REGSET_TABLE(s5k4ecgx_get_esd_status, "s5k4ecgx_get_esd_status"),
-	.get_iso = S5K4ECGX_REGSET_TABLE(s5k4ecgx_get_iso_reg, "s5k4ecgx_get_iso_reg"),
+		S5K4ECGX_REGSET_TABLE(get_capture_status),
+	.get_esd_status = S5K4ECGX_REGSET_TABLE(get_esd_status),
+	.get_iso = S5K4ECGX_REGSET_TABLE(get_iso_reg),
 	.get_shutterspeed =
-		S5K4ECGX_REGSET_TABLE(s5k4ecgx_get_shutterspeed_reg, "s5k4ecgx_get_shutterspeed_reg"),
+		S5K4ECGX_REGSET_TABLE(get_shutterspeed_reg),
 	.get_exptime =
-		S5K4ECGX_REGSET_TABLE(s5k4ecgx_get_exptime_reg, "s5k4ecgx_get_exptime_reg"),
+		S5K4ECGX_REGSET_TABLE(get_exptime_reg),
 	.get_frame_count =
-		S5K4ECGX_REGSET_TABLE(s5k4ecgx_get_frame_count_reg, "s5k4ecgx_get_frame_count_reg"),
+		S5K4ECGX_REGSET_TABLE(get_frame_count_reg),
 	.get_preview_status =
-		S5K4ECGX_REGSET_TABLE(s5k4ecgx_get_preview_status_reg, "s5k4ecgx_get_preview_status_reg"),
+		S5K4ECGX_REGSET_TABLE(get_preview_status_reg),
 	.get_pid =
-		S5K4ECGX_REGSET_TABLE(s5k4ecgx_get_pid_reg, "s5k4ecgx_get_pid_reg"),
+		S5K4ECGX_REGSET_TABLE(get_pid_reg),
 	.get_revision =
-		S5K4ECGX_REGSET_TABLE(s5k4ecgx_get_revision_reg, "s5k4ecgx_get_revision_reg"),
+		S5K4ECGX_REGSET_TABLE(get_revision_reg),
 	.get_modechange_check =
-		S5K4ECGX_REGSET_TABLE(s5k4ecgx_get_modechange_check_reg, "s5k4ecgx_get_modechange_check_reg"),
+		S5K4ECGX_REGSET_TABLE(get_modechange_check_reg),
 	.set_vendor_id_read =
-		S5K4ECGX_REGSET_TABLE(s5k4ecgx_set_vendor_id_read_reg, "s5k4ecgx_set_vendor_id_read_reg"),
+		S5K4ECGX_REGSET_TABLE(set_vendor_id_read_reg),
 	.get_vendor_id_read =
-		S5K4ECGX_REGSET_TABLE(s5k4ecgx_get_vendor_id_read_reg, "s5k4ecgx_get_vendor_id_read_reg"),
+		S5K4ECGX_REGSET_TABLE(get_vendor_id_read_reg),
 };
 
 struct s5k4ecgx_regset {
@@ -578,8 +609,6 @@ static struct fimc_is_vci vci_4ec[] = {
 	}
 #endif
 };
-
-static char vendor_id_4ec[8] = "NULL";
 
 static inline struct fimc_is_module_enum *to_module(struct v4l2_subdev *subdev)
 {
@@ -793,6 +822,7 @@ static int sensor_4ec_apply_set(struct v4l2_subdev *subdev,
 	struct i2c_client *client = to_client(subdev);
 	struct fimc_is_module_enum *module = to_module(subdev);
 	struct fimc_is_module_4ec *module_4ec = to_state(subdev);
+	u32 set_idx = module_4ec->setfile_index;
 
 	BUG_ON(!client);
 	BUG_ON(!regset);
@@ -801,19 +831,19 @@ static int sensor_4ec_apply_set(struct v4l2_subdev *subdev,
 
 	mutex_lock(&module_4ec->i2c_lock);
 
-	cam_info("%s : E, setting_name : %s\n", __func__, regset->setting_name);
+	cam_info("%s : E, setting_name : %s\n", __func__, regset->setting_name[set_idx]);
 
 #ifdef CONFIG_LOAD_FILE
 	cam_info("COFIG_LOAD_FILE feature is enabled\n");
-	ret = sensor_4ec_write_regs_from_sd(subdev, regset->setting_name);
+	ret = sensor_4ec_write_regs_from_sd(subdev, regset->setting_name[set_idx]);
 	if (unlikely(ret < 0)) {
-		err("regs set(%s)apply is fail(%d)\n", regset->setting_name, ret);
+		err("regs set(%s)apply is fail(%d)\n", regset->setting_name[set_idx], ret);
 		goto p_err;
 	}
 #else
-	for (i = 0; i < regset->array_size; i++) {
-		addr = (regset->reg[i] & 0xFFFF0000) >> 16;
-		val = regset->reg[i] & 0x0000FFFF;
+	for (i = 0; i < regset->array_size[set_idx]; i++) {
+		addr = (regset->reg[set_idx][i] & 0xFFFF0000) >> 16;
+		val = regset->reg[set_idx][i] & 0x0000FFFF;
 		if(addr == 0xFFFF) {
 			cam_info("%s : use delay (%d ms) in I2C Write \n", __func__, val);
 			msleep(val);
@@ -821,7 +851,7 @@ static int sensor_4ec_apply_set(struct v4l2_subdev *subdev,
 			ret = fimc_is_sensor_write16(client, addr, val);
 			if (unlikely(ret < 0)) {
 				err("regs set(addr 0x%08X, size %d) apply is fail(%d)",
-						(u32)regset->reg, regset->array_size, ret);
+						(u32)regset->reg[set_idx], regset->array_size[set_idx], ret);
 				goto p_err;
 			}
 		}
@@ -842,6 +872,7 @@ static int sensor_4ec_read_reg(struct v4l2_subdev *subdev,
 	struct i2c_client *client = to_client(subdev);
 	struct fimc_is_module_enum *module = to_module(subdev);
 	struct fimc_is_module_4ec *module_4ec = to_state(subdev);
+	u32 set_idx = module_4ec->setfile_index;
 
 	BUG_ON(!client);
 	BUG_ON(!module);
@@ -852,13 +883,13 @@ static int sensor_4ec_read_reg(struct v4l2_subdev *subdev,
 	/* Enter read mode */
 	fimc_is_sensor_write16(client, 0x002C, 0x7000);
 
-	for (i = 0; i < regset->array_size; i++) {
-		addr = (regset->reg[i] & 0xFFFF0000) >> 16;
-		val = regset->reg[i] & 0x0000FFFF;
+	for (i = 0; i < regset->array_size[set_idx]; i++) {
+		addr = (regset->reg[set_idx][i] & 0xFFFF0000) >> 16;
+		val = regset->reg[set_idx][i] & 0x0000FFFF;
 		ret = fimc_is_sensor_write16(client, addr, val);
 		if (unlikely(ret < 0)) {
 			err("regs set(addr 0x%08X, size %d) apply is fail(%d)",
-				(u32)regset->reg, regset->array_size, ret);
+				(u32)regset->reg[set_idx], regset->array_size[set_idx], ret);
 			goto p_err;
 		}
 	}
@@ -1717,6 +1748,44 @@ p_err:
 	return ret;
 }
 
+static int sensor_4ec_read_sensor_version(struct v4l2_subdev *subdev, u16* sensor_version)
+{
+	int ret = 0;
+	struct i2c_client *client = to_client(subdev);
+	struct fimc_is_module_4ec *module_4ec = to_state(subdev);
+
+	BUG_ON(!client);
+	BUG_ON(!module_4ec);
+
+	cam_info("%s : E\n", __func__);
+
+	mutex_lock(&module_4ec->i2c_lock);
+
+	ret = fimc_is_sensor_write16(client, 0xFCFC, 0xD000);
+	ret |= fimc_is_sensor_write16(client, 0x0028, 0xD000);
+	ret |= fimc_is_sensor_write16(client, 0x002A, 0x0012);
+	ret |= fimc_is_sensor_write16(client, 0x0F12, 0x0001);
+	ret |= fimc_is_sensor_write16(client, 0x002A, 0x007A);
+	ret |= fimc_is_sensor_write16(client, 0x0F12, 0x0000);
+	ret |= fimc_is_sensor_write16(client, 0x002A, 0xA000);
+	ret |= fimc_is_sensor_write16(client, 0x0F12, 0x0004);
+	ret |= fimc_is_sensor_write16(client, 0x002A, 0xA002);
+	ret |= fimc_is_sensor_write16(client, 0x0F12, 0x000F); // F page_select
+	ret |= fimc_is_sensor_write16(client, 0x002A, 0xA000);
+	ret |= fimc_is_sensor_write16(client, 0x0F12, 0x0001);
+
+	usleep_range(200, 200);
+
+	ret |= fimc_is_sensor_write16(client, 0x002C, 0xD000);
+	ret |= fimc_is_sensor_write16(client, 0x002E, 0xA044);
+	ret |= fimc_is_sensor_read16(client, 0x0F12, sensor_version);
+
+	mutex_unlock(&module_4ec->i2c_lock);
+
+	cam_info("%s : X\n", __func__);
+	return ret;
+}
+
 static int sensor_4ec_init(struct v4l2_subdev *subdev, u32 val)
 {
 	int ret = 0;
@@ -1739,6 +1808,29 @@ static int sensor_4ec_init(struct v4l2_subdev *subdev, u32 val)
 
 	module_4ec->system_clock = 146 * 1000 * 1000;
 	module_4ec->line_length_pck = 146 * 1000 * 1000;
+
+	if(module_4ec->sensor_version == 0) {
+		ret = sensor_4ec_read_sensor_version(subdev, &module_4ec->sensor_version);
+		if (ret < 0) {
+			err("%s: read_sensor_version failed\n", __func__);
+			goto p_err;
+		}
+
+#ifdef SUPPORT_MULTIPLE_SENSOR_VERSION
+		if(module_4ec->sensor_version == SENSOR_VERSION_4ECGA04) {
+			module_4ec->setfile_index = SETFILE_INDEX_4ECGA04;
+			strcpy(module->sensor_name, SENSOR_NAME_4ECGA04);
+		} else {
+			module_4ec->setfile_index = SETFILE_INDEX_4ECGX04;
+			strcpy(module->sensor_name, SENSOR_NAME_4ECGX04);
+		}
+#else
+		module_4ec->setfile_index = SETFILE_INDEX_4EC_DEFAULT;
+#endif
+	}
+
+	cam_info("%s : Sensor Version 0x%04X\n", __func__, module_4ec->sensor_version);
+	cam_info("%s : setfile_index %d\n", __func__, module_4ec->setfile_index);
 
 #ifdef CONFIG_LOAD_FILE
 	ret = sensor_4ec_regs_table_init();
@@ -1763,7 +1855,7 @@ static int sensor_4ec_init(struct v4l2_subdev *subdev, u32 val)
 		goto p_err;
 	}
 
-	cam_info("%s : pid %08X\n", __func__, pid);
+	cam_info("%s : pid 0x%04X\n", __func__, pid);
 
 	ret = sensor_4ec_read_reg(subdev, &regs_set.get_revision, &revision, 1);
 	if (ret < 0) {
@@ -1771,17 +1863,17 @@ static int sensor_4ec_init(struct v4l2_subdev *subdev, u32 val)
 		goto p_err;
 	}
 
-	cam_info("%s : revision %08X\n", __func__, revision);
+	cam_info("%s : revision 0x%04X\n", __func__, revision);
 
 #ifndef CONFIG_LOAD_FILE
-	if(strcmp(vendor_id_4ec, "NULL") == 0) {
+	if(strcmp(module->sensor_vendorid, "NULL") == 0) {
 		ret = sensor_4ec_apply_set(subdev, &regs_set.set_vendor_id_read);
 		if (ret < 0) {
 			err("%s: set_vendor_id_read failed\n", __func__);
 			goto p_err;
 		}
 
-		msleep(100);
+		usleep_range(200, 200);
 
 		ret = sensor_4ec_read_reg(subdev, &regs_set.get_vendor_id_read, &vendor_id, 1);
 		if (ret < 0) {
@@ -1789,9 +1881,9 @@ static int sensor_4ec_init(struct v4l2_subdev *subdev, u32 val)
 			goto p_err;
 		}
 
-		cam_info("%s : Module vendor ID %04X\n", __func__, vendor_id);
-		sprintf(vendor_id_4ec, "0x%04X", vendor_id);
+		sprintf(module->sensor_vendorid, "0x%04X", vendor_id);
 	}
+	cam_info("%s : Module vendor ID %s\n", __func__, module->sensor_vendorid);
 #endif
 
 	msleep(10);
@@ -1817,13 +1909,14 @@ static int sensor_4ec_init(struct v4l2_subdev *subdev, u32 val)
 		u8 *dst_ptr;
 		const u32 *end_src_ptr;
 		bool flag_copied;
-		int init_reg_2_array_size = regs_set.init_reg_2.array_size;
+		u32 set_idx = module_4ec->setfile_index;
+		int init_reg_2_array_size = regs_set.init_reg_2.array_size[set_idx];
 		int init_reg_2_size = init_reg_2_array_size * sizeof(u32);
-		const u32 *src_ptr = regs_set.init_reg_2.reg;
+		const u32 *src_ptr = regs_set.init_reg_2.reg[set_idx];
 		u32 src_value;
 		int err;
 
-		cam_info("%s : start\n", __func__);
+		cam_info("%s : start reg 2 bursts\n", __func__);
 
 		regset_data = vmalloc(init_reg_2_size);
 		if (regset_data == NULL)
@@ -1836,7 +1929,7 @@ static int sensor_4ec_init(struct v4l2_subdev *subdev, u32 val)
 
 		dst_ptr = regset_data;
 		regset = regset_table;
-		end_src_ptr = &regs_set.init_reg_2.reg[init_reg_2_array_size];
+		end_src_ptr = &regs_set.init_reg_2.reg[set_idx][init_reg_2_array_size];
 
 		src_value = *src_ptr++;
 		while (src_ptr <= end_src_ptr) {
@@ -2573,10 +2666,10 @@ static int sensor_4ec_pre_flash_start(struct v4l2_subdev *subdev)
 #endif
 	module_4ec->flash_status = FLASH_STATUS_PRE_ON;
 
-	/* delay 200ms (SLSI value) and then poll to see if AE is stable.
+	/* delay 400ms (SLSI value) and then poll to see if AE is stable.
 	 * once it is stable, lock it and then return to do AF
 	 */
-	msleep(200);
+	msleep(400);
 
 	/* enter read mode */
 	for (count = 0; count < AE_STABLE_SEARCH_COUNT; count++) {
@@ -2954,6 +3047,10 @@ static int sensor_4ec_auto_focus_proc(struct v4l2_subdev *subdev)
 	if ((count >= FIRST_AF_SEARCH_COUNT) || (read_value != 0x02)) {
 		cam_info("%s: 1st scan timed out or failed, read_value=%d\n",
 			__FUNCTION__, read_value);
+
+		/* we need a time to move the lens to default after af is failed*/
+		msleep(350);
+
 		module_4ec->af_result  = AF_RESULT_FAILED;
 		goto check_flash;
 	}
@@ -3876,6 +3973,9 @@ static int sensor_4ec_power_setpin(struct i2c_client *client,
 #if defined (VDD_CAM_SENSOR_A2P8_GPIO_CONTROL)
 	int gpio_cam_avdd_en = 0;
 #endif
+#if defined (VDDAF_2P8V_CAM_GPIO_CONTROL)
+	int gpio_cam_af_en = 0;
+#endif
 //	u8 id;
 
 	BUG_ON(!client);
@@ -3932,6 +4032,17 @@ static int sensor_4ec_power_setpin(struct i2c_client *client,
 	}
 #endif
 
+#if defined (VDDAF_2P8V_CAM_GPIO_CONTROL)
+	gpio_cam_af_en = of_get_named_gpio(dnode, "gpio_cam_af_en", 0);
+	if (!gpio_is_valid(gpio_cam_af_en)) {
+		err("%s failed to get gpio_cam_af_en\n",__func__);
+		return -EINVAL;
+	} else {
+		gpio_request_one(gpio_cam_af_en, GPIOF_OUT_INIT_LOW, "CAM_GPIO_OUTPUT_LOW");
+		gpio_free(gpio_cam_af_en);
+	}
+#endif
+
 	SET_PIN_INIT(pdata, SENSOR_SCENARIO_EXTERNAL, GPIO_SCENARIO_ON);
 	SET_PIN_INIT(pdata, SENSOR_SCENARIO_EXTERNAL, GPIO_SCENARIO_OFF);
 
@@ -3943,7 +4054,11 @@ static int sensor_4ec_power_setpin(struct i2c_client *client,
 #else
 	SET_PIN(pdata, SENSOR_SCENARIO_EXTERNAL, GPIO_SCENARIO_ON, gpio_none, "VDD_CAM_SENSOR_A2P8", PIN_REGULATOR, 1, 1);
 #endif
+#if defined (VDDAF_2P8V_CAM_GPIO_CONTROL)
+	SET_PIN(pdata, SENSOR_SCENARIO_EXTERNAL, GPIO_SCENARIO_ON, gpio_cam_af_en, NULL, PIN_OUTPUT, 1, 2000);
+#else
 	SET_PIN(pdata, SENSOR_SCENARIO_EXTERNAL, GPIO_SCENARIO_ON, gpio_none, "VDDAF_2.8V_CAM", PIN_REGULATOR, 1, 2000);
+#endif
 	SET_PIN(pdata, SENSOR_SCENARIO_EXTERNAL, GPIO_SCENARIO_ON, gpio_none, "pin", PIN_FUNCTION, 0, 30);
 #if defined (VDDD_1P2_CAM_GPIO_CONTROL)
 	SET_PIN(pdata, SENSOR_SCENARIO_EXTERNAL, GPIO_SCENARIO_ON, gpio_core_en, NULL, PIN_OUTPUT, 1, 1000);
@@ -3957,13 +4072,17 @@ static int sensor_4ec_power_setpin(struct i2c_client *client,
 	SET_PIN(pdata, SENSOR_SCENARIO_EXTERNAL, GPIO_SCENARIO_OFF, gpio_reset, NULL, PIN_OUTPUT, 0, 10);
 	SET_PIN(pdata, SENSOR_SCENARIO_EXTERNAL, GPIO_SCENARIO_OFF, gpio_none, "pin", PIN_FUNCTION, 1, 0);
 	SET_PIN(pdata, SENSOR_SCENARIO_EXTERNAL, GPIO_SCENARIO_OFF, gpio_standby, NULL, PIN_OUTPUT, 0, 1);
-	SET_PIN(pdata, SENSOR_SCENARIO_EXTERNAL, GPIO_SCENARIO_OFF, gpio_none, "VDDIO_1.8V_CAM", PIN_REGULATOR, 0, 0);
+	SET_PIN(pdata, SENSOR_SCENARIO_EXTERNAL, GPIO_SCENARIO_OFF, gpio_none, "VDDIO_1.8V_CAM", PIN_REGULATOR, 0, 150);
 #if defined (VDD_CAM_SENSOR_A2P8_GPIO_CONTROL)
 	SET_PIN(pdata, SENSOR_SCENARIO_EXTERNAL, GPIO_SCENARIO_OFF, gpio_cam_avdd_en, NULL, PIN_OUTPUT, 0, 0);
 #else
 	SET_PIN(pdata, SENSOR_SCENARIO_EXTERNAL, GPIO_SCENARIO_OFF, gpio_none, "VDD_CAM_SENSOR_A2P8", PIN_REGULATOR, 0, 0);
 #endif
+#if defined (VDDAF_2P8V_CAM_GPIO_CONTROL)
+	SET_PIN(pdata, SENSOR_SCENARIO_EXTERNAL, GPIO_SCENARIO_OFF, gpio_cam_af_en, NULL, PIN_OUTPUT, 0, 0);
+#else
 	SET_PIN(pdata, SENSOR_SCENARIO_EXTERNAL, GPIO_SCENARIO_OFF, gpio_none, "VDDAF_2.8V_CAM", PIN_REGULATOR, 0, 0);
+#endif
 #if defined (VDDD_1P2_CAM_GPIO_CONTROL)
 	SET_PIN(pdata, SENSOR_SCENARIO_EXTERNAL, GPIO_SCENARIO_OFF, gpio_core_en, NULL, PIN_OUTPUT, 0, 0);
 #else
@@ -4034,8 +4153,20 @@ static int sensor_4ec_probe(struct i2c_client *client,
 	module->vcis = ARRAY_SIZE(vci_4ec);
 	module->vci = vci_4ec;
 	module->sensor_maker = "SLSI";
-	module->sensor_vendorid = vendor_id_4ec;
-	module->sensor_name = "S5K4EC";
+	module->sensor_vendorid = kzalloc(8 * sizeof(char), GFP_KERNEL);
+	if (!module->sensor_vendorid) {
+		err("sensor_vendorid alloc failed");
+		ret = -ENOMEM;
+		goto p_err;
+	}
+	strcpy(module->sensor_vendorid, "NULL");
+	module->sensor_name = kzalloc(10 * sizeof(char), GFP_KERNEL);
+	if (!module->sensor_name) {
+		err("sensor_name alloc failed");
+		ret = -ENOMEM;
+		goto p_err;
+	}
+	strcpy(module->sensor_name, SENSOR_NAME);
 	module->setfile_name = "setfile_4ec.bin";
 	module->cfgs = ARRAY_SIZE(settle_4ec);
 	module->cfg = settle_4ec;

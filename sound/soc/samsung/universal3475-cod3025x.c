@@ -156,7 +156,7 @@ static int universal3475_aif1_hw_params(struct snd_pcm_substream *substream,
 	if (ret < 0) {
 		dev_err(card->dev, "aif1: Failed to set SAMSUNG_I2S_OPCLK\n");
 		return ret;
-	}
+}
 
 	ret = snd_soc_dai_set_sysclk(cpu_dai, SAMSUNG_I2S_RCLKSRC_1, 0, 0);
 	if (ret < 0) {
@@ -174,10 +174,10 @@ static int universal3475_aif1_hw_params(struct snd_pcm_substream *substream,
 
 	ret = snd_soc_dai_set_clkdiv(cpu_dai,
 			SAMSUNG_I2S_DIV_RCLK, rfs);
-	if (ret < 0) {
+		if (ret < 0) {
 		dev_err(card->dev, "aif1: Failed to set RFS\n");
-		return ret;
-	}
+			return ret;
+		}
 
 	ret = s2803x_hw_params(substream, params, bfs, 1);
 	if (ret < 0) {

@@ -359,7 +359,7 @@ void exynos_sys_powerdown_conf_cp(enum cp_mode mode)
 #if !defined(CONFIG_CP_SECURE_BOOT)
 
 #define MEMSIZE		92
-#define SHDMEM_BASE	0x50000000
+#define SHDMEM_BASE	0x70000000
 #define MEMSIZE_OFFSET	16
 #define MEMBASE_ADDR_OFFSET	0
 

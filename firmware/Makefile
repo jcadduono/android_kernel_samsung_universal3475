@@ -153,8 +153,9 @@ $(warning '$(TSPFIRMWARE_DIRECTORY)' directory dose not exist)
 endif
 
 fw-shipped-$(CONFIG_TOUCHSCREEN_MELFAS_MMS438) += tsp_melfas/mms438_o5.fw
+fw-shipped-$(CONFIG_TOUCHSCREEN_IST3038C) += tsp_imagis/ist3038c_j3x.fw tsp_imagis/ist3038c_j3x_cmcs.bin
 
-fw-shipped-$(CONFIG_KEYBOARD_TC300K) += coreriver/tc350k_j2.fw coreriver/tc350k_j1.fw
+fw-shipped-$(CONFIG_KEYBOARD_TC300K) += coreriver/tc350k_j2.fw coreriver/tc350k_j1x.fw coreriver/tc350k_j3x.fw
 
 fw-shipped-all := $(fw-shipped-y) $(fw-shipped-m) $(fw-shipped-)
 

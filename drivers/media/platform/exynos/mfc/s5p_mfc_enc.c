@@ -4582,10 +4582,6 @@ static int s5p_mfc_start_streaming(struct vb2_queue *q, unsigned int count)
 	return 0;
 }
 
-#define need_to_wait_frame_start(ctx)		\
-	(((ctx->state == MFCINST_FINISHING) ||	\
-	  (ctx->state == MFCINST_RUNNING)) &&	\
-	 test_bit(ctx->num, &ctx->dev->hw_lock))
 static int s5p_mfc_stop_streaming(struct vb2_queue *q)
 {
 	unsigned long flags;
@@ -4593,15 +4589,17 @@ static int s5p_mfc_stop_streaming(struct vb2_queue *q)
 	struct s5p_mfc_dev *dev = ctx->dev;
 	struct s5p_mfc_enc *enc = ctx->enc_priv;
 	int index = 0;
-	int aborted = 0;
+	enum s5p_mfc_inst_state old_state;
+	int ret = 0;
 
-	if (need_to_wait_frame_start(ctx)) {
-		ctx->state = MFCINST_ABORT;
-		if (s5p_mfc_wait_for_done_ctx(ctx,
-				S5P_FIMV_R2H_CMD_FRAME_DONE_RET))
-			s5p_mfc_cleanup_timeout(ctx);
-		aborted = 1;
-	}
+	/* If an operation is in progress, wait for it to complete */
+	old_state = ctx->state;
+	ctx->state = MFCINST_ABORT;
+	ret = wait_event_timeout(ctx->queue,
+			(test_bit(ctx->num, &dev->hw_lock) == 0),
+			msecs_to_jiffies(MFC_INT_TIMEOUT));
+	if (ret == 0)
+		mfc_err_ctx("Wait for event failed in stop_streaming\n");
 
 	if (enc->in_slice) {
 		ctx->state = MFCINST_ABORT_INST;
@@ -4614,7 +4612,6 @@ static int s5p_mfc_stop_streaming(struct vb2_queue *q)
 			s5p_mfc_cleanup_timeout(ctx);
 
 		enc->in_slice = 0;
-		aborted = 1;
 	}
 
 	spin_lock_irqsave(&dev->irqlock, flags);
@@ -4649,7 +4646,8 @@ static int s5p_mfc_stop_streaming(struct vb2_queue *q)
 
 	spin_unlock_irqrestore(&dev->irqlock, flags);
 
-	if (aborted)
+	ctx->state = old_state;
+	if (ctx->state == MFCINST_FINISHING || ctx->state == MFCINST_ABORT)
 		ctx->state = MFCINST_RUNNING;
 
 	return 0;

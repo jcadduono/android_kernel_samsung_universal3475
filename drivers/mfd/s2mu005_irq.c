@@ -149,6 +149,7 @@ static irqreturn_t s2mu005_irq_thread(int irq, void *data)
 	u8 irq_reg[S2MU005_IRQ_GROUP_NR] = {0};
 //	u8 tmp_irq_reg[S2MU005_IRQ_GROUP_NR] = {};
 	int i, ret;
+	u8 temp, temp_2;
 
 	pr_debug("%s: irq gpio pre-state(0x%02x)\n", __func__,
 				gpio_get_value(s2mu005->irq_gpio));
@@ -173,12 +174,27 @@ static irqreturn_t s2mu005_irq_thread(int irq, void *data)
 	pr_info("%s: muic interrupt(0x%02x, 0x%02x)\n", __func__,
 			irq_reg[MUIC_INT1], irq_reg[MUIC_INT2]);
 
+	if(s2mu005->pmic_rev == 0) {
+		s2mu005_read_reg(s2mu005->i2c, S2MU005_REG_MUIC_ADC, &temp);
+		temp &= 0x1F;
+		s2mu005_read_reg(s2mu005->i2c, 0x51, &temp_2); /* checking VBUS_WAKEUP bit of R(0x51) */
+		if((temp_2 & 0x02) && (temp != 0x18)
+			&& (temp != 0x19) && (temp != 0x1C) && (temp != 0x1D) )
+			s2mu005_update_reg(s2mu005->i2c, 0x89, 0x01, 0x03);
+		if(irq_reg[MUIC_INT2] & 0x80)
+			s2mu005_update_reg(s2mu005->i2c, 0x89, 0x03, 0x03);
+	}
+	/* For OTGGTEST : VMID_INT */
+	if (irq_reg[CHG_INT] == 0x20)
+	{
+		pr_info("%s: VMID_INT\n", __func__);
+		irq_reg[MUIC_INT2] |= 0x01;
+	}
 
 	/* Apply masking */
 	for (i = 0; i < S2MU005_IRQ_GROUP_NR; i++) {
 		irq_reg[i] &= ~s2mu005->irq_masks_cur[i];
 	}
-
 
 	/* Report */
 	for (i = 0; i < S2MU005_IRQ_NR; i++) {

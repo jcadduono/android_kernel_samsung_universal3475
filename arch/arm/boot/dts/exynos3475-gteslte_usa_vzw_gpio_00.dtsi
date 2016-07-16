@@ -118,9 +118,6 @@
 		PIN_IN(gpf0-3, UP, LV1);	/* LCD_LDI_INT */
 		PIN_IN(gpf1-0, NONE, LV1);	/* LED_BL_SCL_1P8 */
 		PIN_IN(gpf1-1, NONE, LV1);	/* LED_BL_SDA_1P8 */
-
-		PIN_IN(gpf1-2, NONE, LV1);	/* GRIP_SCL_1P8 */
-		PIN_IN(gpf1-3, NONE, LV1);	/* GRIP_SDA_1P8 */
 	};
 	sleep6: sleep-state {
 		PIN_SLP(gpb0-0, INPUT, UP);	/* GPS_UART_RXD */
