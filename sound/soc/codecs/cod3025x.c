@@ -956,6 +956,7 @@ static int cod3025x_hp_playback_init(struct snd_soc_codec *codec)
 {
 	int mcq_on;
 	unsigned char ctrl_hps;
+	unsigned int mix_val;
 	dev_dbg(codec->dev, "%s called\n", __func__);
 
 	/* Increase HP current to 4uA in MCQ mode(192Khz), 2uA otherwise */
@@ -995,6 +996,12 @@ static int cod3025x_hp_playback_init(struct snd_soc_codec *codec)
 	/* Update OTP configuration */
 	cod3025x_update_playback_otp(codec);
 
+	mix_val = snd_soc_read(codec, COD3025X_36_MIX_DA1);
+
+	/* Keep DAC path enabled by default */
+	mix_val |= EN_HP_MIXL_DCTL_MASK | EN_HP_MIXR_DCTR_MASK;
+
+
 	/* DNC Target level selection */
 	snd_soc_write(codec, COD3025X_56_DNC3, 0x33);
 
@@ -1002,9 +1009,7 @@ static int cod3025x_hp_playback_init(struct snd_soc_codec *codec)
 	snd_soc_update_bits(codec, COD3025X_57_DNC4, DNC_WINSEL_MASK,
 				(DNC_WIN_SIZE_20HZ << DNC_WINSEL_SHIFT));
 
-	snd_soc_update_bits(codec, COD3025X_36_MIX_DA1,
-			EN_HP_MIXL_DCTL_MASK | EN_HP_MIXR_DCTR_MASK,
-			EN_HP_MIXL_DCTL_MASK | EN_HP_MIXR_DCTR_MASK);
+	snd_soc_write(codec, COD3025X_36_MIX_DA1, mix_val);
 
 	cod3025x_usleep(100);
 
@@ -1019,6 +1024,7 @@ static int spkdrv_ev(struct snd_soc_dapm_widget *w,
 	unsigned int hp_on;
 	int offset;
 	struct cod3025x_priv *cod3025x = snd_soc_codec_get_drvdata(w->codec);
+	unsigned int mix_val;
 
 	spk_on = snd_soc_read(w->codec, COD3025X_76_CHOP_DA);
 	if (!(spk_on & EN_SPK_PGA_CHOP_MASK)) {
@@ -1032,6 +1038,13 @@ static int spkdrv_ev(struct snd_soc_dapm_widget *w,
 	case SND_SOC_DAPM_PRE_PMU:
 		/* Update OTP configuration */
 		cod3025x_update_playback_otp(w->codec);
+
+		mix_val = snd_soc_read(w->codec, COD3025X_37_MIX_DA2);
+		mix_val &= EN_SPK_MIX_DCTL_MASK | EN_SPK_MIX_DCTR_MASK |
+			EN_SPK_MIX_MIXL_MASK | EN_SPK_MIX_MIXR_MASK;
+
+		/* Keep DAC path enabled by default */
+		mix_val |= EN_SPK_MIX_DCTL_MASK | EN_SPK_MIX_DCTR_MASK;
 
 		snd_soc_update_bits(w->codec, COD3025X_37_MIX_DA2,
 				EN_SPK_MIX_DCTL_MASK | EN_SPK_MIX_DCTR_MASK, 0);
@@ -1047,8 +1060,9 @@ static int spkdrv_ev(struct snd_soc_dapm_widget *w,
 				PW_AUTO_DA_MASK | APW_SPK_MASK);
 
 		snd_soc_update_bits(w->codec, COD3025X_37_MIX_DA2,
-				EN_SPK_MIX_DCTL_MASK | EN_SPK_MIX_DCTR_MASK,
-				EN_SPK_MIX_DCTL_MASK | EN_SPK_MIX_DCTR_MASK);
+				EN_SPK_MIX_DCTL_MASK | EN_SPK_MIX_DCTR_MASK |
+				EN_SPK_MIX_MIXL_MASK | EN_SPK_MIX_MIXR_MASK,
+				mix_val);
 
 		msleep(135);
 
@@ -1234,9 +1248,10 @@ static int hpdrv_ev(struct snd_soc_dapm_widget *w,
 				APW_HP_MASK, 0);
 		msleep(40);
 
-		snd_soc_update_bits(w->codec, COD3025X_36_MIX_DA1,
-				EN_HP_MIXL_DCTL_MASK | EN_HP_MIXR_DCTR_MASK, 0);
+		snd_soc_write(w->codec, COD3025X_36_MIX_DA1, 0x0);
+
 		cod3025x_usleep(100);
+
 		if (cod3025x->use_external_jd == true ) {
 			snd_soc_update_bits(w->codec, COD3025X_86_DET_TIME,
 				CTMF_DETB_PERIOD_MASK,
@@ -1256,6 +1271,7 @@ static int hpdrv_ev(struct snd_soc_dapm_widget *w,
 					(detb_period << CTMF_DETB_PERIOD_SHIFT));
 			}
 		}
+
 		cod3025x_usleep(100);
 
 		/* set to default HP current value */
@@ -1281,6 +1297,7 @@ static int epdrv_ev(struct snd_soc_dapm_widget *w,
 {
 	unsigned int ep_on;
 	struct cod3025x_priv *cod3025x = snd_soc_codec_get_drvdata(w->codec);
+	unsigned int mix_val;
 
 	ep_on = snd_soc_read(w->codec, COD3025X_76_CHOP_DA);
 	if (!(ep_on & EN_EP_CHOP_MASK)) {
@@ -1300,6 +1317,13 @@ static int epdrv_ev(struct snd_soc_dapm_widget *w,
 		/* enable soft mute */
 		snd_soc_update_bits(w->codec, COD3025X_50_DAC1,
 			DAC1_SOFT_MUTE_MASK, DAC1_SOFT_MUTE_MASK);
+
+		mix_val = snd_soc_read(w->codec, COD3025X_37_MIX_DA2);
+
+		mix_val &= EN_EP_MIX_DCTL_MASK | EN_EP_MIX_DCTR_MASK |
+			EN_EP_MIX_MIXL_MASK | EN_EP_MIX_MIXR_MASK;
+		/* Keep DAC path enabled by default */
+		mix_val |= EN_EP_MIX_DCTL_MASK | EN_EP_MIX_DCTR_MASK;
 
 		snd_soc_update_bits(w->codec, COD3025X_D7_CTRL_CP1,
 			CTRV_CP_NEGREF_MASK, 0x00);
@@ -1364,10 +1388,11 @@ static int epdrv_ev(struct snd_soc_dapm_widget *w,
 					EN_EP_PRT_MASK | EN_EP_IDET_MASK,
 					EN_EP_PRT_MASK | EN_EP_IDET_MASK);
 
-
 		snd_soc_update_bits(w->codec, COD3025X_37_MIX_DA2,
-				EN_EP_MIX_DCTL_MASK | EN_EP_MIX_DCTR_MASK,
-				EN_EP_MIX_DCTL_MASK | EN_EP_MIX_DCTR_MASK);
+				EN_EP_MIX_DCTL_MASK | EN_EP_MIX_DCTR_MASK |
+				EN_EP_MIX_MIXL_MASK | EN_EP_MIX_MIXR_MASK,
+				mix_val);
+
 		cod3025x_usleep(100);
 		/* disable_soft_mute */
 		snd_soc_update_bits(w->codec, COD3025X_50_DAC1,
@@ -1541,6 +1566,50 @@ static const struct snd_kcontrol_new adcr_mix[] = {
 			EN_MIX_MIC3R_SHIFT, 1, 0),
 };
 
+static const struct snd_kcontrol_new hpl_mix[] = {
+	SOC_DAPM_SINGLE("DACL Switch", COD3025X_36_MIX_DA1,
+			EN_HP_MIXL_DCTL_SHIFT, 1, 0),
+	SOC_DAPM_SINGLE("DACR Switch", COD3025X_36_MIX_DA1,
+			EN_HP_MIXL_DCTR_SHIFT, 1, 0),
+	SOC_DAPM_SINGLE("ADCL Switch", COD3025X_36_MIX_DA1,
+			EN_HP_MIXL_MIXL_SHIFT, 1, 0),
+	SOC_DAPM_SINGLE("ADCR Switch", COD3025X_36_MIX_DA1,
+			EN_HP_MIXL_MIXR_SHIFT, 1, 0),
+};
+
+static const struct snd_kcontrol_new hpr_mix[] = {
+	SOC_DAPM_SINGLE("DACL Switch", COD3025X_36_MIX_DA1,
+			EN_HP_MIXR_DCTL_SHIFT, 1, 0),
+	SOC_DAPM_SINGLE("DACR Switch", COD3025X_36_MIX_DA1,
+			EN_HP_MIXR_DCTR_SHIFT, 1, 0),
+	SOC_DAPM_SINGLE("ADCL Switch", COD3025X_36_MIX_DA1,
+			EN_HP_MIXR_MIXL_SHIFT, 1, 0),
+	SOC_DAPM_SINGLE("ADCR Switch", COD3025X_36_MIX_DA1,
+			EN_HP_MIXR_MIXR_SHIFT, 1, 0),
+};
+
+static const struct snd_kcontrol_new ep_mix[] = {
+	SOC_DAPM_SINGLE("DACL Switch", COD3025X_37_MIX_DA2,
+			EN_EP_MIX_DCTL_SHIFT, 1, 0),
+	SOC_DAPM_SINGLE("DACR Switch", COD3025X_37_MIX_DA2,
+			EN_EP_MIX_DCTR_SHIFT, 1, 0),
+	SOC_DAPM_SINGLE("ADCL Switch", COD3025X_37_MIX_DA2,
+			EN_EP_MIX_MIXL_SHIFT, 1, 0),
+	SOC_DAPM_SINGLE("ADCR Switch", COD3025X_37_MIX_DA2,
+			EN_EP_MIX_MIXR_SHIFT, 1, 0),
+};
+
+static const struct snd_kcontrol_new spk_mix[] = {
+	SOC_DAPM_SINGLE("DACL Switch", COD3025X_37_MIX_DA2,
+			EN_SPK_MIX_DCTL_SHIFT, 1, 0),
+	SOC_DAPM_SINGLE("DACR Switch", COD3025X_37_MIX_DA2,
+			EN_SPK_MIX_DCTR_SHIFT, 1, 0),
+	SOC_DAPM_SINGLE("ADCL Switch", COD3025X_37_MIX_DA2,
+			EN_SPK_MIX_MIXL_SHIFT, 1, 0),
+	SOC_DAPM_SINGLE("ADCR Switch", COD3025X_37_MIX_DA2,
+			EN_SPK_MIX_MIXR_SHIFT, 1, 0),
+};
+
 static const struct snd_kcontrol_new spk_on[] = {
 	SOC_DAPM_SINGLE("SPK On", COD3025X_76_CHOP_DA,
 				EN_SPK_PGA_CHOP_SHIFT, 1, 0),
@@ -1604,6 +1673,15 @@ static const struct snd_soc_dapm_widget cod3025x_dapm_widgets[] = {
 	SND_SOC_DAPM_MIXER("ADCR Mixer", SND_SOC_NOPM, 0, 0, adcr_mix,
 			ARRAY_SIZE(adcr_mix)),
 
+	SND_SOC_DAPM_MIXER("HPL Mixer", SND_SOC_NOPM, 0, 0, hpl_mix,
+			ARRAY_SIZE(hpl_mix)),
+	SND_SOC_DAPM_MIXER("HPR Mixer", SND_SOC_NOPM, 0, 0, hpr_mix,
+			ARRAY_SIZE(hpr_mix)),
+	SND_SOC_DAPM_MIXER("EP Mixer", SND_SOC_NOPM, 0, 0, ep_mix,
+			ARRAY_SIZE(ep_mix)),
+	SND_SOC_DAPM_MIXER("SPK Mixer", SND_SOC_NOPM, 0, 0, spk_mix,
+			ARRAY_SIZE(spk_mix)),
+
 	SND_SOC_DAPM_DAC_E("DAC", "AIF Playback", SND_SOC_NOPM, 0, 0,
 			dac_ev, SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD),
 	SND_SOC_DAPM_DAC_E("DAC", "AIF2 Playback", SND_SOC_NOPM, 0, 0,
@@ -1630,14 +1708,38 @@ static const struct snd_soc_dapm_widget cod3025x_dapm_widgets[] = {
 
 static const struct snd_soc_dapm_route cod3025x_dapm_routes[] = {
 	/* Sink, Control, Source */
+	{"SPK Mixer", "ADCL Switch", "ADCL Mixer"},
+	{"SPK Mixer", "ADCR Switch", "ADCR Mixer"},
+	{"SPK Mixer", "DACL Switch", "DAC"},
+	{"SPK Mixer", "DACR Switch", "DAC"},
+
+	{"SPKDRV", NULL, "SPK Mixer"},
 	{"SPKDRV", NULL, "DAC"},
 	{"SPK" , "SPK On", "SPKDRV"},
 	{"SPKOUTLN", NULL, "SPK"},
 
+	{"EP Mixer", "ADCL Switch", "ADCL Mixer"},
+	{"EP Mixer", "ADCR Switch", "ADCR Mixer"},
+	{"EP Mixer", "DACL Switch", "DAC"},
+	{"EP Mixer", "DACR Switch", "DAC"},
+
+	{"EPDRV", NULL, "EP Mixer"},
 	{"EPDRV", NULL, "DAC"},
 	{"EP", "EP On", "EPDRV"},
 	{"EPOUTN", NULL, "EP"},
 
+	{"HPL Mixer", "ADCL Switch", "ADCL Mixer"},
+	{"HPL Mixer", "ADCR Switch", "ADCR Mixer"},
+	{"HPL Mixer", "DACL Switch", "DAC"},
+	{"HPL Mixer", "DACR Switch", "DAC"},
+
+	{"HPR Mixer", "ADCL Switch", "ADCL Mixer"},
+	{"HPR Mixer", "ADCR Switch", "ADCR Mixer"},
+	{"HPR Mixer", "DACL Switch", "DAC"},
+	{"HPR Mixer", "DACR Switch", "DAC"},
+
+	{"HPDRV", NULL, "HPL Mixer"},
+	{"HPDRV", NULL, "HPR Mixer"},
 	{"HPDRV", NULL, "DAC"},
 	{"HP", "HP On", "HPDRV"},
 	{"HPOUTLN", NULL, "HP"},

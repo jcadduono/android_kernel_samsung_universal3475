@@ -61,6 +61,8 @@ static int dsim_panel_set_brightness(struct dsim_device *dsim, int force)
 	bl_reg[0] = BRIGHTNESS_REG;
 	if (bl >= 3)
 		bl_reg[1] = bl;
+	else if (bl >= 1)
+		bl_reg[1] = 0x03;
 	else
 		bl_reg[1] = 0x00;
 

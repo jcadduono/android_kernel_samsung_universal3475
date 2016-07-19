@@ -1095,6 +1095,12 @@ int wl_android_send_action_frame(struct net_device *dev, char *command, int tota
 		goto send_action_frame_out;
 	}
 
+	if (params->len > ANDROID_WIFI_ACTION_FRAME_SIZE) {
+		DHD_ERROR(("%s: Requested action frame len was out of range(%d)\n",
+			__FUNCTION__, params->len));
+		goto send_action_frame_out;
+	}
+
 	smbuf = kmalloc(WLC_IOCTL_MAXLEN, GFP_KERNEL);
 	if (smbuf == NULL) {
 		DHD_ERROR(("%s: failed to allocated memory %d bytes\n",
@@ -1289,6 +1295,9 @@ int wl_android_set_okc_mode(struct net_device *dev, char *command, int total_len
 		__FUNCTION__, mode, error));
 		return -1;
 	}
+
+	if (mode)
+		 wldev_iovar_setint(dev, "ccx_enable", 0);
 
 	return error;
 }
@@ -2178,6 +2187,8 @@ wl_android_okc_enable(struct net_device *dev, char *command, int total_len)
 		DHD_ERROR(("Failed to %s OKC, error = %d\n",
 			okc_enable ? "enable" : "disable", error));
 	}
+
+	wldev_iovar_setint(dev, "ccx_enable", 0);
 
 	return error;
 }
@@ -3318,7 +3329,13 @@ int wl_android_set_ibss_routetable(struct net_device *dev, char *command, int to
 		err = -EINVAL;
 		goto exit;
 	}
-	WL_INFO(("Routing table count:%d\n", entries));
+        if (entries > MAX_IBSS_ROUTE_TBL_ENTRY) {
+                WL_ERR(("Invalid entries number %u\n", entries));
+                err = -EINVAL;
+                goto exit;
+        }
+
+        WL_INFO(("Routing table count:%u\n", entries));
 	route_tbl->num_entry = entries;
 
 	for (i = 0; i < entries; i++) {

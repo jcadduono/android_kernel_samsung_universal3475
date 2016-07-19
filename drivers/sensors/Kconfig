@@ -299,6 +299,14 @@ config SENSORS_SX9500_WIFI_REGULATOR_ONOFF
 	  This option enables regulator for grip sensor using
 	  SemTech sx9500 device driver for WIFI.
 
+config SENSORS_GTESLTE_CAN
+	depends on SENSORS_SX9500
+	tristate "Grip sensor Register settings for GTESLTE_CAN variant"
+	default n
+	help
+	  Say Y here if you want to define separate configuration for Sensors
+	  for GTESLTE_CAN variant
+
 config SENSORS_BMA2X2
 	tristate "BMA255/BMA250E/BMA222E/BMA280 acceleration sensor support"
 	depends on I2C=y
