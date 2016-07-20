@@ -13,13 +13,7 @@
 #ifndef __AID_DIMMING_H__
 #define __AID_DIMMING_H__
 
-#if defined(CONFIG_PANEL_S6E3FA2_DYNAMIC)
-#include "s6e3fa2_dimming.h"
-#elif defined(CONFIG_PANEL_S6E3FA3_DYNAMIC)
-#include "s6e3fa3_dimming.h"
-#elif defined(CONFIG_PANEL_S6E3HF2_DYNAMIC)
-#include "s6e3hf2_wqhd_dimming.h"
-#elif defined(CONFIG_EXYNOS3475_DECON_LCD_S6E88A0)
+#if defined(CONFIG_EXYNOS3475_DECON_LCD_S6E88A0)
 #include "s6e88a0_dimming.h"
 #elif defined(CONFIG_EXYNOS3475_DECON_LCD_S6E8AA5X01)
 #include "s6e8aa5x01_dimming.h"
@@ -47,13 +41,11 @@ struct dim_data {
 
 struct SmtDimInfo {
 	unsigned int br;
-	unsigned int refBr;
-	const unsigned int *cGma;
-	const signed char *rTbl;
 	const signed char *cTbl;
 	const unsigned char *aid;
 	const unsigned char *elvAcl;
 	const unsigned char *elv;
+	unsigned char *m_gray;
 	unsigned char gamma[OLED_CMD_GAMMA_CNT];
 };
 

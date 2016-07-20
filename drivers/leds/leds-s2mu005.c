@@ -92,9 +92,8 @@ static int ta_notification(struct notifier_block *nb,
 		unsigned long action, void *data)
 {
 	muic_attached_dev_t attached_dev = *(muic_attached_dev_t *)data;
-#ifdef CONFIG_S2MU005_LEDS_I2C
+
 	u8 temp;
-#endif
 	int ret = 0;
 	struct s2mu005_led_data *led_data =
 		container_of(nb, struct s2mu005_led_data, batt_nb);
@@ -148,12 +147,30 @@ static int ta_notification(struct notifier_block *nb,
 				goto err;
 		}
 #endif
+		/* CHGIN_ENGH = 0 */
+		ret = s2mu005_update_reg(led_data->i2c,
+			S2MU005_REG_FLED_CTRL1, 0x00, 0x80);
+		if (ret < 0)
+			goto err;
+		
 		break;
 	case MUIC_NOTIFY_CMD_ATTACH:
 	case MUIC_NOTIFY_CMD_LOGICALLY_ATTACH:
 		led_data->attach_ta = 0;
 		attach_cable_check(attached_dev, &led_data->attach_ta,
 						&led_data->attach_sdp);
+		if (led_data->attach_ta) {
+			s2mu005_read_reg(led_data->i2c,
+				S2MU005_REG_FLED_STATUS, &temp);
+
+			/* if CH1_TORCH_ON or CH2_TORCH_ON setting CHGIN_ENGH bit 1 */
+			if (temp & 0x50) {
+				 ret = s2mu005_update_reg(led_data->i2c,
+					S2MU005_REG_FLED_CTRL1, 0x80, 0x80);
+				if (ret < 0)
+					goto err;
+			}
+		}
 		return 0;
 	default:
 		goto err;
@@ -172,6 +189,28 @@ err:
 	return 0;
 }
 #endif
+
+static void torch_led_on_off(int value)
+{
+	int ret;
+
+	if (value && g_led_datas[S2MU005_FLASH_LED]->attach_ta) { //torch on & ta attach
+		ret = s2mu005_update_reg(g_led_datas[S2MU005_FLASH_LED]->i2c,
+			S2MU005_REG_FLED_CTRL1, 0x80, 0x80);
+		if (ret < 0)
+			pr_err("%s : CHGIN_ENGH = 1 fail\n", __func__);
+	}
+
+	if (value == 0) { // torch off
+		if (!factory_mode) {
+			ret = s2mu005_update_reg(g_led_datas[S2MU005_FLASH_LED]->i2c,
+				S2MU005_REG_FLED_CTRL1, 0x00, 0x80);
+			if (ret < 0)
+				pr_err("%s : CHGIN_ENGH = 0 fail\n", __func__);
+		}
+	}
+}
+EXPORT_SYMBOL_GPL(torch_led_on_off);
 
 static void led_set(struct s2mu005_led_data *led_data)
 {
@@ -447,6 +486,7 @@ int s2mu005_led_mode_ctrl(int state)
 		case S2MU005_FLED_MODE_OFF:
 			gpio_direction_output(gpio_torch, 0);
 			gpio_direction_output(gpio_flash, 0);
+			torch_led_on_off(0);
 			break;
 		case S2MU005_FLED_MODE_PREFLASH:
 			gpio_direction_output(gpio_torch, 1);
@@ -455,6 +495,7 @@ int s2mu005_led_mode_ctrl(int state)
 			gpio_direction_output(gpio_flash, 1);
 			break;
 		case S2MU005_FLED_MODE_MOVIE:
+			torch_led_on_off(1);
 			gpio_direction_output(gpio_torch, 1);
 			break;
 		default:

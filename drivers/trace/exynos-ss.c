@@ -2151,3 +2151,128 @@ static int __init sec_log_late_init(void)
 
 late_initcall(sec_log_late_init);
 #endif
+
+#if !defined(CONFIG_SAMSUNG_PRODUCT_SHIP) && defined(CONFIG_EXYNOS_SNAPSHOT_SAVE_SLUGGISHINFO)
+static int schedinfo_proc_show(struct seq_file *m, void *v)
+{
+	unsigned cpu=0;
+	unsigned start, curr;
+	unsigned long long ts, rem_nsec;
+	unsigned long long pretime, elapsedtime;
+	int len;
+	struct exynos_ss_item *item = &ess_items[ESS_ITEMS_KEVENTS];
+
+	if (unlikely(!ess_base.enabled || !item->entry.enabled)) {
+		seq_printf(m, "exynos-ss is not enabled\n");
+		return 0;
+	}
+	
+	for(cpu = 0; cpu < CONFIG_NR_CPUS; cpu++) {
+		pretime=0;
+		elapsedtime=0;
+
+		start = (atomic_read(&ess_idx.task_log_idx[cpu]) + 1) & (ARRAY_SIZE(ess_log->task[0]) - 1);
+		curr = start;
+		seq_printf(m, "[ CPU%d sched log] pid     task                 elapsed time\n", cpu);
+		do {
+			if(pretime) {
+				elapsedtime=ess_log->task[cpu][curr].time-pretime;
+				ts = elapsedtime;
+				rem_nsec = do_div(ts, 1000000000);
+				seq_printf(m, "  %3llu.%09llu \n", ts, rem_nsec);
+			}
+
+			pretime = ess_log->task[cpu][curr].time;
+			ts = ess_log->task[cpu][curr].time;
+			rem_nsec = do_div(ts, 1000000000);
+
+			for(len = 0; (len < TASK_COMM_LEN) && (ess_log->task[cpu][curr].task_comm)[len]; len++);
+			if(len < TASK_COMM_LEN) 
+				seq_printf(m, "[%5llu.%09llu] %-6d  %-15s  ", 
+					ts, rem_nsec,
+					ess_log->task[cpu][curr].task->pid,
+					ess_log->task[cpu][curr].task_comm);
+			else 
+				seq_printf(m, "[%5llu.%09llu]         %-15s  ", 
+					ts, rem_nsec, "exited");
+			
+			curr = (curr+1) & (ARRAY_SIZE(ess_log->task[0])-1);
+		} while (start != curr);
+		seq_printf(m, "\n\n");
+	}
+	return 0;
+}
+
+static int schedinfo_proc_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, schedinfo_proc_show, NULL);
+}
+
+static const struct file_operations schedinfo_proc_fops = {
+	.open		= schedinfo_proc_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= single_release,
+};
+
+static int __init proc_schedinfo_init(void)
+{
+	proc_create("schedinfo", 0, NULL, &schedinfo_proc_fops);
+	return 0;
+}
+late_initcall(proc_schedinfo_init);
+
+static int irqinfo_proc_show(struct seq_file *m, void *v)
+{
+	unsigned cpu=0;
+	unsigned start, curr;
+	unsigned long long ts, rem_nsec;
+	struct exynos_ss_item *item = &ess_items[ESS_ITEMS_KEVENTS];
+	
+	if (unlikely(!ess_base.enabled || !item->entry.enabled)) {
+		seq_printf(m, "exynos-ss is not enabled\n");
+		return 0;
+	}
+	
+	for(cpu = 0; cpu < CONFIG_NR_CPUS; cpu++) {		
+		start = (atomic_read(&ess_idx.irq_log_idx[cpu]) + 1) & (ARRAY_SIZE(ess_log->irq[0]) - 1);
+		curr = start;
+		seq_printf(m, "[   CPU%d irq log] irq    fn          preempt     en \n", cpu);
+		do {
+			ts = ess_log->irq[cpu][curr].time;
+			rem_nsec = do_div(ts, 1000000000);
+			
+			seq_printf(m, "[%5llu.%09llu] %-5d  0x%p  0x%-8x  %d\n", 
+				ts, rem_nsec,
+				ess_log->irq[cpu][curr].irq, 
+				ess_log->irq[cpu][curr].fn,
+				ess_log->irq[cpu][curr].preempt,
+				ess_log->irq[cpu][curr].en);
+
+			curr = (curr+1) & (ARRAY_SIZE(ess_log->irq[0]) - 1);
+		} while (start != curr);
+		seq_printf(m, "\n");
+	}
+	return 0;
+}
+
+static int irqinfo_proc_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, irqinfo_proc_show, NULL);
+}
+
+static const struct file_operations irqinfo_proc_fops = {
+	.open		= irqinfo_proc_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= single_release,
+};
+
+static int __init proc_irqinfo_init(void)
+{
+	proc_create("irqinfo", 0, NULL, &irqinfo_proc_fops);
+	return 0;
+}
+
+late_initcall(proc_irqinfo_init);
+#endif

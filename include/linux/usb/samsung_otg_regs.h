@@ -167,7 +167,9 @@
 #define RX_FIFO_SIZE			(3328>>2)
 #define NPTX_FIFO_START_ADDR		RX_FIFO_SIZE
 #define NPTX_FIFO_SIZE			(3328>>2)
-#define PTX_FIFO_SIZE			(1024>>2)
+#define BULK_FIFO_SIZE			(1024>>2)
+#define INT_FIFO_SIZE			(832>>2)
+#define ISO_FIFO_SIZE			(1152>>2)
 #else
 #define RX_FIFO_SIZE			(4096>>2)
 #define NPTX_FIFO_START_ADDR		RX_FIFO_SIZE

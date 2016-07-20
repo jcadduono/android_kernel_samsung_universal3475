@@ -725,6 +725,9 @@ static void reset_usbd(void)
 	struct s3c_udc *dev = the_controller;
 	unsigned int utemp;
 #ifdef DED_TX_FIFO
+#ifdef CONFIG_SOC_EXYNOS3475
+	int addr, size;
+#endif
 	int i;
 
 	for (i = 0; i < S3C_MAX_ENDPOINTS; i++) {
@@ -776,11 +779,28 @@ static void reset_usbd(void)
 		dev->regs + S3C_UDC_OTG_GNPTXFSIZ);
 
 #ifdef DED_TX_FIFO
+#ifdef CONFIG_SOC_EXYNOS3475
+	addr = NPTX_FIFO_START_ADDR + NPTX_FIFO_SIZE;
+	for (i = 1; i < S3C_MAX_ENDPOINTS; i++) {
+		if (dev->ep[i].ep_type == ep_interrupt)
+			size = INT_FIFO_SIZE;
+		else if (dev->ep[i].ep_type == ep_isochronous)
+			size = ISO_FIFO_SIZE;
+		else
+			size = BULK_FIFO_SIZE;
+
+		__raw_writel(size << 16 | addr << 0,
+				dev->regs + S3C_UDC_OTG_DIEPTXF(i));
+
+		addr += size;
+	}
+#else
 	for (i = 1; i < S3C_MAX_ENDPOINTS; i++)
 		__raw_writel((PTX_FIFO_SIZE) << 16 |
 				(NPTX_FIFO_START_ADDR + NPTX_FIFO_SIZE
 				  + PTX_FIFO_SIZE*(i-1)) << 0,
 				dev->regs + S3C_UDC_OTG_DIEPTXF(i));
+#endif
 #endif
 
 	/* Flush the RX FIFO */

@@ -43,6 +43,7 @@
 #include "dsim.h"
 #include "decon_helper.h"
 #include "../../../staging/android/sw_sync.h"
+#include "panels/dsim_panel.h"
 
 #ifdef CONFIG_OF
 static const struct of_device_id decon_device_table[] = {
@@ -2887,12 +2888,10 @@ int decon_esd_panel_reset(struct decon_device *decon)
 	int ret;
 	struct esd_protect *esd = &decon->esd;
 	struct dsim_device *dsim = NULL;
-	struct panel_private *panel = NULL;
 
 	decon_info("++ %s\n", __func__);
 
 	dsim = container_of(decon->output_sd, struct dsim_device, sd);
-	panel = &dsim->priv;
 
 	flush_workqueue(decon->lpd_wq);
 
@@ -2905,10 +2904,8 @@ int decon_esd_panel_reset(struct decon_device *decon)
 
 	flush_kthread_worker(&decon->update_regs_worker);
 
-	if (decon->pdata->psr_mode == DECON_VIDEO_MODE) {
-		dsim = container_of(decon->output_sd, struct dsim_device, sd);
+	if (decon->pdata->psr_mode == DECON_VIDEO_MODE)
 		call_panel_ops(dsim, suspend, dsim);
-	}
 
 	/* stop output device (mipi-dsi or hdmi) */
 	ret = v4l2_subdev_call(decon->output_sd, video, s_stream, 0);
@@ -2927,21 +2924,7 @@ int decon_esd_panel_reset(struct decon_device *decon)
 		goto reset_fail;
 	}
 
-	if (panel->ops->displayon) {
-		ret = panel->ops->displayon(dsim);
-		if (ret) {
-			dsim_err("%s : failed to panel display on\n", __func__);
-			goto reset_fail;
-		}
-	}
-
-	if (panel->ops->displayon_late) {
-		ret = panel->ops->displayon_late(dsim);
-		if (ret) {
-			dsim_err("%s : failed to panel display on_late\n", __func__);
-			goto reset_fail;
-		}
-	}
+	call_panel_ops(dsim, displayon_late, dsim);
 
 	esd->queuework_pending = 0;
 
@@ -3129,7 +3112,7 @@ static int decon_register_esd_funcion(struct decon_device *decon)
 	if (esd->err_irq) {
 		if (devm_request_irq(dev, esd->err_irq, decon_esd_err_handler,
 				esd_irqf_type | IRQF_ONESHOT, "err-irq", decon)) {
-			dsim_err("%s : faield to request irq for err_fg\n", __func__);
+			dsim_err("%s : failed to request irq for err_fg\n", __func__);
 			esd->err_irq = 0;
 			ret--;
 		}
@@ -3348,7 +3331,7 @@ static int decon_probe(struct platform_device *pdev)
 	struct decon_init_param p;
 	struct decon_regs_data win_regs;
 	struct dsim_device *dsim = NULL;
-	struct panel_private *panel = NULL;
+	struct panel_private *priv = NULL;
 	struct exynos_md *md;
 	struct device_node *cam_stat;
 	int win_idx = 0;
@@ -3643,12 +3626,12 @@ decon_init_done:
 		dsim = container_of(decon->output_sd, struct dsim_device, sd);
 
 	if (dsim) {
-		panel = &dsim->priv;
-		if ((panel) && (!panel->lcdConnected)) {
+		priv = &dsim->priv;
+		if ((priv) && (!priv->lcdConnected)) {
 			dsim_info("decon deos not found panel\n");
 			decon->ignore_vsync = true;
 		}
-		dsim_info("panel id : %x : %x : %x\n", panel->id[0], panel->id[1], panel->id[2]);
+		dsim_info("panel id : %x\n", lcdtype);
 	}
 
 #ifdef CONFIG_DECON_MIPI_DSI_PKTGO

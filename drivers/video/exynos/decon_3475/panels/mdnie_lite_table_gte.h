@@ -61,7 +61,7 @@ static unsigned char LEVEL_LOCK[] = {
 	0xA5, 0xA5
 };
 
-static unsigned char BYPASS_1[] ={
+static unsigned char BYPASS_1[] = {
 //start
 0xE8,
 0x00, //roi0 x start
@@ -82,7 +82,7 @@ static unsigned char BYPASS_1[] ={
 0x00,
 };
 
-static unsigned char BYPASS_2[] ={
+static unsigned char BYPASS_2[] = {
 0xE9,
 0x00, //scr Cr Yb
 0xff, //scr Rr Bb
@@ -110,7 +110,7 @@ static unsigned char BYPASS_2[] ={
 0x00, //scr Kb Kr
 };
 
-static unsigned char BYPASS_3[] ={
+static unsigned char BYPASS_3[] = {
 0xEA,
 0x00, //curve 1 b
 0x20, //curve 1 a
@@ -138,7 +138,7 @@ static unsigned char BYPASS_3[] ={
 0x20, //curve12 a
 };
 
-static unsigned char BYPASS_4[] ={
+static unsigned char BYPASS_4[] = {
 0xEB,
 0x00, //curve13 b
 0x20, //curve13 a
@@ -166,7 +166,7 @@ static unsigned char BYPASS_4[] ={
 0xFF, //curve24 a
 };
 
-static unsigned char BYPASS_5[] ={
+static unsigned char BYPASS_5[] = {
 0xEC,
 0x04, //cc r1
 0x00,
@@ -188,7 +188,7 @@ static unsigned char BYPASS_5[] ={
 0x00,
 };
 
-static unsigned char BYPASS_6[] ={
+static unsigned char BYPASS_6[] = {
 0xE7,
 0x08, //roi_ctrl rgb_if_type mdnie_en mask 00 00 0 000
 0x00, //scr_roi 1 scr algo_roi 1 algo 00 1 0 00 1 0
@@ -200,7 +200,7 @@ static unsigned char BYPASS_6[] ={
 //end
 };
 
-static unsigned char NEGATIVE_1[] ={
+static unsigned char NEGATIVE_1[] = {
 //start
 0xE8,
 0x00, //roi0 x start
@@ -221,7 +221,7 @@ static unsigned char NEGATIVE_1[] ={
 0x00,
 };
 
-static unsigned char NEGATIVE_2[] ={
+static unsigned char NEGATIVE_2[] = {
 0xE9,
 0xff, //scr Cr Yb
 0x00, //scr Rr Bb
@@ -249,7 +249,7 @@ static unsigned char NEGATIVE_2[] ={
 0xff, //scr Kb Kr
 };
 
-static unsigned char NEGATIVE_3[] ={
+static unsigned char NEGATIVE_3[] = {
 0xEA,
 0x00, //curve 1 b
 0x20, //curve 1 a
@@ -277,7 +277,7 @@ static unsigned char NEGATIVE_3[] ={
 0x20, //curve12 a
 };
 
-static unsigned char NEGATIVE_4[] ={
+static unsigned char NEGATIVE_4[] = {
 0xEB,
 0x00, //curve13 b
 0x20, //curve13 a
@@ -305,7 +305,7 @@ static unsigned char NEGATIVE_4[] ={
 0xFF, //curve24 a
 };
 
-static unsigned char NEGATIVE_5[] ={
+static unsigned char NEGATIVE_5[] = {
 0xEC,
 0x04, //cc r1
 0x00,
@@ -327,7 +327,7 @@ static unsigned char NEGATIVE_5[] ={
 0x00,
 };
 
-static unsigned char NEGATIVE_6[] ={
+static unsigned char NEGATIVE_6[] = {
 0xE7,
 0x08, //roi_ctrl rgb_if_type mdnie_en mask 00 00 0 000
 0x30, //scr_roi 1 scr algo_roi 1 algo 00 1 0 00 1 0
@@ -339,7 +339,7 @@ static unsigned char NEGATIVE_6[] ={
 //end
 };
 
-static unsigned char GRAYSCALE_1[] ={
+static unsigned char GRAYSCALE_1[] = {
 //start
 0xE8,
 0x00, //roi0 x start
@@ -360,7 +360,7 @@ static unsigned char GRAYSCALE_1[] ={
 0x00,
 };
 
-static unsigned char GRAYSCALE_2[] ={
+static unsigned char GRAYSCALE_2[] = {
 0xE9,
 0xb3, //scr Cr Yb
 0x4c, //scr Rr Bb
@@ -388,7 +388,7 @@ static unsigned char GRAYSCALE_2[] ={
 0x00, //scr Kb Kr
 };
 
-static unsigned char GRAYSCALE_3[] ={
+static unsigned char GRAYSCALE_3[] = {
 0xEA,
 0x00, //curve 1 b
 0x20, //curve 1 a
@@ -416,7 +416,7 @@ static unsigned char GRAYSCALE_3[] ={
 0x20, //curve12 a
 };
 
-static unsigned char GRAYSCALE_4[] ={
+static unsigned char GRAYSCALE_4[] = {
 0xEB,
 0x00, //curve13 b
 0x20, //curve13 a
@@ -444,7 +444,7 @@ static unsigned char GRAYSCALE_4[] ={
 0xFF, //curve24 a
 };
 
-static unsigned char GRAYSCALE_5[] ={
+static unsigned char GRAYSCALE_5[] = {
 0xEC,
 0x04, //cc r1
 0x00,
@@ -466,7 +466,7 @@ static unsigned char GRAYSCALE_5[] ={
 0x00,
 };
 
-static unsigned char GRAYSCALE_6[] ={
+static unsigned char GRAYSCALE_6[] = {
 0xE7,
 0x08, //roi_ctrl rgb_if_type mdnie_en mask 00 00 0 000
 0x30, //scr_roi 1 scr algo_roi 1 algo 00 1 0 00 1 0
@@ -478,7 +478,7 @@ static unsigned char GRAYSCALE_6[] ={
 //end
 };
 
-static unsigned char GRAYSCALE_NEGATIVE_1[] ={
+static unsigned char GRAYSCALE_NEGATIVE_1[] = {
 //start
 0xE8,
 0x00, //roi0 x start
@@ -499,7 +499,7 @@ static unsigned char GRAYSCALE_NEGATIVE_1[] ={
 0x00,
 };
 
-static unsigned char GRAYSCALE_NEGATIVE_2[] ={
+static unsigned char GRAYSCALE_NEGATIVE_2[] = {
 0xE9,
 0x4c, //scr Cr Yb
 0xb3, //scr Rr Bb
@@ -527,7 +527,7 @@ static unsigned char GRAYSCALE_NEGATIVE_2[] ={
 0xff, //scr Kb Kr
 };
 
-static unsigned char GRAYSCALE_NEGATIVE_3[] ={
+static unsigned char GRAYSCALE_NEGATIVE_3[] = {
 0xEA,
 0x00, //curve 1 b
 0x20, //curve 1 a
@@ -555,7 +555,7 @@ static unsigned char GRAYSCALE_NEGATIVE_3[] ={
 0x20, //curve12 a
 };
 
-static unsigned char GRAYSCALE_NEGATIVE_4[] ={
+static unsigned char GRAYSCALE_NEGATIVE_4[] = {
 0xEB,
 0x00, //curve13 b
 0x20, //curve13 a
@@ -583,7 +583,7 @@ static unsigned char GRAYSCALE_NEGATIVE_4[] ={
 0xFF, //curve24 a
 };
 
-static unsigned char GRAYSCALE_NEGATIVE_5[] ={
+static unsigned char GRAYSCALE_NEGATIVE_5[] = {
 0xEC,
 0x04, //cc r1
 0x00,
@@ -605,7 +605,7 @@ static unsigned char GRAYSCALE_NEGATIVE_5[] ={
 0x00,
 };
 
-static unsigned char GRAYSCALE_NEGATIVE_6[] ={
+static unsigned char GRAYSCALE_NEGATIVE_6[] = {
 0xE7,
 0x08, //roi_ctrl rgb_if_type mdnie_en mask 00 00 0 000
 0x30, //scr_roi 1 scr algo_roi 1 algo 00 1 0 00 1 0
@@ -617,7 +617,7 @@ static unsigned char GRAYSCALE_NEGATIVE_6[] ={
 //end
 };
 
-static unsigned char UI_1[] ={
+static unsigned char UI_1[] = {
 //start
 0xE8,
 0x00, //roi0 x start
@@ -638,7 +638,7 @@ static unsigned char UI_1[] ={
 0x00,
 };
 
-static unsigned char UI_2[] ={
+static unsigned char UI_2[] = {
 0xE9,
 0x00, //scr Cr Yb
 0xff, //scr Rr Bb
@@ -666,7 +666,7 @@ static unsigned char UI_2[] ={
 0x00, //scr Kb Kr
 };
 
-static unsigned char UI_3[] ={
+static unsigned char UI_3[] = {
 0xEA,
 0x00, //curve 1 b
 0x20, //curve 1 a
@@ -722,7 +722,7 @@ static unsigned char UI_4[] = {
 0xFF, //curve24 a
 };
 
-static unsigned char UI_5[] ={
+static unsigned char UI_5[] = {
 0xEC,
 0x04, //cc r1 0.15
 0x6c,
@@ -744,7 +744,7 @@ static unsigned char UI_5[] ={
 0x88,
 };
 
-static unsigned char UI_6[] ={
+static unsigned char UI_6[] = {
 0xE7,
 0x08, //roi_ctrl rgb_if_type mdnie_en mask 00 00 0 000
 0x03, //scr_roi 1 scr algo_roi 1 algo 00 1 0 00 1 0
@@ -756,7 +756,7 @@ static unsigned char UI_6[] ={
 //end
 };
 
-static unsigned char VIDEO_1[] ={
+static unsigned char VIDEO_1[] = {
 //start
 0xE8,
 0x00, //roi0 x start
@@ -805,7 +805,7 @@ static unsigned char VIDEO_2[] = {
 0x00, //scr Kb Kr
 };
 
-static unsigned char VIDEO_3[] ={
+static unsigned char VIDEO_3[] = {
 0xEA,
 0x00, //curve 1 b
 0x1c, //curve 1 a
@@ -861,7 +861,7 @@ static unsigned char VIDEO_4[] = {
 0xFF, //curve24 a
 };
 
-static unsigned char VIDEO_5[] ={
+static unsigned char VIDEO_5[] = {
 0xEC,
 0x04, //cc r1 0.15
 0x6c,
@@ -895,7 +895,7 @@ static unsigned char VIDEO_6[] = {
 //end
 };
 
-static unsigned char CAMERA_1[] ={
+static unsigned char CAMERA_1[] = {
 //start
 0xE8,
 0x00, //roi0 x start
@@ -916,7 +916,7 @@ static unsigned char CAMERA_1[] ={
 0x00,
 };
 
-static unsigned char CAMERA_2[] ={
+static unsigned char CAMERA_2[] = {
 0xE9,
 0x00, //scr Cr Yb
 0xff, //scr Rr Bb
@@ -944,7 +944,7 @@ static unsigned char CAMERA_2[] ={
 0x00, //scr Kb Kr
 };
 
-static unsigned char CAMERA_3[] ={
+static unsigned char CAMERA_3[] = {
 0xEA,
 0x00, //curve 1 b
 0x20, //curve 1 a
@@ -972,7 +972,7 @@ static unsigned char CAMERA_3[] ={
 0x20, //curve12 a
 };
 
-static unsigned char CAMERA_4[] ={
+static unsigned char CAMERA_4[] = {
 0xEB,
 0x00, //curve13 b
 0x20, //curve13 a
@@ -1000,7 +1000,7 @@ static unsigned char CAMERA_4[] ={
 0xFF, //curve24 a
 };
 
-static unsigned char CAMERA_5[] ={
+static unsigned char CAMERA_5[] = {
 0xEC,
 0x04, //cc r1 0.15
 0x6c,
@@ -1022,7 +1022,7 @@ static unsigned char CAMERA_5[] ={
 0x88,
 };
 
-static unsigned char CAMERA_6[] ={
+static unsigned char CAMERA_6[] = {
 0xE7,
 0x08, //roi_ctrl rgb_if_type mdnie_en mask 00 00 0 000
 0x03, //scr_roi 1 scr algo_roi 1 algo 00 1 0 00 1 0
@@ -1034,7 +1034,7 @@ static unsigned char CAMERA_6[] ={
 //end
 };
 
-static unsigned char GALLERY_1[] ={
+static unsigned char GALLERY_1[] = {
 //start
 0xE8,
 0x00, //roi0 x start
@@ -1111,7 +1111,7 @@ static unsigned char GALLERY_3[] = {
 0x20, //curve12 a
 };
 
-static unsigned char GALLERY_4[] ={
+static unsigned char GALLERY_4[] = {
 0xEB,
 0x00, //curve13 b
 0x20, //curve13 a
@@ -1729,7 +1729,7 @@ static unsigned char EMAIL_6[] = {
 //end
 };
 
-static char OUTDOOR_MDNIE_1[] ={
+static char OUTDOOR_MDNIE_1[] = {
 //start
 0xE8,
 0x00, //roi0 x start
@@ -1750,7 +1750,7 @@ static char OUTDOOR_MDNIE_1[] ={
 0x00,
 };
 
-static char OUTDOOR_MDNIE_2[] ={
+static char OUTDOOR_MDNIE_2[] = {
 0xE9,
 0x00, //scr Cr Yb
 0xff, //scr Rr Bb
@@ -1778,7 +1778,7 @@ static char OUTDOOR_MDNIE_2[] ={
 0x00, //scr Kb Kr
 };
 
-static char OUTDOOR_MDNIE_3[] ={
+static char OUTDOOR_MDNIE_3[] = {
 0xEA,
 0x00, //curve 1 b
 0x7b, //curve 1 a
@@ -1806,7 +1806,7 @@ static char OUTDOOR_MDNIE_3[] ={
 0x28, //curve12 a
 };
 
-static char OUTDOOR_MDNIE_4[] ={
+static char OUTDOOR_MDNIE_4[] = {
 0xEB,
 0x19, //curve13 b
 0x22, //curve13 a
@@ -1834,7 +1834,7 @@ static char OUTDOOR_MDNIE_4[] ={
 0xFF, //curve24 a
 };
 
-static char OUTDOOR_MDNIE_5[] ={
+static char OUTDOOR_MDNIE_5[] = {
 0xEC,
 0x04, //cc r1 0.15
 0x6c,
@@ -1856,7 +1856,7 @@ static char OUTDOOR_MDNIE_5[] ={
 0x88,
 };
 
-static char OUTDOOR_MDNIE_6[] ={
+static char OUTDOOR_MDNIE_6[] = {
 0xE7,
 0x08, //roi_ctrl rgb_if_type mdnie_en mask 00 00 0 000
 0x03, //scr_roi 1 scr algo_roi 1 algo 00 1 0 00 1 0
@@ -1868,7 +1868,7 @@ static char OUTDOOR_MDNIE_6[] ={
 //end
 };
 
-static char COLOR_ADJUSTMENT_MDNIE_1[] ={
+static char COLOR_ADJUSTMENT_MDNIE_1[] = {
 //start
 0xE8,
 0x00, //roi0 x start
@@ -1889,7 +1889,7 @@ static char COLOR_ADJUSTMENT_MDNIE_1[] ={
 0x00,
 };
 
-static char COLOR_ADJUSTMENT_MDNIE_2[] ={
+static char COLOR_ADJUSTMENT_MDNIE_2[] = {
 0xE9,
 0x00, //scr Cr Yb
 0xff, //scr Rr Bb
@@ -1917,7 +1917,7 @@ static char COLOR_ADJUSTMENT_MDNIE_2[] ={
 0x00, //scr Kb Kr
 };
 
-static char COLOR_ADJUSTMENT_MDNIE_3[] ={
+static char COLOR_ADJUSTMENT_MDNIE_3[] = {
 0xEA,
 0x00, //curve 1 b
 0x20, //curve 1 a
@@ -1945,7 +1945,7 @@ static char COLOR_ADJUSTMENT_MDNIE_3[] ={
 0x20, //curve12 a
 };
 
-static char COLOR_ADJUSTMENT_MDNIE_4[] ={
+static char COLOR_ADJUSTMENT_MDNIE_4[] = {
 0xEB,
 0x00, //curve13 b
 0x20, //curve13 a
@@ -1973,7 +1973,7 @@ static char COLOR_ADJUSTMENT_MDNIE_4[] ={
 0xFF, //curve24 a
 };
 
-static char COLOR_ADJUSTMENT_MDNIE_5[] ={
+static char COLOR_ADJUSTMENT_MDNIE_5[] = {
 0xEC,
 0x04, //cc r1
 0x00,
@@ -1995,7 +1995,7 @@ static char COLOR_ADJUSTMENT_MDNIE_5[] ={
 0x00,
 };
 
-static char COLOR_ADJUSTMENT_MDNIE_6[] ={
+static char COLOR_ADJUSTMENT_MDNIE_6[] = {
 0xE7,
 0x08, //roi_ctrl rgb_if_type mdnie_en mask 00 00 0 000
 0x30, //scr_roi 1 scr algo_roi 1 algo 00 1 0 00 1 0
@@ -2037,8 +2037,7 @@ struct mdnie_table accessibility_table[ACCESSIBILITY_MAX] = {
 
 
 struct mdnie_table hbm_table[HBM_MAX] = {
-	[HBM_ON] = 	MDNIE_SET(OUTDOOR_MDNIE),
-	MDNIE_SET(OUTDOOR_MDNIE),
+	[HBM_ON] =	MDNIE_SET(OUTDOOR_MDNIE)
 };
 
 struct mdnie_table main_table[SCENARIO_MAX][MODE_MAX] = {

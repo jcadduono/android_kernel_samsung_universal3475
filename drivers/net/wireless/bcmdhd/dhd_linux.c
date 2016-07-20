@@ -22,7 +22,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: dhd_linux.c 609714 2016-01-05 07:50:25Z $
+ * $Id: dhd_linux.c 618468 2016-02-11 03:34:08Z $
  */
 
 #include <typedefs.h>
@@ -536,11 +536,11 @@ module_param(dhd_arp_enable, uint, 0);
 
 /* ARP offload agent mode : Enable ARP Host Auto-Reply and ARP Peer Auto-Reply */
 
-#if defined(CUSTOMER_HW4)
+#ifdef ENABLE_ARP_SNOOP_MODE
 uint dhd_arp_mode = ARP_OL_AGENT | ARP_OL_PEER_AUTO_REPLY | ARP_OL_SNOOP;
 #else
 uint dhd_arp_mode = ARP_OL_AGENT | ARP_OL_PEER_AUTO_REPLY;
-#endif
+#endif	/* ENABLE_ARP_SNOOP_MODE */
 
 module_param(dhd_arp_mode, uint, 0);
 #endif /* ARP_OFFLOAD_SUPPORT */
@@ -4572,6 +4572,12 @@ bool dhd_validate_chipid(dhd_pub_t *dhdp)
 	config_chipid = 0;
 #endif /* BCM4354_CHIP */
 
+#if defined(MULTIPLE_CHIP_4345X)
+	if (config_chipid == BCM43454_CHIP_ID || config_chipid == BCM4345_CHIP_ID) {
+		return TRUE;
+	}
+#endif /* MULTIPLE_CHIP_4345X */
+
 #if defined(BCM4354_CHIP) && defined(SUPPORT_MULTIPLE_REVISION)
 	if (chipid == BCM4350_CHIP_ID && config_chipid == BCM4354_CHIP_ID)
 		return TRUE;
@@ -7914,7 +7920,7 @@ int dhd_event_wake_unlock(dhd_pub_t *pub)
 			}
 			ret = dhd->wakelock_event_counter;
 		}
-	spin_unlock_irqrestore(&dhd->wakelock_evt_spinlock, flags);
+		spin_unlock_irqrestore(&dhd->wakelock_evt_spinlock, flags);
 	}
 	return ret;
 }

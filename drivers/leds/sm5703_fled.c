@@ -113,6 +113,7 @@ int32_t sm5703_led_mode_ctrl(int state)
 #endif
 			break;
 		case SM5703_FLED_MODE_PREFLASH:
+			sm5703_fled_set_movie_current_sel(fled_info, info->pdata->fled_preflash_current);
 			sm5703_fled_set_mode(fled_info, FLASHLIGHT_MODE_TORCH);
 			sm5703_fled_notification(fled_info);
 #ifdef CONFIG_CAMERA_USE_SOC_SENSOR

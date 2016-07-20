@@ -82,9 +82,11 @@ struct cod3025x_priv {
 	unsigned int mic_bias_ldo_voltage;
 	unsigned int aifrate;
 	bool update_fw;
+	bool ep_ampbias_cur_2ua;
 	bool use_external_jd;
 	int vol_hpl;
 	int vol_hpr;
+	atomic_t adc_mute_use_count;
 	int mic_adc_range;
 	int mic_det_delay;
 	int btn_release_value;
@@ -704,23 +706,11 @@ struct cod3025x_priv {
 #define EN_EP_MIX_DCTR_SHIFT	6
 #define EN_EP_MIX_DCTR_MASK	BIT(EN_EP_MIX_DCTR_SHIFT)
 
-#define EN_EP_MIX_MIXL_SHIFT	5
-#define EN_EP_MIX_MIXL_MASK	BIT(EN_EP_MIX_MIXL_SHIFT)
-
-#define EN_EP_MIX_MIXR_SHIFT	4
-#define EN_EP_MIX_MIXR_MASK	BIT(EN_EP_MIX_MIXR_SHIFT)
-
 #define EN_SPK_MIX_DCTL_SHIFT	3
 #define EN_SPK_MIX_DCTL_MASK	BIT(EN_SPK_MIX_DCTL_SHIFT)
 
 #define EN_SPK_MIX_DCTR_SHIFT	2
 #define EN_SPK_MIX_DCTR_MASK	BIT(EN_SPK_MIX_DCTR_SHIFT)
-
-#define EN_SPK_MIX_MIXL_SHIFT	1
-#define EN_SPK_MIX_MIXL_MASK	BIT(EN_SPK_MIX_MIXL_SHIFT)
-
-#define EN_SPK_MIX_MIXR_SHIFT	0
-#define EN_SPK_MIX_MIXR_MASK	BIT(EN_SPK_MIX_MIXR_SHIFT)
 
 /* COD3025X_40_DIGITAL_POWER */
 #define PDB_ADCDIG_SHIFT	7

@@ -38,5 +38,15 @@ CONFIG_EXYNOS_ASV_MARGIN_TEST=y
 # Support T32 onchip breakpoint
 #
 CONFIG_SKIP_HW_BREAKPOINT=y
+
+#
+# Support Audience Streaming
+#
+CONFIG_SND_SOC_ES_STREAM_FS_STORER=y
+
 # BAT Automation Test Feature
 CONFIG_SEC_BAT_AUT=y
+#
+# Character devices
+#
+CONFIG_DEVMEM=y

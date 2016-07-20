@@ -133,7 +133,7 @@ static void WA_0_issue_at_init(struct s2mu005_fuelgauge_data *fuelgauge)
 	UI_volt = s2mu005_get_ocv(fuelgauge);
 
 	s2mu005_write_reg_byte(fuelgauge->i2c, 0x1E, 0x0F);
-	msleep(30);
+	msleep(50);
 
 	/* Step 2: [Surge test] get FG voltage (0.1mV) */
 	FG_volt = s2mu005_get_vbat(fuelgauge) * 10;
@@ -173,7 +173,7 @@ static void WA_0_issue_at_init(struct s2mu005_fuelgauge_data *fuelgauge)
 
 	/* restart and dumpdone */
 	s2mu005_write_reg_byte(fuelgauge->i2c, 0x1E, 0x0F);
-	msleep(100);
+	msleep(300);
 
 	/* recovery 0x52 and 0x53 */
 	s2mu005_read_reg_byte(fuelgauge->i2c, 0x53, &temp1);
@@ -244,7 +244,7 @@ static void WA_0_issue_at_init1(struct s2mu005_fuelgauge_data *fuelgauge, int ta
 	UI_volt = target_ocv * 10;
 
 	s2mu005_write_reg_byte(fuelgauge->i2c, 0x1E, 0x0F);
-	msleep(30);
+	msleep(50);
 
 	/* Step 2: [Surge test] get FG voltage (0.1mV) */
 	FG_volt = s2mu005_get_vbat(fuelgauge) * 10;
@@ -284,7 +284,7 @@ static void WA_0_issue_at_init1(struct s2mu005_fuelgauge_data *fuelgauge, int ta
 
 	/* restart and dumpdone */
 	s2mu005_write_reg_byte(fuelgauge->i2c, 0x1E, 0x0F);
-	msleep(100);
+	msleep(550);
 
 	pr_info("%s: S2MU005 VBAT : %d\n", __func__, s2mu005_get_vbat(fuelgauge) * 10);
 
@@ -324,7 +324,7 @@ static void s2mu005_reset_fg(struct s2mu005_fuelgauge_data *fuelgauge)
  	}
 
 	s2mu005_write_reg_byte(fuelgauge->i2c, 0x21, 0x13);
-	s2mu005_write_reg_byte(fuelgauge->i2c, 0x14, 0x80);
+	s2mu005_write_reg_byte(fuelgauge->i2c, 0x14, 0x40);
 
 	if(fuelgauge->revision >= 2) {
 		s2mu005_read_reg_byte(fuelgauge->i2c, 0x45, &temp);
@@ -590,7 +590,9 @@ static int s2mu005_get_rawsoc(struct s2mu005_fuelgauge_data *fuelgauge)
 			}
 		}
 
-		if (fuelgauge->info.soc >= 9700) {
+		psy_do_property("battery", get, POWER_SUPPLY_PROP_CAPACITY, value);
+		dev_info(&fuelgauge->i2c->dev, "%s: UI SOC = %d\n", __func__, value.intval);
+		if (value.intval >= 98) {
 			if(fuelgauge->mode == CURRENT_MODE) { /* switch to VOLTAGE_MODE */
 				fuelgauge->mode = HIGH_SOC_VOLTAGE_MODE;
 
@@ -599,7 +601,7 @@ static int s2mu005_get_rawsoc(struct s2mu005_fuelgauge_data *fuelgauge)
 				dev_info(&fuelgauge->i2c->dev, "%s: FG is in high soc voltage mode\n", __func__);
 			}
 		}
-		else if (fuelgauge->info.soc < 9625) {
+		else if (value.intval < 97) {
 			if(fuelgauge->mode == HIGH_SOC_VOLTAGE_MODE) {
 				fuelgauge->mode = CURRENT_MODE;
 
@@ -723,6 +725,12 @@ static int s2mu005_get_rawsoc(struct s2mu005_fuelgauge_data *fuelgauge)
 		pr_info("%s: Reg 0x44 : 0x%x\n", __func__, temp);
 		s2mu005_read_reg_byte(fuelgauge->i2c, 0x45, &temp);
 		pr_info("%s: Reg 0x45 : 0x%x\n", __func__, temp);
+
+		s2mu005_read_reg_byte(fuelgauge->i2c, 0x26, &temp);
+		pr_info("%s: Reg 0x26 : 0x%x\n", __func__, temp);
+
+		s2mu005_read_reg_byte(fuelgauge->i2c, 0x4B, &temp);
+		pr_info("%s: Reg 0x4B : 0x%x\n", __func__, temp);
 
 		//bkj - rempcap logging
 		/* ------ read remaining capacity -------- */
@@ -927,6 +935,87 @@ static int s2mu005_get_avgvbat(struct s2mu005_fuelgauge_data *fuelgauge)
 	dev_info(&fuelgauge->i2c->dev, "%s: avgvbat (%d)\n", __func__, old_vbat);
 
 	return old_vbat;
+}
+
+int static s2mu005_set_adc_curroffset_In(struct s2mu005_fuelgauge_data *fuelgauge)
+{
+	u8 data[2];
+	s32 coffset_old, coffset_new, coffset_old1, coffset_new1;
+
+	if (s2mu005_read_reg(fuelgauge->i2c, S2MU005_REG_COFFSET, data) < 0)
+		return -EINVAL;
+
+	coffset_old = data[0] + ((data[1] & 0xF) << 8);
+	fuelgauge->coffset_old = data[0] + (data[1] << 8);
+
+	if (coffset_old & (0x1 << 11)) {
+
+		if(coffset_old > 0x852)
+			coffset_new = coffset_old - 82;
+		else
+			coffset_new = 0x800;
+	} else {
+
+		if(coffset_old > 82)
+			coffset_new = coffset_old - 82;
+		else
+			coffset_new = ((~(82 - coffset_old))&0xFFF) + 1;
+	}
+
+	data[0] = (coffset_new & 0x0FF);
+    data[1] = ((coffset_new & 0xF00) >> 8) | (data[1] & 0xF0);
+	s2mu005_write_reg(fuelgauge->i2c, S2MU005_REG_COFFSET, data);
+
+	if (coffset_new & (0x1 << 11))
+		coffset_new1 = -1 * ((((~coffset_new&0xFFF)+1) * 1000) >> 13);
+	else
+		coffset_new1 = (coffset_new * 1000 ) >> 13;
+
+	if (coffset_old & (0x1 << 11))
+		coffset_old1 = -1 * ((((~coffset_old&0xFFF)+1) * 1000) >> 13);
+	else
+		coffset_old1 = (coffset_old * 1000 ) >> 13;
+
+	dev_info(&fuelgauge->i2c->dev,
+	"%s: 0x48[2]=1 -10mA :coffset_old:0x%x, coffset_new:0x%x, coffset_old1:(%d)mA, coffset_new1:(%d)mA\n",
+	__func__, fuelgauge->coffset_old, coffset_new,coffset_old1, coffset_new1);
+
+	return 0;
+}
+
+int static s2mu005_set_adc_curroffset_out(struct s2mu005_fuelgauge_data *fuelgauge)
+{
+    u8 data[2];
+    s32 coffset_old, coffset_new, coffset_old1, coffset_new1;
+
+    if (s2mu005_read_reg(fuelgauge->i2c, S2MU005_REG_COFFSET, data) < 0)
+        return -EINVAL;
+
+    coffset_old = data[0] + ((data[1] & 0xF) << 8);
+    fuelgauge->coffset_old = data[0] + (data[1] << 8);
+
+    coffset_new = coffset_old + 82;
+    coffset_new = coffset_new & 0xFFF;
+
+    data[0] = (coffset_new & 0x0FF);
+    data[1] = ((coffset_new & 0xF00) >> 8) | (data[1] & 0xF0);
+    s2mu005_write_reg(fuelgauge->i2c, S2MU005_REG_COFFSET, data);
+
+    if (coffset_new & (0x1 << 11))
+        coffset_new1 = -1 * ((((~coffset_new&0xFFF)+1) * 1000) >> 13);
+    else
+        coffset_new1 = (coffset_new * 1000 ) >> 13;
+
+    if (coffset_old & (0x1 << 11))
+        coffset_old1 = -1 * ((((~coffset_old&0xFFF)+1) * 1000) >> 13);
+    else
+        coffset_old1 = (coffset_old * 1000 ) >> 13;
+
+    dev_info(&fuelgauge->i2c->dev,
+    "%s: 0x48[2]=0 +10mA :coffset_old:0x%x, coffset_new:0x%x, coffset_old1:(%d)mA, coffset_new1:(%d)mA\n",
+    __func__, fuelgauge->coffset_old, coffset_new,coffset_old1, coffset_new1);
+
+	return 0;
 }
 
 /* if ret < 0, discharge */
@@ -1143,6 +1232,10 @@ static int s2mu005_fg_get_property(struct power_supply *psy,
 		enum power_supply_property psp,
 		union power_supply_propval *val)
 {
+	u8 temp = 0;
+	union power_supply_propval ui_soc_val;
+	union power_supply_propval cable_type_val;
+
 	struct s2mu005_fuelgauge_data *fuelgauge =
 		container_of(psy, struct s2mu005_fuelgauge_data, psy_fg);
 
@@ -1198,6 +1291,32 @@ static int s2mu005_fg_get_property(struct power_supply *psy,
 
 			/* get only integer part */
 			val->intval /= 10;
+
+			/* change adc current offset when 100% for EVT1 */
+			if (fuelgauge->revision < 2) {
+				psy_do_property("battery", get, POWER_SUPPLY_PROP_CAPACITY, ui_soc_val);
+				psy_do_property("battery", get, POWER_SUPPLY_PROP_ONLINE, cable_type_val);
+				dev_info(&fuelgauge->i2c->dev, "%s: UI SOC = %d, cable_type = %d\n",
+								__func__, ui_soc_val.intval, cable_type_val.intval);
+
+				s2mu005_read_reg_byte(fuelgauge->i2c, 0x48, &temp);
+				if((fuelgauge->is_charging == true) && (ui_soc_val.intval >= 100) && !(temp & 0x04)) {
+					if(s2mu005_set_adc_curroffset_In(fuelgauge) < 0)
+						return -EINVAL;
+					temp |= 0x04;
+					s2mu005_write_reg_byte(fuelgauge->i2c, 0x48, temp); /* 0x48[2]=1 : adc_offset_on */
+					dev_info(&fuelgauge->i2c->dev, "%s: change coffset to -10mA. 0x48:0x%x\n", __func__, temp);
+				} else if(((cable_type_val.intval == POWER_SUPPLY_TYPE_BATTERY) ||
+								(cable_type_val.intval == POWER_SUPPLY_TYPE_UNKNOWN) ||
+								(cable_type_val.intval == POWER_SUPPLY_TYPE_OTG)) &&
+								(temp & 0x04)) {
+					if(s2mu005_set_adc_curroffset_out(fuelgauge) < 0)
+						return -EINVAL;
+					temp &= ~0x04;
+					s2mu005_write_reg_byte(fuelgauge->i2c, 0x48, temp); /* 0x48[2]=0 : adc_offset_off */
+					dev_info(&fuelgauge->i2c->dev, "%s: change coffset to +10mA. 0x48:0x%x\n", __func__, temp);
+				}
+			}
 
 			/* check whether doing the wake_unlock */
 			if ((val->intval > fuelgauge->pdata->fuel_alert_soc) &&

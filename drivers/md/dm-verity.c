@@ -33,12 +33,10 @@
 
 #define DM_VERITY_MAX_LEVELS		63
 
-#define VERIFY_META_ONLY
-
 #ifdef VERIFY_META_ONLY
 extern struct rb_root *ext4_system_zone_root(struct super_block *sb);
 
-static struct rb_root *system_blks;
+struct rb_root *system_blks;
 
 struct ext4_system_zone {
     struct rb_node  node;

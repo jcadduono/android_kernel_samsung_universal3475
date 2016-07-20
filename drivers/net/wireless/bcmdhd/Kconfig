@@ -157,3 +157,10 @@ config WLAIBSS
 	default y
 	---help---
 	  This is a configuration for Oxygen Network.
+
+config WIFI_MULTIPLE_CHIP
+	bool "Support Muletiple WIFI Chip"
+	depends on (BCM43454 || BCM43455)
+	default n
+	---help---
+		This is a configuration multipul chip project(43454 & 43455).

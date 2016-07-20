@@ -83,7 +83,6 @@ static const struct SKY82896_rom_data LP8557_eprom_drv_arr_off[] = {
 	{ 0x00, 0x00},
 };
 
-int sky82896_array_write(const struct SKY82896_rom_data * eprom_ptr, int eprom_size);
 
 /* S6D7AA0 */
 static const unsigned char SEQ_PASSWD1[] = {

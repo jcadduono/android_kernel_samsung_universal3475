@@ -4807,9 +4807,13 @@ static irqreturn_t sec_bat_irq_thread(int irq, void *irq_data)
 
 	if (battery->pdata->battery_check_type ==
 		SEC_BATTERY_CHECK_INT) {
-		if (battery->pdata->check_battery_callback)
+		if (battery->pdata->check_battery_callback){
 			battery->present = battery->pdata->check_battery_callback();
-
+		}
+		else{
+			battery->present = sec_bat_check(battery);
+			dev_info(battery->dev, "%s: battery->present (sec_bat_check): %d\n", __func__,battery->present );
+		}
 		wake_lock(&battery->monitor_wake_lock);
 		queue_delayed_work_on(0, battery->monitor_wqueue, &battery->monitor_work, 0);
 	}
@@ -5419,7 +5423,7 @@ static int sec_bat_parse_dt(struct device *dev,
 			 &pdata->charging_current[i].high_full_check_current_1st);
 		if (ret){
 			pr_info("%s : High Temp Full check current 1st is Empty\n",
-				__func__);	
+				__func__);
 		}
 
 		/* High 2nd Termination Current*/
@@ -5845,11 +5849,6 @@ static int sec_bat_parse_dt(struct device *dev,
 		(unsigned int *)&pdata->swelling_low_rechg_voltage);
 	if (ret)
 		pr_info("%s: swelling_low_rechg_voltage is Empty\n", __func__);
-
-	ret = of_property_read_u32(np, "battery,swelling_block_time",
-		(unsigned int *)&pdata->swelling_block_time);
-	if (ret)
-		pr_info("%s: swelling_block_time is Empty\n", __func__);
 
 	pr_info("%s : SWELLING_HIGH_TEMP(%d) SWELLING_HIGH_TEMP_RECOVERY(%d)\n"
 		"SWELLING_LOW_TEMP(%d) SWELLING_LOW_TEMP_RECOVERY(%d) "

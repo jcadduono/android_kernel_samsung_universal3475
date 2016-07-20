@@ -1689,6 +1689,9 @@ static void dw_mci_setup_bus(struct dw_mci_slot *slot, bool force_clkinit)
 		if (slot->clock <= 400000)
 			clk_en_a &= ~(SDMMC_CLKEN_LOW_PWR << slot->id);
 
+		if (host->pdata->enable_low_pwr)
+			clk_en_a |= SDMMC_CLKEN_LOW_PWR << slot->id;
+
 		mci_writel(host, CLKENA, clk_en_a);
 
 		/* inform CIU */
@@ -4444,6 +4447,12 @@ static struct dw_mci_board *dw_mci_parse_dt(struct dw_mci *host)
 
 	if (of_find_property(np, "enable-cclk-on-suspend", NULL))
 		pdata->enable_cclk_on_suspend = true;
+
+	if (of_find_property(np, "enable-low-pwr", NULL))
+		pdata->enable_low_pwr = true;
+	else
+		pdata->enable_low_pwr = false;
+
 	return pdata;
 }
 

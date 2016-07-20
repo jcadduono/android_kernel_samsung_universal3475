@@ -4476,9 +4476,11 @@ static ssize_t touch_led_control(struct device *dev, struct device_attribute *at
 		tsp_debug_info(true, &info->client->dev, "[TKEY] %s : %d _ %d\n",__func__,data,__LINE__);
 
 		if (data) {
-			retval = regulator_enable(regulator_led);
-			if (retval)
-				tsp_debug_err(true, dev, "%s: Failed to enable regulator_led: %d\n", __func__, retval);
+			if (!regulator_is_enabled(regulator_led)){
+				retval = regulator_enable(regulator_led);
+				if (retval)
+					tsp_debug_err(true, dev, "%s: Failed to enable regulator_led: %d\n", __func__, retval);
+			}
 		} else {
 			if (regulator_is_enabled(regulator_led)){
 				retval = regulator_disable(regulator_led);

@@ -295,9 +295,12 @@ static long ecryptfs_propagate_lookup(struct super_block *sb, char *pathname){
 
 	sbi = ecryptfs_superblock_to_private(sb);
 	stat = &sbi->propagate_stat;
-	propagate_path = kmalloc(PATH_MAX, GFP_KERNEL);
-
 	ECRYPTFS_OVERRIDE_ROOT_CRED(saved_cred);
+	propagate_path = kmalloc(PATH_MAX, GFP_KERNEL);
+	if (!propagate_path) {
+		ECRYPTFS_REVERT_CRED(saved_cred);
+		return -ENOMEM;
+	}
 	if (stat->propagate_type != TYPE_E_NONE && stat->propagate_type != TYPE_E_DEFAULT) {
 		snprintf(propagate_path, PATH_MAX, "%s/%s/%s/%s",
 				stat->base_path, "default", stat->label, pathname);

@@ -98,4 +98,10 @@ config EXYNOS_SNAPSHOT_MINIMIZED_MODE
 	depends on EXYNOS_SNAPSHOT
 	default n
 
+config EXYNOS_SNAPSHOT_SAVE_SLUGGISHINFO
+	bool "Support saving scheduling-history and irq-history"
+	depends on EXYNOS_SNAPSHOT	
+	default n
+	help
+	  Support saving scheduling-history and irq-history
 endif

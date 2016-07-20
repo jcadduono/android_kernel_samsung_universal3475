@@ -21,7 +21,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: dhd_common.c 609714 2016-01-05 07:50:25Z $
+ * $Id: dhd_common.c 611516 2016-01-11 11:38:55Z $
  */
 #include <typedefs.h>
 #include <osl.h>

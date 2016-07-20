@@ -41,6 +41,7 @@
 #define S2MU005_REG_RBATZ1		0x18
 #define S2MU005_REG_IRQ_LVL		0x1A
 #define S2MU005_REG_START		0x1E
+#define S2MU005_REG_COFFSET		0x5A
 
 enum {
 	CURRENT_MODE = 0,
@@ -137,5 +138,7 @@ struct s2mu005_fuelgauge_data {
 	int target_ocv;
 	int vm_soc;
 	bool cc_on;
+	u16 coffset_old;
+	bool coffset_flag;
 };
 #endif /* __S2MU005_FUELGAUGE_H */

@@ -175,6 +175,13 @@ config SENSORS_TCS3490
 	help
 	  This option enables light sensor using TCS3490 driver.
 
+config SENSORS_STK3013
+	depends on I2C
+	tristate "STK3013 driver"
+	default n
+	help
+	   This option enables proximity sensors using STK3013 driver.
+
 config SENSORS_SX9306
 	depends on I2C
 	tristate "SX9306 driver"
