@@ -1,5 +1,5 @@
 #!/bin/bash
-# Stock Samsung kernel for Samsung Galaxy Tab E 8.0, Galaxy On5, and Galaxy J1 (2016)
+# NetHunter kernel for Samsung Galaxy Tab E 8.0, Galaxy On5, and Galaxy J1 (2016)
 # Build script by jcadduono
 
 ################### BEFORE STARTING ################
@@ -40,7 +40,7 @@ export CROSS_COMPILE=$TOOLCHAIN/bin/arm-linux-gnueabihf-
 ABORT "Unable to find gcc cross-compiler at location: ${CROSS_COMPILE}gcc"
 
 [ "$1" ] && DEVICE=$1
-[ "$TARGET" ] || TARGET=samsung
+[ "$TARGET" ] || TARGET=nethunter
 $RDIR/targets.sh "$TARGET" "$DEVICE" || ABORT
 
 DEFCONFIG=${TARGET}_${DEVICE}_defconfig

@@ -1,5 +1,5 @@
 #!/bin/sh
-VALID_TARGET="samsung"
+VALID_TARGET="samsung nethunter"
 VALID_DEVICE="gteslte o5lte on5ltetmo j1xlte"
 
 INVALID() {
@@ -8,6 +8,7 @@ You must specify a valid TARGET and DEVICE to build or configure for!
 
 Valid TARGET=:
     samsung   - Reference Samsung Stock
+    nethunter - Kali NetHunter
 Valid DEVICE=:
     gteslte   - Samsung Galaxy Tab E 8.0
     o5lte     - Samsung Galaxy On5 / On5 Pro (India / International)
