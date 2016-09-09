@@ -597,11 +597,9 @@ static bool gpu_dvfs_check_valid_job(gpu_dvfs_job *job)
 	struct exynos_context *platform;
 	bool valid = true;
 
-	if (kbdev) {
-		platform = (struct exynos_context *) kbdev->platform_context;
-		if (platform == NULL)
-			return false;
-	}
+	platform = kbdev ? (struct exynos_context *) kbdev->platform_context:NULL;
+	if (platform == NULL)
+		return false;
 
 	switch(job->type)
 	{
@@ -727,11 +725,11 @@ void gpu_dvfs_check_destroy_context(struct kbase_context *kctx)
 {
 	struct kbase_device *kbdev = pkbdev;
 	struct exynos_context *platform;
-	if (kbdev) {
-		platform = (struct exynos_context *) kbdev->platform_context;
-		if (platform == NULL)
-			return;
-	}
+
+	platform = kbdev ? (struct exynos_context *) kbdev->platform_context:NULL;
+	if (platform == NULL)
+		return;
+
 	mutex_lock(&platform->gpu_process_job_lock);
 	if (platform->dvfs_kctx == kctx)
 	{
@@ -780,19 +778,18 @@ bool gpu_dvfs_process_job(void *pkatom)
 	int level, step;
 	unsigned int ret_val = 0;
 
-	if (kbdev) {
-		platform = (struct exynos_context *) kbdev->platform_context;
-		if (platform == NULL)
-			return false;
-	}
+	platform = kbdev ? (struct exynos_context *) kbdev->platform_context:NULL;
+	if (platform == NULL)
+		return false;
 
 	mutex_lock(&platform->gpu_process_job_lock);
+
+	job = &dvfs_job;
 
 	job_addr = get_compat_pointer(katom->kctx, (union kbase_pointer *)&katom->jc);
 	if (copy_from_user(&dvfs_job, job_addr, sizeof(gpu_dvfs_job)) != 0)
 		goto out;
 
-	job = &dvfs_job;
 	data = (gpu_dvfs_job __user *)get_compat_pointer(katom->kctx, (union kbase_pointer *)&job->data);
 
 	job->event = DVFS_JOB_EVENT_ERROR;

@@ -16,6 +16,13 @@
 #include <linux/mfd/sm5703_irq.h>
 
 enum {
+	SM5703_TOPOFF_TIMER_10m         = 0x0,
+	SM5703_TOPOFF_TIMER_20m         = 0x1,
+	SM5703_TOPOFF_TIMER_30m         = 0x2,
+	SM5703_TOPOFF_TIMER_45m         = 0x3,
+};
+
+enum {
 	CHG_REG = 0,
 	CHG_DATA,
 	CHG_REGS,
@@ -66,6 +73,10 @@ enum {
 
 #define SM5703_AICLEN               0x1
 #define SM5703_AICLEN_MASK          (1 << 7)
+
+#define SM5703_TOPOFF_TIMER			0x3
+#define SM5703_TOPOFF_TIMER_MASK	0x60
+#define SM5703_TOPOFF_TIMER_SHIFT	0x5
 
 #define SM5703_VBUSLIMIT            0x3F
 #define SM5703_VBUSLIMIT_MASK       0x3F

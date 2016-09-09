@@ -255,6 +255,19 @@ static void sm5703_enable_autostop(struct sm5703_charger_data *charger,
 	mutex_unlock(&charger->io_lock);    
 }
 
+static int sm5703_set_topoff_timer(struct sm5703_charger_data *charger,
+				unsigned int topoff_timer)
+{
+	struct i2c_client *i2c = charger->sm5703->i2c_client;
+	sm5703_assign_bits(i2c,
+		SM5703_CHGCNTL5, SM5703_TOPOFF_TIMER_MASK,
+		((topoff_timer & SM5703_TOPOFF_TIMER) << SM5703_TOPOFF_TIMER_SHIFT));
+	pr_info("%s : TOPOFF timer set (timer=0x%x)\n",
+		__func__, topoff_timer);
+
+	return 0;
+}
+
 static void sm5703_enable_autoset(struct sm5703_charger_data *charger,
 		int onoff)
 {
@@ -683,6 +696,10 @@ static bool sm5703_chg_init(struct sm5703_charger_data *charger)
 	sm5703_set_aiclth(chip->charger, (int)charger->pdata->chg_aiclth);
 	/* FREQSEL */
 	sm5703_set_freqsel(chip->charger, SM5703_FREQSEL_1P5MHZ);
+
+	/* TOP-OFF Timer */
+	if(charger->pdata->chg_autostop)
+		sm5703_set_topoff_timer(charger, SM5703_TOPOFF_TIMER_45m);
 
 	/* MUST set correct regulation voltage first
 	 * Before MUIC pass cable type information to charger

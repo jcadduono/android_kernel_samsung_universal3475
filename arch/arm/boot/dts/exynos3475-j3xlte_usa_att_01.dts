@@ -228,14 +228,14 @@
 			cm36672p,vdd_always_on = <1>;
 			cm36672p,vled-supply = <&ldo25_reg>;
 			cm36672p,irq_gpio = <&gpa1 7 0>;
-			cm36672p,default_hi_thd = <17>;
-			cm36672p,default_low_thd = <13>;
+			cm36672p,default_hi_thd = <18>;
+			cm36672p,default_low_thd = <12>;
 			cm36672p,cancel_hi_thd = <10>;
 			cm36672p,cancel_low_thd = <7>;
 			cm36672p,ps_duty = <2>;
 			cm36672p,ps_it = <4>;
-			cm36672p,led_current = <5>;
-			cm36672p,default_trim = <0>;
+			cm36672p,led_current = <3>;
+			cm36672p,default_trim = <3>;
 		};
 	};
 };

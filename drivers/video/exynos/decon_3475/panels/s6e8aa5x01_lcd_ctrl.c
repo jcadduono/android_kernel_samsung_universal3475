@@ -50,7 +50,7 @@ struct lcd_info {
 
 	int	temperature;
 	unsigned int coordinate[2];
-	unsigned char date[7];
+	unsigned char date[5];
 	unsigned int state;
 	unsigned int auto_brightness;
 	unsigned int br_index;
@@ -777,13 +777,11 @@ static int s6e8aa5x01_read_init_info(struct lcd_info *lcd, unsigned char *mtp)
 		dev_info(&lcd->ld->dev, "MTP[%2d] : %2d : %2x\n", i, lcd->hbm_gamma[i+2], lcd->hbm_gamma[i+2]);
 
 	/* date */
-	lcd->date[0] = buf[40] >> 4; /*year*/
-	lcd->date[1] = buf[40] & 0x0f; /*month*/
-	lcd->date[2] = buf[41]; /*day*/
-	lcd->date[4] = buf[42]; /*hour*/
-	lcd->date[5] = buf[43]; /*minute*/
-	lcd->date[6] = buf[44]; /*second*/
-
+	lcd->date[0] = buf[40]; /*year*/ /*month*/
+	lcd->date[1] = buf[41]; /*day*/
+	lcd->date[2] = buf[42]; /*hour*/
+	lcd->date[3] = buf[43]; /*minute*/
+	lcd->date[4] = buf[44]; /*second*/
 
 	/* elvss */
 	msleep(1);
@@ -1225,8 +1223,9 @@ static ssize_t cell_id_show(struct device *dev,
 	struct lcd_info *lcd = dev_get_drvdata(dev);
 
 	sprintf(buf, "%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X\n",
-		lcd->date[0], lcd->date[1], lcd->date[2], lcd->date[3], lcd->date[4],
-		lcd->date[5], lcd->date[6], (lcd->coordinate[0]&0xFF00)>>8, lcd->coordinate[0]&0x00FF,
+		lcd->date[0], lcd->date[1], lcd->date[2],
+		lcd->date[3], lcd->date[4], 0x00, 0x00,
+		(lcd->coordinate[0]&0xFF00)>>8, lcd->coordinate[0]&0x00FF,
 		(lcd->coordinate[1]&0xFF00)>>8, lcd->coordinate[1]&0x00FF);
 
 	return strlen(buf);

@@ -520,7 +520,8 @@ static int ecryptfs_open(struct inode *inode, struct file *file)
 				printk("DLP %s: current time [%ld/%ld] %s\n",
 						__func__, (long)ts.tv_sec, (long)dlp_data.expiry_time.tv_sec, ecryptfs_dentry->d_name.name);
 #endif
-				if ((ts.tv_sec > dlp_data.expiry_time.tv_sec) && dlp_isInterestedFile(ecryptfs_dentry->d_name.name)==0) {
+				if ((ts.tv_sec > dlp_data.expiry_time.tv_sec) &&
+						dlp_isInterestedFile(mount_crypt_stat->userid, ecryptfs_dentry->d_name.name)==0) {
 					/* Command to delete expired file  */
 					cmd = sdp_fs_command_alloc(FSOP_DLP_FILE_REMOVE,
 							current->tgid, mount_crypt_stat->userid, mount_crypt_stat->partition_id,

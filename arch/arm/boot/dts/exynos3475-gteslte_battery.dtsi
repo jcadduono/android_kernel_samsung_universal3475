@@ -211,6 +211,7 @@
 		chg_autoset = <1>;
 		chg_aiclen = <1>;
 		chg_aiclth = <4300>;
+		chg_vbuslimit = <0>;
 		fg_vol_val = <4340>;
 		fg_soc_val = <95>;
 		fg_curr_avr_val = <150>;

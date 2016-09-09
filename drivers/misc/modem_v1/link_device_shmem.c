@@ -1974,9 +1974,9 @@ static inline u16 read_ap2cp_irq(struct mem_link_device *mld)
 	return mbox_get_value(mld->mbx_ap2cp_msg);
 }
 
-#define SHMEM_SRINFO_OFFSET 0xF00 /* 4KB - 0x100 */
-#define SHMEM_SRINFO_SBD_OFFSET 0xFF00 /* 64KB - 0x100 */
-#define SHMEM_SRINFO_SIZE 0x100
+#define SHMEM_SRINFO_OFFSET 0x800 /* 4KB - 2KB */
+#define SHMEM_SRINFO_SBD_OFFSET 0xF800 /* 64KB - 2KB */
+#define SHMEM_SRINFO_SIZE 0x800
 #define SHMEM_SRINFO_DATA_STR 64
 
 struct shmem_srinfo {

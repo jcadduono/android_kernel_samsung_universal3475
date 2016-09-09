@@ -228,7 +228,6 @@ const struct cntry_locales_custom translate_custom_table[] = {
 	{"IE", "IE", 5},
 	{"IL", "IL", 14},
 	{"IT", "IT", 4},
-	{"JP", "JP", 968},
 	{"JO", "JO", 3},
 	{"KE", "SA", 0},
 	{"KW", "KW", 5},
@@ -280,7 +279,11 @@ const struct cntry_locales_custom translate_custom_table[] = {
 	{"TW", "TW", 1},
 	{"TH", "TH", 5},
 	{"TT", "TT", 3},
+#if defined(DHD_SUPPORT_TR_212)
+	{"TR", "TR", 212},
+#else
 	{"TR", "TR", 7},
+#endif
 	{"AE", "AE", 6},
 	{"GB", "GB", 6},
 	{"UY", "VE", 3},
@@ -292,15 +295,15 @@ const struct cntry_locales_custom translate_custom_table[] = {
 	{"EC", "EC", 21},
 	{"SV", "SV", 25},
 	{"KR", "KR", 70},
-#if defined(BCM4354_CHIP)
-	{"JP", "JP", 212},
-	{"RU", "RU", 212},
+#if defined(BCM4354_CHIP) || defined(BCM43454_CHIP) || defined(BCM43455_CHIP)
+	{"JP", "JP", 968},
+	{"RU", "RU", 986},
 	{"UA", "UA", 16},
 #else
 	{"JP", "JP", 45},
 	{"RU", "RU", 13},
 	{"UA", "UA", 8},
-#endif /* BCM4354_CHIP */
+#endif /* BCM4354_CHIP || BCM43454_CHIP || BCM43455_CHIP */
 	{"GT", "GT", 1},
 	{"MN", "MN", 1},
 	{"NI", "NI", 2},

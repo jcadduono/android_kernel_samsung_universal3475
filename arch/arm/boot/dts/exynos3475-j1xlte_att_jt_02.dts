@@ -79,6 +79,10 @@
 				};
 			};
 		};
+
+		audio_codec_cod3025x: cod3025x@04 {
+			ep-ampbias-cur-2ua;
+		};
 	};
 
 	bluetooth {

@@ -707,7 +707,7 @@
 
 	muic {
 		status = "disabled";
-		muic,support-list = "-OTG:GND",
+		muic,support-list = "+OTG:GND",
 		"-MHL:1K",
 		"-VZW Accessory:28.7K",
 		"-VZW Incompatible:34K",
@@ -1354,6 +1354,7 @@
 
 		mif,ap_clk_table = <
 			/* khz */
+			1300000
 			1196000
 			1105000
 			1001000
