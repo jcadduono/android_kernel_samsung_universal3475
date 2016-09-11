@@ -11,7 +11,7 @@ export ARCH=arm
 export CROSS_COMPILE=$TOOLCHAIN/bin/aarch64-linux-gnu-
 
 [ "$1" ] && TARGET=$1
-[ "$TARGET" ] || TARGET=samsung
+[ "$TARGET" ] || TARGET=twrp
 
 DEFCONFIG=${TARGET}_defconfig
 DEFCONFIG_FILE=$RDIR/arch/$ARCH/configs/$DEFCONFIG
